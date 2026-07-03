@@ -7,6 +7,8 @@ enum AuthenticationFailureCode {
   tooManyRequests,
   networkUnavailable,
   operationNotAllowed,
+  permissionDenied,
+  invalidData,
   unknown,
 }
 
