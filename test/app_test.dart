@@ -20,7 +20,10 @@ void main() {
 
     expect(app.title, 'Nexus CRM');
     expect(find.text('Nexus CRM'), findsOneWidget);
-    expect(find.text('Sign in to continue.'), findsOneWidget);
+    expect(find.text('Sign in to your workspace'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Email'), findsOneWidget);
+    expect(find.widgetWithText(TextFormField, 'Password'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
     expect(find.byIcon(Icons.hub_outlined), findsOneWidget);
   });
 }

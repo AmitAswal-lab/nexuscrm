@@ -10,7 +10,7 @@ import 'package:nexuscrm/features/authentication/presentation/pages/configuratio
 import 'package:nexuscrm/features/authentication/presentation/pages/invitation_pending_page.dart';
 import 'package:nexuscrm/features/authentication/presentation/pages/session_error_page.dart';
 import 'package:nexuscrm/features/authentication/presentation/pages/session_loading_page.dart';
-import 'package:nexuscrm/features/authentication/presentation/pages/sign_in_placeholder_page.dart';
+import 'package:nexuscrm/features/authentication/presentation/pages/sign_in_page.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_home_placeholder.dart';
 
 final class AppRouter {
@@ -27,7 +27,7 @@ final class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.signIn,
-          builder: (context, state) => const SignInPlaceholderPage(),
+          builder: (context, state) => const SignInPage(),
         ),
         GoRoute(
           path: AppRoutes.invitationPending,
