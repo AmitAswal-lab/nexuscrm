@@ -1,44 +1,68 @@
-import 'package:flutter/material.dart';
-import 'package:nexuscrm/app/theme/app_theme.dart';
+import 'dart:async';
 
-class NexusCrmApp extends StatelessWidget {
-  const NexusCrmApp({super.key});
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:nexuscrm/app/router/app_router.dart';
+import 'package:nexuscrm/app/theme/app_theme.dart';
+import 'package:nexuscrm/features/authentication/domain/repositories/authentication_repository.dart';
+import 'package:nexuscrm/features/authentication/domain/repositories/membership_repository.dart';
+import 'package:nexuscrm/features/authentication/presentation/bloc/session/session_bloc.dart';
+
+class NexusCrmApp extends StatefulWidget {
+  const NexusCrmApp({
+    required this.authenticationRepository,
+    required this.membershipRepository,
+    super.key,
+  });
+
+  final AuthenticationRepository authenticationRepository;
+  final MembershipRepository membershipRepository;
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Nexus CRM',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.system,
-      home: const _FoundationScreen(),
-    );
-  }
+  State<NexusCrmApp> createState() => _NexusCrmAppState();
 }
 
-class _FoundationScreen extends StatelessWidget {
-  const _FoundationScreen();
+class _NexusCrmAppState extends State<NexusCrmApp> {
+  late final SessionBloc _sessionBloc;
+  late final AppRouter _appRouter;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionBloc = SessionBloc(
+      authenticationRepository: widget.authenticationRepository,
+      membershipRepository: widget.membershipRepository,
+    )..add(const SessionStarted());
+    _appRouter = AppRouter(_sessionBloc);
+  }
+
+  @override
+  void dispose() {
+    _appRouter.dispose();
+    unawaited(_sessionBloc.close());
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.hub_outlined,
-                size: 56,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(height: 16),
-              Text('Nexus CRM', style: theme.textTheme.headlineMedium),
-            ],
-          ),
+    return MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider<AuthenticationRepository>.value(
+          value: widget.authenticationRepository,
+        ),
+        RepositoryProvider<MembershipRepository>.value(
+          value: widget.membershipRepository,
+        ),
+      ],
+      child: BlocProvider.value(
+        value: _sessionBloc,
+        child: MaterialApp.router(
+          title: 'Nexus CRM',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: ThemeMode.system,
+          routerConfig: _appRouter.router,
         ),
       ),
     );
