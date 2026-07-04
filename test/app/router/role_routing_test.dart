@@ -1,6 +1,10 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexuscrm/app/app.dart';
+import 'package:nexuscrm/app/router/app_routes.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_home_placeholder.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/auth_user.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
@@ -11,10 +15,141 @@ import 'package:nexuscrm/features/sales/presentation/pages/sales_home_placeholde
 const _user = AuthUser(id: 'user-one', email: 'user@example.com');
 
 void main() {
-  testWidgets('routes an admin to the admin destination', (tester) async {
+  testWidgets('admin phone shell exposes role-specific destinations', (
+    tester,
+  ) async {
+    _usePhoneSize(tester);
+    await _pumpAuthenticatedApp(tester, membership: _adminMembership);
+
+    final router = GoRouter.of(
+      tester.element(find.byType(AdminHomePlaceholder)),
+    );
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.adminHome,
+    );
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(NavigationRail), findsNothing);
+    expect(_navigationLabels(tester), <String>[
+      'Home',
+      'Leads',
+      'Tasks',
+      'More',
+    ]);
+    expect(find.text('Admin workspace'), findsOneWidget);
+    expect(find.text('Sign out'), findsNothing);
+
+    await tester.tap(find.text('Leads'));
+    await tester.pumpAndSettle();
+    expect(find.text('Workspace leads'), findsOneWidget);
+    expect(_selectedPhoneIndex(tester), 1);
+
+    await tester.tap(find.text('Tasks'));
+    await tester.pumpAndSettle();
+    expect(find.text('Workspace tasks'), findsOneWidget);
+    expect(_selectedPhoneIndex(tester), 2);
+
+    await tester.tap(find.text('More'));
+    await tester.pumpAndSettle();
+    expect(find.text('Admin more'), findsOneWidget);
+    expect(find.widgetWithText(ListTile, 'Sign out'), findsOneWidget);
+    expect(_selectedPhoneIndex(tester), 3);
+
+    router.go(AppRoutes.admin);
+    await tester.pumpAndSettle();
+    expect(find.byType(AdminHomePlaceholder), findsOneWidget);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.adminHome,
+    );
+    expect(_selectedPhoneIndex(tester), 0);
+  });
+
+  testWidgets('sales phone shell exposes role-specific destinations', (
+    tester,
+  ) async {
+    _usePhoneSize(tester);
+    await _pumpAuthenticatedApp(tester, membership: _salesMembership);
+
+    final router = GoRouter.of(
+      tester.element(find.byType(SalesHomePlaceholder)),
+    );
+
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.salesHome,
+    );
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(_navigationLabels(tester), <String>[
+      'Home',
+      'Leads',
+      'Tasks',
+      'More',
+    ]);
+
+    await tester.tap(find.text('Leads'));
+    await tester.pumpAndSettle();
+    expect(find.text('My leads'), findsOneWidget);
+
+    await tester.tap(find.text('Tasks'));
+    await tester.pumpAndSettle();
+    expect(find.text('My tasks'), findsOneWidget);
+
+    await tester.tap(find.text('More'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Account and additional sales tools will appear here in future '
+        'milestones.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(ListTile, 'Sign out'), findsOneWidget);
+
+    router.go(AppRoutes.sales);
+    await tester.pumpAndSettle();
+    expect(find.byType(SalesHomePlaceholder), findsOneWidget);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.salesHome,
+    );
+  });
+
+  testWidgets('wide authenticated layout uses a navigation rail', (
+    tester,
+  ) async {
+    _useWideSize(tester);
+    await _pumpAuthenticatedApp(tester, membership: _adminMembership);
+
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+
+    final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+    expect(
+      rail.destinations.map((destination) => (destination.label as Text).data),
+      <String>['Home', 'Leads', 'Tasks', 'More'],
+    );
+
+    await tester.tap(find.text('Leads'));
+    await tester.pumpAndSettle();
+    expect(find.text('Workspace leads'), findsOneWidget);
+    expect(
+      tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex,
+      1,
+    );
+  });
+
+  testWidgets('sign-out is available from More and returns to sign-in', (
+    tester,
+  ) async {
+    _usePhoneSize(tester);
+    final authenticationRepository = _ControllableAuthenticationRepository();
+    addTearDown(authenticationRepository.close);
+
     await tester.pumpWidget(
       NexusCrmApp(
-        authenticationRepository: const _AuthenticatedRepository(),
+        authenticationRepository: authenticationRepository,
         membershipRepository: const _MembershipRepository(<WorkspaceMembership>[
           _adminMembership,
         ]),
@@ -22,23 +157,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Admin workspace'), findsOneWidget);
-    expect(find.byType(AdminHomePlaceholder), findsOneWidget);
-  });
+    expect(find.text('Sign out'), findsNothing);
 
-  testWidgets('routes a sales rep to the sales destination', (tester) async {
-    await tester.pumpWidget(
-      NexusCrmApp(
-        authenticationRepository: const _AuthenticatedRepository(),
-        membershipRepository: const _MembershipRepository(<WorkspaceMembership>[
-          _salesMembership,
-        ]),
-      ),
-    );
+    await tester.tap(find.text('More'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'Sign out'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sales workspace'), findsOneWidget);
-    expect(find.byType(SalesHomePlaceholder), findsOneWidget);
+    expect(authenticationRepository.signOutCalls, 1);
+    expect(find.text('Sign in to your workspace'), findsOneWidget);
   });
 
   testWidgets('routes a user without membership to access denied', (
@@ -62,22 +189,65 @@ void main() {
   });
 
   testWidgets('prevents an admin from entering sales routes', (tester) async {
-    await tester.pumpWidget(
-      NexusCrmApp(
-        authenticationRepository: const _AuthenticatedRepository(),
-        membershipRepository: const _MembershipRepository(<WorkspaceMembership>[
-          _adminMembership,
-        ]),
-      ),
-    );
-    await tester.pumpAndSettle();
+    _usePhoneSize(tester);
+    await _pumpAuthenticatedApp(tester, membership: _adminMembership);
 
-    GoRouter.of(tester.element(find.byType(AdminHomePlaceholder))).go('/sales');
+    final router = GoRouter.of(
+      tester.element(find.byType(AdminHomePlaceholder)),
+    )..go(AppRoutes.salesTasks);
     await tester.pumpAndSettle();
 
     expect(find.byType(AdminHomePlaceholder), findsOneWidget);
     expect(find.byType(SalesHomePlaceholder), findsNothing);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.adminHome,
+    );
   });
+}
+
+Future<void> _pumpAuthenticatedApp(
+  WidgetTester tester, {
+  required WorkspaceMembership membership,
+}) async {
+  await tester.pumpWidget(
+    NexusCrmApp(
+      authenticationRepository: const _AuthenticatedRepository(),
+      membershipRepository: _MembershipRepository(<WorkspaceMembership>[
+        membership,
+      ]),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+void _usePhoneSize(WidgetTester tester) {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = const Size(390, 844);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
+}
+
+void _useWideSize(WidgetTester tester) {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = const Size(1000, 800);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
+}
+
+List<String> _navigationLabels(WidgetTester tester) {
+  final navigationBar = tester.widget<NavigationBar>(
+    find.byType(NavigationBar),
+  );
+
+  return navigationBar.destinations
+      .cast<NavigationDestination>()
+      .map((destination) => destination.label)
+      .toList(growable: false);
+}
+
+int _selectedPhoneIndex(WidgetTester tester) {
+  return tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex;
 }
 
 const _adminMembership = WorkspaceMembership(
@@ -108,6 +278,34 @@ final class _AuthenticatedRepository implements AuthenticationRepository {
 
   @override
   Stream<AuthUser?> watchAuthUser() => Stream.value(_user);
+}
+
+final class _ControllableAuthenticationRepository
+    implements AuthenticationRepository {
+  final StreamController<AuthUser?> _controller =
+      StreamController<AuthUser?>.broadcast();
+
+  int signOutCalls = 0;
+
+  @override
+  Future<void> signIn({
+    required String email,
+    required String password,
+  }) async {}
+
+  @override
+  Future<void> signOut() async {
+    signOutCalls++;
+    _controller.add(null);
+  }
+
+  @override
+  Stream<AuthUser?> watchAuthUser() async* {
+    yield _user;
+    yield* _controller.stream;
+  }
+
+  Future<void> close() => _controller.close();
 }
 
 final class _MembershipRepository implements MembershipRepository {
