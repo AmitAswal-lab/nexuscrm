@@ -22,6 +22,9 @@ The application currently supports:
 Sales-representative invitation and onboarding are intentionally deferred to a
 later feature.
 
+See the [project roadmap](docs/roadmap.md) for completed milestones, the
+recommended MVP delivery order, and deferred work.
+
 ## MVP scope
 
 - Authentication with role-based routing
