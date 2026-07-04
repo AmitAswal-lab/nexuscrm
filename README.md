@@ -7,7 +7,8 @@ follow-ups.
 
 ## Project status
 
-The project foundation and authentication foundation are complete.
+The project foundation, authentication foundation, and navigation shell are
+complete.
 
 The application currently supports:
 
@@ -15,9 +16,10 @@ The application currently supports:
 - Restored Firebase sessions
 - Single-workspace membership resolution
 - Administrator and sales-representative role routing
+- Adaptive Home, Leads, Tasks, and More navigation
+- Role-specific feature placeholders with preserved tab state
 - Explicit invited, suspended, revoked, and misconfigured access states
 - Default-deny Firestore rules with focused emulator coverage
-- Placeholder administrator and sales destinations
 
 Sales-representative invitation and onboarding are intentionally deferred to a
 later feature.
@@ -75,6 +77,8 @@ credentials.
 
 See [Authentication architecture](docs/authentication.md) for the data model,
 security model, development seeding, and deferred onboarding flow.
+See [Navigation shell](docs/navigation.md) for the adaptive layout, route map,
+role guards, and feature integration guidance.
 
 ## Quality checks
 
@@ -115,6 +119,7 @@ firebase deploy --only firestore:rules,firestore:indexes \
 ```text
 lib/
 ├── app/
+│   ├── navigation/
 │   ├── router/
 │   ├── theme/
 │   ├── widgets/
