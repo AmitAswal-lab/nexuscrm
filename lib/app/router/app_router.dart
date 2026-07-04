@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexuscrm/app/navigation/app_navigation_shell.dart';
 import 'package:nexuscrm/app/navigation/pages/more_page.dart';
@@ -6,6 +7,7 @@ import 'package:nexuscrm/app/navigation/pages/navigation_placeholder_page.dart';
 import 'package:nexuscrm/app/router/app_routes.dart';
 import 'package:nexuscrm/app/router/router_refresh_notifier.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_home_placeholder.dart';
+import 'package:nexuscrm/features/authentication/domain/entities/auth_session.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
 import 'package:nexuscrm/features/authentication/presentation/bloc/session/session_bloc.dart';
 import 'package:nexuscrm/features/authentication/presentation/pages/access_denied_page.dart';
@@ -14,6 +16,10 @@ import 'package:nexuscrm/features/authentication/presentation/pages/invitation_p
 import 'package:nexuscrm/features/authentication/presentation/pages/session_error_page.dart';
 import 'package:nexuscrm/features/authentication/presentation/pages/session_loading_page.dart';
 import 'package:nexuscrm/features/authentication/presentation/pages/sign_in_page.dart';
+import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
+import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
+import 'package:nexuscrm/features/contacts/presentation/cubit/contact_list/contact_list_cubit.dart';
+import 'package:nexuscrm/features/contacts/presentation/pages/contact_list_page.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
 
 final class AppRouter {
@@ -136,12 +142,11 @@ final class AppRouter {
           routes: [
             GoRoute(
               path: AppRoutes.adminLeads,
-              builder: (context, state) => const NavigationPlaceholderPage(
-                icon: Icons.groups_outlined,
-                title: 'Workspace leads',
-                message:
-                    'Administrator lead and client management is planned for '
-                    'a later milestone.',
+              builder: (context, state) => _contactListPage(
+                context,
+                accessScope: const WorkspaceContactAccess(),
+                title: 'Leads & clients',
+                description: 'All active contacts in this workspace.',
               ),
             ),
           ],
@@ -196,13 +201,16 @@ final class AppRouter {
           routes: [
             GoRoute(
               path: AppRoutes.salesLeads,
-              builder: (context, state) => const NavigationPlaceholderPage(
-                icon: Icons.person_search_outlined,
-                title: 'My leads',
-                message:
-                    'Sales lead and client management is planned for a later '
-                    'milestone.',
-              ),
+              builder: (context, state) {
+                final session = _authenticatedSession(context);
+
+                return _contactListPage(
+                  context,
+                  accessScope: OwnedContactAccess(session.user.id),
+                  title: 'Leads & clients',
+                  description: 'Contacts currently assigned to you.',
+                );
+              },
             ),
           ],
         ),
@@ -235,6 +243,34 @@ final class AppRouter {
         ),
       ],
     );
+  }
+
+  static Widget _contactListPage(
+    BuildContext context, {
+    required ContactAccessScope accessScope,
+    required String title,
+    required String description,
+  }) {
+    final session = _authenticatedSession(context);
+
+    return BlocProvider(
+      create: (context) => ContactListCubit(
+        contactRepository: context.read<ContactRepository>(),
+        workspaceId: session.membership.workspaceId,
+        accessScope: accessScope,
+      ),
+      child: ContactListPage(title: title, description: description),
+    );
+  }
+
+  static AuthSession _authenticatedSession(BuildContext context) {
+    final state = context.read<SessionBloc>().state;
+
+    if (state is! SessionAuthenticated) {
+      throw StateError('Contact routes require an authenticated session.');
+    }
+
+    return state.session;
   }
 
   void dispose() {

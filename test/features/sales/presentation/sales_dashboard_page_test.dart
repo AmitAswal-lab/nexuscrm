@@ -7,6 +7,8 @@ import 'package:nexuscrm/features/authentication/domain/repositories/authenticat
 import 'package:nexuscrm/features/authentication/domain/repositories/membership_repository.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
 
+import '../../../helpers/empty_contact_repository.dart';
+
 void main() {
   testWidgets('renders honest dashboard foundation and quick actions', (
     tester,
@@ -83,6 +85,7 @@ void main() {
       NexusCrmApp(
         authenticationRepository: const _AuthenticationRepository(user),
         membershipRepository: const _MembershipRepository(),
+        contactRepository: const EmptyContactRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -97,6 +100,7 @@ void main() {
       NexusCrmApp(
         authenticationRepository: const _AuthenticationRepository(user),
         membershipRepository: const _MembershipRepository(),
+        contactRepository: const EmptyContactRepository(),
       ),
     );
     await tester.pumpAndSettle();
