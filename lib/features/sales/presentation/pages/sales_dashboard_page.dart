@@ -65,9 +65,12 @@ class SalesDashboardView extends StatelessWidget {
                     final isWide =
                         contentConstraints.maxWidth >= _wideSectionBreakpoint;
                     final overviewColumns =
-                        contentConstraints.maxWidth >= _wideOverviewBreakpoint
-                        ? 4
-                        : 2;
+                        switch (contentConstraints.maxWidth) {
+                          >= _wideOverviewBreakpoint => 4,
+                          >= 600 => 2,
+                          _ => 1,
+                        };
+                    final compactOverview = overviewColumns == 1;
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -93,29 +96,33 @@ class SalesDashboardView extends StatelessWidget {
                           crossAxisCount: overviewColumns,
                           mainAxisSpacing: 12,
                           crossAxisSpacing: 12,
-                          childAspectRatio: overviewColumns == 4 ? 1.35 : 1.2,
+                          childAspectRatio: compactOverview ? 2.5 : 1.1,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          children: const [
+                          children: [
                             _OverviewCard(
                               icon: Icons.person_search_outlined,
                               label: 'Leads',
                               availability: 'Available with lead management',
+                              compact: compactOverview,
                             ),
                             _OverviewCard(
                               icon: Icons.today_outlined,
                               label: "Today's follow-ups",
                               availability: 'Available with tasks',
+                              compact: compactOverview,
                             ),
                             _OverviewCard(
                               icon: Icons.warning_amber_outlined,
                               label: 'Overdue tasks',
                               availability: 'Available with tasks',
+                              compact: compactOverview,
                             ),
                             _OverviewCard(
                               icon: Icons.filter_alt_outlined,
                               label: 'Pipeline',
                               availability: 'Available with lead management',
+                              compact: compactOverview,
                             ),
                           ],
                         ),
@@ -304,11 +311,13 @@ class _OverviewCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.availability,
+    required this.compact,
   });
 
   final IconData icon;
   final String label;
   final String availability;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -318,18 +327,38 @@ class _OverviewCard extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: colors.primary),
-            const Spacer(),
-            Text('—', style: theme.textTheme.headlineMedium),
-            const SizedBox(height: 4),
-            Text(label, style: theme.textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(availability, style: theme.textTheme.bodySmall),
-          ],
-        ),
+        child: compact
+            ? Row(
+                children: [
+                  Icon(icon, color: colors.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(label, style: theme.textTheme.titleMedium),
+                        const SizedBox(height: 4),
+                        Text(availability, style: theme.textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text('—', style: theme.textTheme.headlineMedium),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, color: colors.primary),
+                  const Spacer(),
+                  Text('—', style: theme.textTheme.headlineMedium),
+                  const SizedBox(height: 4),
+                  Text(label, style: theme.textTheme.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(availability, style: theme.textTheme.bodySmall),
+                ],
+              ),
       ),
     );
   }
