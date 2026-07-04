@@ -65,11 +65,10 @@ authoritative data-security boundary.
 
 ## Placeholder responsibilities
 
-The current Home, Leads, and Tasks pages communicate upcoming scope without
-providing fake CRM data. The next feature milestones replace these
-placeholders incrementally:
+The current placeholder pages communicate upcoming scope without providing
+fake CRM data. Feature milestones replace them incrementally:
 
-- Sales Dashboard replaces the sales Home placeholder.
+- Sales Dashboard has replaced the sales Home placeholder.
 - Lead/client management replaces Leads placeholders.
 - Tasks and follow-ups replace Tasks placeholders.
 - Administrator overview arrives with admin activity and reporting.

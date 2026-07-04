@@ -7,8 +7,8 @@ follow-ups.
 
 ## Project status
 
-The project foundation, authentication foundation, and navigation shell are
-complete.
+The project foundation, authentication foundation, navigation shell, and sales
+dashboard foundation are complete.
 
 The application currently supports:
 
@@ -18,6 +18,8 @@ The application currently supports:
 - Administrator and sales-representative role routing
 - Adaptive Home, Leads, Tasks, and More navigation
 - Role-specific feature placeholders with preserved tab state
+- Responsive sales dashboard with honest unavailable data states
+- Sales quick actions for Leads and Tasks
 - Explicit invited, suspended, revoked, and misconfigured access states
 - Default-deny Firestore rules with focused emulator coverage
 
@@ -79,6 +81,8 @@ See [Authentication architecture](docs/authentication.md) for the data model,
 security model, development seeding, and deferred onboarding flow.
 See [Navigation shell](docs/navigation.md) for the adaptive layout, route map,
 role guards, and feature integration guidance.
+See [Sales dashboard](docs/sales-dashboard.md) for the presentation foundation
+and future data-integration boundaries.
 
 ## Quality checks
 
