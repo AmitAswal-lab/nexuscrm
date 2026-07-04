@@ -14,7 +14,7 @@ import 'package:nexuscrm/features/authentication/presentation/pages/invitation_p
 import 'package:nexuscrm/features/authentication/presentation/pages/session_error_page.dart';
 import 'package:nexuscrm/features/authentication/presentation/pages/session_loading_page.dart';
 import 'package:nexuscrm/features/authentication/presentation/pages/sign_in_page.dart';
-import 'package:nexuscrm/features/sales/presentation/pages/sales_home_placeholder.dart';
+import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
 
 final class AppRouter {
   AppRouter(this._sessionBloc)
@@ -188,7 +188,7 @@ final class AppRouter {
           routes: [
             GoRoute(
               path: AppRoutes.salesHome,
-              builder: (context, state) => const SalesHomePlaceholder(),
+              builder: (context, state) => const SalesDashboardPage(),
             ),
           ],
         ),
