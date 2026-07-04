@@ -6,5 +6,13 @@ abstract final class AppRoutes {
   static const configurationError = '/configuration-error';
   static const error = '/error';
   static const admin = '/admin';
+  static const adminHome = '$admin/home';
+  static const adminLeads = '$admin/leads';
+  static const adminTasks = '$admin/tasks';
+  static const adminMore = '$admin/more';
   static const sales = '/sales';
+  static const salesHome = '$sales/home';
+  static const salesLeads = '$sales/leads';
+  static const salesTasks = '$sales/tasks';
+  static const salesMore = '$sales/more';
 }
