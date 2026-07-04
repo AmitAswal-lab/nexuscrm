@@ -41,7 +41,7 @@ enterprise reporting.
 | Project foundation | Complete | Flutter shell, themes, linting, tests, and Git workflow |
 | 1. Authentication foundation | Complete | Firebase sessions, membership resolution, role routing, rules, and indexes |
 | 2. Navigation shell | Complete | Role-aware application navigation and feature destinations |
-| 3. Sales dashboard | Planned | A useful sales home with staged data integration |
+| 3. Sales dashboard | Complete | A useful sales home with staged data integration |
 | 4. Lead and client management | Planned | Teams maintain customer records and ownership |
 | 5. Tasks and follow-ups | Planned | Representatives organize actionable work |
 | 6. Dialer and post-call notes | Planned | Representatives launch calls and record outcomes |
@@ -98,31 +98,25 @@ Delivered:
 
 See [Navigation shell](navigation.md) for the route map and integration rules.
 
-## Planned MVP milestones
-
 ### 3. Sales dashboard
 
-Goal: give sales representatives a clear starting point for daily work.
+Delivered:
 
-The dashboard is delivered before its supporting CRM datasets. Its first
-version establishes layout, navigation, loading, and honest empty states.
-Lead, task, and follow-up summaries are connected incrementally when those
-features become available.
+- Authenticated display-name greeting with email fallback
+- Leads and Tasks quick actions
+- Leads, follow-ups, overdue tasks, and pipeline overview cards
+- Honest unavailable states without fabricated counts or CRM records
+- Today and Recent Leads sections ready for later repositories
+- Responsive phone, medium, and wide layouts
+- Widget, identity-fallback, quick-action, layout, and routing tests
 
-Planned scope:
+Lead, task, follow-up, and pipeline summaries remain intentionally unavailable
+until their data features are implemented.
 
-- Sales-focused home layout
-- Sections for today's follow-ups, overdue work, recent leads, and basic
-  pipeline counts
-- Useful empty and unavailable states without fabricated production data
-- Quick navigation to available destinations
-- Widget and routing tests
+See [Sales dashboard](sales-dashboard.md) for presentation and integration
+details.
 
-Definition of done:
-
-- A representative reaches a polished sales home after authentication.
-- Every dashboard section handles unavailable or empty data clearly.
-- The layout is ready to receive real lead and task repositories later.
+## Planned MVP milestones
 
 ### 4. Lead and client management
 

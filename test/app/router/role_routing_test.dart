@@ -10,7 +10,7 @@ import 'package:nexuscrm/features/authentication/domain/entities/auth_user.dart'
 import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/authentication_repository.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/membership_repository.dart';
-import 'package:nexuscrm/features/sales/presentation/pages/sales_home_placeholder.dart';
+import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
 
 const _user = AuthUser(id: 'user-one', email: 'user@example.com');
 
@@ -40,17 +40,17 @@ void main() {
     expect(find.text('Admin workspace'), findsOneWidget);
     expect(find.text('Sign out'), findsNothing);
 
-    await tester.tap(find.text('Leads'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Leads'));
     await tester.pumpAndSettle();
     expect(find.text('Workspace leads'), findsOneWidget);
     expect(_selectedPhoneIndex(tester), 1);
 
-    await tester.tap(find.text('Tasks'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Tasks'));
     await tester.pumpAndSettle();
     expect(find.text('Workspace tasks'), findsOneWidget);
     expect(_selectedPhoneIndex(tester), 2);
 
-    await tester.tap(find.text('More'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
     await tester.pumpAndSettle();
     expect(find.text('Admin more'), findsOneWidget);
     expect(find.widgetWithText(ListTile, 'Sign out'), findsOneWidget);
@@ -72,15 +72,15 @@ void main() {
     _usePhoneSize(tester);
     await _pumpAuthenticatedApp(tester, membership: _salesMembership);
 
-    final router = GoRouter.of(
-      tester.element(find.byType(SalesHomePlaceholder)),
-    );
+    final router = GoRouter.of(tester.element(find.byType(SalesDashboardPage)));
 
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
       AppRoutes.salesHome,
     );
     expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.text('Sales dashboard'), findsOneWidget);
+    expect(find.text('Welcome back, user@example.com'), findsOneWidget);
     expect(_navigationLabels(tester), <String>[
       'Home',
       'Leads',
@@ -88,15 +88,15 @@ void main() {
       'More',
     ]);
 
-    await tester.tap(find.text('Leads'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Leads'));
     await tester.pumpAndSettle();
     expect(find.text('My leads'), findsOneWidget);
 
-    await tester.tap(find.text('Tasks'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Tasks'));
     await tester.pumpAndSettle();
     expect(find.text('My tasks'), findsOneWidget);
 
-    await tester.tap(find.text('More'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
     await tester.pumpAndSettle();
     expect(
       find.text(
@@ -109,7 +109,7 @@ void main() {
 
     router.go(AppRoutes.sales);
     await tester.pumpAndSettle();
-    expect(find.byType(SalesHomePlaceholder), findsOneWidget);
+    expect(find.byType(SalesDashboardPage), findsOneWidget);
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
       AppRoutes.salesHome,
@@ -159,7 +159,7 @@ void main() {
 
     expect(find.text('Sign out'), findsNothing);
 
-    await tester.tap(find.text('More'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(ListTile, 'Sign out'));
     await tester.pumpAndSettle();
@@ -198,7 +198,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(AdminHomePlaceholder), findsOneWidget);
-    expect(find.byType(SalesHomePlaceholder), findsNothing);
+    expect(find.byType(SalesDashboardPage), findsNothing);
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
       AppRoutes.adminHome,
