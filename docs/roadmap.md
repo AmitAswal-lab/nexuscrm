@@ -40,7 +40,7 @@ enterprise reporting.
 |---|---|---|
 | Project foundation | Complete | Flutter shell, themes, linting, tests, and Git workflow |
 | 1. Authentication foundation | Complete | Firebase sessions, membership resolution, role routing, rules, and indexes |
-| 2. Navigation shell | Planned | Role-aware application navigation and feature destinations |
+| 2. Navigation shell | Complete | Role-aware application navigation and feature destinations |
 | 3. Sales dashboard | Planned | A useful sales home with staged data integration |
 | 4. Lead and client management | Planned | Teams maintain customer records and ownership |
 | 5. Tasks and follow-ups | Planned | Representatives organize actionable work |
@@ -82,30 +82,23 @@ Delivered:
 See [Authentication architecture](authentication.md) for implementation
 details and security decisions.
 
-## Planned MVP milestones
-
 ### 2. Navigation shell
 
-Goal: replace placeholder destinations with a stable role-aware navigation
-structure that later features can enter without repeatedly changing the
-application shell.
+Delivered:
 
-Planned scope:
-
-- Administrator and sales-representative navigation layouts
-- Role-appropriate destinations and labels
-- Nested routes that preserve authentication guards
-- Shared page structure and consistent sign-out access
+- Shared Home, Leads, Tasks, and More destinations
+- Role-prefixed administrator and sales route trees
+- Bottom navigation on phones and navigation rail on wider screens
+- Indexed-stack branches that preserve tab state
+- Authentication guards and cross-role route protection
+- `/admin` and `/sales` redirects to role-specific home routes
+- Sign-out placement inside More
 - Placeholder destinations for planned MVP features
-- Navigation and widget tests
+- Phone, wide-layout, redirect, role, tab, and sign-out widget tests
 
-Definition of done:
+See [Navigation shell](navigation.md) for the route map and integration rules.
 
-- Authenticated administrators and representatives receive the correct
-  navigation options.
-- Users cannot enter routes outside their role.
-- The shell works on supported Android and iOS screen sizes.
-- Future features can replace placeholders without restructuring routing.
+## Planned MVP milestones
 
 ### 3. Sales dashboard
 

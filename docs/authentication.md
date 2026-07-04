@@ -37,8 +37,8 @@ setup links, and administrator user-management screens are deferred.
    UID.
 4. `SessionBloc` resolves membership status and validates the single-workspace
    invariant.
-5. `go_router` sends an active administrator to `/admin` and an active sales
-   representative to `/sales`.
+5. `go_router` sends an active administrator to `/admin/home` and an active
+   sales representative to `/sales/home`.
 6. Invited, suspended, revoked, missing, failed, and misconfigured sessions
    have explicit destinations.
 
