@@ -8,11 +8,13 @@ class ContactListPage extends StatelessWidget {
   const ContactListPage({
     required this.title,
     required this.description,
+    required this.onCreateLead,
     super.key,
   });
 
   final String title;
   final String description;
+  final VoidCallback onCreateLead;
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +27,21 @@ class ContactListPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(title, style: Theme.of(context).textTheme.headlineMedium),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                    ),
+                    FilledButton.icon(
+                      onPressed: onCreateLead,
+                      icon: const Icon(Icons.add),
+                      label: const Text('New lead'),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 4),
                 Text(
                   description,

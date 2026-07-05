@@ -17,9 +17,12 @@ import 'package:nexuscrm/features/authentication/presentation/pages/session_erro
 import 'package:nexuscrm/features/authentication/presentation/pages/session_loading_page.dart';
 import 'package:nexuscrm/features/authentication/presentation/pages/sign_in_page.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
+import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_list/contact_list_cubit.dart';
+import 'package:nexuscrm/features/contacts/presentation/cubit/lead_form/lead_form_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_list_page.dart';
+import 'package:nexuscrm/features/contacts/presentation/pages/lead_form_page.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
 
 final class AppRouter {
@@ -147,7 +150,15 @@ final class AppRouter {
                 accessScope: const WorkspaceContactAccess(),
                 title: 'Leads & clients',
                 description: 'All active contacts in this workspace.',
+                createLeadRoute: AppRoutes.adminNewLead,
               ),
+              routes: [
+                GoRoute(
+                  path: 'new',
+                  builder: (context, state) =>
+                      _leadFormPage(context, canAssignOwner: true),
+                ),
+              ],
             ),
           ],
         ),
@@ -209,8 +220,16 @@ final class AppRouter {
                   accessScope: OwnedContactAccess(session.user.id),
                   title: 'Leads & clients',
                   description: 'Contacts currently assigned to you.',
+                  createLeadRoute: AppRoutes.salesNewLead,
                 );
               },
+              routes: [
+                GoRoute(
+                  path: 'new',
+                  builder: (context, state) =>
+                      _leadFormPage(context, canAssignOwner: false),
+                ),
+              ],
             ),
           ],
         ),
@@ -250,6 +269,7 @@ final class AppRouter {
     required ContactAccessScope accessScope,
     required String title,
     required String description,
+    required String createLeadRoute,
   }) {
     final session = _authenticatedSession(context);
 
@@ -259,7 +279,30 @@ final class AppRouter {
         workspaceId: session.membership.workspaceId,
         accessScope: accessScope,
       ),
-      child: ContactListPage(title: title, description: description),
+      child: ContactListPage(
+        title: title,
+        description: description,
+        onCreateLead: () => context.go(createLeadRoute),
+      ),
+    );
+  }
+
+  static Widget _leadFormPage(
+    BuildContext context, {
+    required bool canAssignOwner,
+  }) {
+    final session = _authenticatedSession(context);
+
+    return BlocProvider(
+      create: (context) => LeadFormCubit(
+        contactRepository: context.read<ContactRepository>(),
+        salesAssigneeRepository: context.read<SalesAssigneeRepository>(),
+        workspaceId: session.membership.workspaceId,
+        actorUserId: session.user.id,
+        requiresAssigneeDirectory: canAssignOwner,
+        fixedOwnerId: canAssignOwner ? null : session.user.id,
+      ),
+      child: LeadFormPage(canAssignOwner: canAssignOwner),
     );
   }
 

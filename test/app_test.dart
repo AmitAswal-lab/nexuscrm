@@ -15,6 +15,7 @@ void main() {
         authenticationRepository: _SignedOutAuthenticationRepository(),
         membershipRepository: _EmptyMembershipRepository(),
         contactRepository: const EmptyContactRepository(),
+        salesAssigneeRepository: const EmptySalesAssigneeRepository(),
       ),
     );
     await tester.pumpAndSettle();

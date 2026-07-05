@@ -118,9 +118,10 @@ Future<void> _pumpPage(
     MaterialApp(
       home: BlocProvider.value(
         value: cubit,
-        child: const ContactListPage(
+        child: ContactListPage(
           title: 'Leads & clients',
           description: 'All active contacts in this workspace.',
+          onCreateLead: () {},
         ),
       ),
     ),

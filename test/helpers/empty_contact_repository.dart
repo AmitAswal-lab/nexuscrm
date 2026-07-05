@@ -1,6 +1,8 @@
 import 'package:nexuscrm/features/contacts/domain/entities/contact_input.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
+import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
+import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
 
 final class EmptyContactRepository implements ContactRepository {
@@ -68,5 +70,16 @@ final class EmptyContactRepository implements ContactRepository {
     required LeadInput input,
   }) {
     throw UnimplementedError();
+  }
+}
+
+final class EmptySalesAssigneeRepository implements SalesAssigneeRepository {
+  const EmptySalesAssigneeRepository();
+
+  @override
+  Stream<List<SalesAssignee>> watchActiveSalesAssignees({
+    required String workspaceId,
+  }) {
+    return Stream.value(const <SalesAssignee>[]);
   }
 }

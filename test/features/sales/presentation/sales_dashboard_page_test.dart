@@ -86,6 +86,7 @@ void main() {
         authenticationRepository: const _AuthenticationRepository(user),
         membershipRepository: const _MembershipRepository(),
         contactRepository: const EmptyContactRepository(),
+        salesAssigneeRepository: const EmptySalesAssigneeRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -101,6 +102,7 @@ void main() {
         authenticationRepository: const _AuthenticationRepository(user),
         membershipRepository: const _MembershipRepository(),
         contactRepository: const EmptyContactRepository(),
+        salesAssigneeRepository: const EmptySalesAssigneeRepository(),
       ),
     );
     await tester.pumpAndSettle();

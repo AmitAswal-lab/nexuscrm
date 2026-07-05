@@ -158,6 +158,7 @@ void main() {
           _adminMembership,
         ]),
         contactRepository: const EmptyContactRepository(),
+        salesAssigneeRepository: const EmptySalesAssigneeRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -183,6 +184,7 @@ void main() {
           <WorkspaceMembership>[],
         ),
         contactRepository: const EmptyContactRepository(),
+        salesAssigneeRepository: const EmptySalesAssigneeRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -223,6 +225,7 @@ Future<void> _pumpAuthenticatedApp(
         membership,
       ]),
       contactRepository: const EmptyContactRepository(),
+      salesAssigneeRepository: const EmptySalesAssigneeRepository(),
     ),
   );
   await tester.pumpAndSettle();
