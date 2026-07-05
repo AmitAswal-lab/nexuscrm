@@ -6,12 +6,16 @@ import 'package:nexuscrm/features/authentication/domain/entities/workspace_membe
 import 'package:nexuscrm/features/authentication/domain/repositories/authentication_repository.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/membership_repository.dart';
 
+import 'helpers/empty_contact_repository.dart';
+
 void main() {
   testWidgets('renders the signed-out application foundation', (tester) async {
     await tester.pumpWidget(
       NexusCrmApp(
         authenticationRepository: _SignedOutAuthenticationRepository(),
         membershipRepository: _EmptyMembershipRepository(),
+        contactRepository: const EmptyContactRepository(),
+        salesAssigneeRepository: const EmptySalesAssigneeRepository(),
       ),
     );
     await tester.pumpAndSettle();

@@ -5,6 +5,8 @@ import 'package:flutter/widgets.dart';
 import 'package:nexuscrm/app/app.dart';
 import 'package:nexuscrm/features/authentication/data/repositories/firebase_authentication_repository.dart';
 import 'package:nexuscrm/features/authentication/data/repositories/firestore_membership_repository.dart';
+import 'package:nexuscrm/features/contacts/data/repositories/firestore_contact_repository.dart';
+import 'package:nexuscrm/features/contacts/data/repositories/firestore_sales_assignee_repository.dart';
 import 'package:nexuscrm/firebase_options.dart';
 
 Future<void> main() async {
@@ -17,6 +19,10 @@ Future<void> main() async {
         FirebaseAuth.instance,
       ),
       membershipRepository: FirestoreMembershipRepository(
+        FirebaseFirestore.instance,
+      ),
+      contactRepository: FirestoreContactRepository(FirebaseFirestore.instance),
+      salesAssigneeRepository: FirestoreSalesAssigneeRepository(
         FirebaseFirestore.instance,
       ),
     ),

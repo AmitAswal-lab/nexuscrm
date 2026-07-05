@@ -12,6 +12,8 @@ import 'package:nexuscrm/features/authentication/domain/repositories/authenticat
 import 'package:nexuscrm/features/authentication/domain/repositories/membership_repository.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
 
+import '../../helpers/empty_contact_repository.dart';
+
 const _user = AuthUser(id: 'user-one', email: 'user@example.com');
 
 void main() {
@@ -42,7 +44,8 @@ void main() {
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Leads'));
     await tester.pumpAndSettle();
-    expect(find.text('Workspace leads'), findsOneWidget);
+    expect(find.text('Leads & clients'), findsOneWidget);
+    expect(find.text('All active contacts in this workspace.'), findsOneWidget);
     expect(_selectedPhoneIndex(tester), 1);
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Tasks'));
@@ -90,7 +93,8 @@ void main() {
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Leads'));
     await tester.pumpAndSettle();
-    expect(find.text('My leads'), findsOneWidget);
+    expect(find.text('Leads & clients'), findsOneWidget);
+    expect(find.text('Contacts currently assigned to you.'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Tasks'));
     await tester.pumpAndSettle();
@@ -133,7 +137,7 @@ void main() {
 
     await tester.tap(find.text('Leads'));
     await tester.pumpAndSettle();
-    expect(find.text('Workspace leads'), findsOneWidget);
+    expect(find.text('Leads & clients'), findsOneWidget);
     expect(
       tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex,
       1,
@@ -153,6 +157,8 @@ void main() {
         membershipRepository: const _MembershipRepository(<WorkspaceMembership>[
           _adminMembership,
         ]),
+        contactRepository: const EmptyContactRepository(),
+        salesAssigneeRepository: const EmptySalesAssigneeRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -177,6 +183,8 @@ void main() {
         membershipRepository: const _MembershipRepository(
           <WorkspaceMembership>[],
         ),
+        contactRepository: const EmptyContactRepository(),
+        salesAssigneeRepository: const EmptySalesAssigneeRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -216,6 +224,8 @@ Future<void> _pumpAuthenticatedApp(
       membershipRepository: _MembershipRepository(<WorkspaceMembership>[
         membership,
       ]),
+      contactRepository: const EmptyContactRepository(),
+      salesAssigneeRepository: const EmptySalesAssigneeRepository(),
     ),
   );
   await tester.pumpAndSettle();

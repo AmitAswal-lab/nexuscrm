@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:nexuscrm/app/router/app_routes.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/auth_user.dart';
 import 'package:nexuscrm/features/authentication/presentation/bloc/session/session_bloc.dart';
+import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
+import 'package:nexuscrm/features/sales/presentation/cubit/sales_dashboard/sales_dashboard_cubit.dart';
 
 class SalesDashboardPage extends StatelessWidget {
   const SalesDashboardPage({super.key});
@@ -19,8 +21,12 @@ class SalesDashboardPage extends StatelessWidget {
 
     return SalesDashboardView(
       userLabel: _userLabel(user),
+      dashboardState: context.watch<SalesDashboardCubit>().state,
       onOpenLeads: () => context.go(AppRoutes.salesLeads),
       onOpenTasks: () => context.go(AppRoutes.salesTasks),
+      onOpenContact: (contactId) =>
+          context.go(AppRoutes.salesContact(contactId)),
+      onRetry: context.read<SalesDashboardCubit>().load,
     );
   }
 
@@ -38,8 +44,11 @@ class SalesDashboardPage extends StatelessWidget {
 class SalesDashboardView extends StatelessWidget {
   const SalesDashboardView({
     required this.userLabel,
+    required this.dashboardState,
     required this.onOpenLeads,
     required this.onOpenTasks,
+    required this.onOpenContact,
+    required this.onRetry,
     super.key,
   });
 
@@ -47,8 +56,11 @@ class SalesDashboardView extends StatelessWidget {
   static const _wideOverviewBreakpoint = 900.0;
 
   final String userLabel;
+  final SalesDashboardState dashboardState;
   final VoidCallback onOpenLeads;
   final VoidCallback onOpenTasks;
+  final ValueChanged<String> onOpenContact;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -103,35 +115,50 @@ class SalesDashboardView extends StatelessWidget {
                             _OverviewCard(
                               icon: Icons.person_search_outlined,
                               label: 'Leads',
-                              availability: 'Available with lead management',
+                              value: _metricValue(
+                                dashboardState,
+                                dashboardState.leads.length,
+                              ),
+                              availability: 'Active assigned leads',
+                              compact: compactOverview,
+                            ),
+                            _OverviewCard(
+                              icon: Icons.handshake_outlined,
+                              label: 'Clients',
+                              value: _metricValue(
+                                dashboardState,
+                                dashboardState.clientCount,
+                              ),
+                              availability: 'Converted contacts',
                               compact: compactOverview,
                             ),
                             _OverviewCard(
                               icon: Icons.today_outlined,
                               label: "Today's follow-ups",
+                              value: '—',
                               availability: 'Available with tasks',
                               compact: compactOverview,
                             ),
                             _OverviewCard(
                               icon: Icons.warning_amber_outlined,
                               label: 'Overdue tasks',
+                              value: '—',
                               availability: 'Available with tasks',
-                              compact: compactOverview,
-                            ),
-                            _OverviewCard(
-                              icon: Icons.filter_alt_outlined,
-                              label: 'Pipeline',
-                              availability: 'Available with lead management',
                               compact: compactOverview,
                             ),
                           ],
                         ),
+                        const SizedBox(height: 16),
+                        _PipelineSummary(
+                          state: dashboardState,
+                          onRetry: onRetry,
+                        ),
                         const SizedBox(height: 32),
                         if (isWide)
-                          const Row(
+                          Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
+                              const Expanded(
                                 child: _UnavailableSection(
                                   icon: Icons.calendar_today_outlined,
                                   title: 'Today',
@@ -140,35 +167,31 @@ class SalesDashboardView extends StatelessWidget {
                                       'after task data is connected.',
                                 ),
                               ),
-                              SizedBox(width: 16),
+                              const SizedBox(width: 16),
                               Expanded(
-                                child: _UnavailableSection(
-                                  icon: Icons.history,
-                                  title: 'Recent leads',
-                                  message:
-                                      'Recently updated leads will appear after '
-                                      'lead management is connected.',
+                                child: _RecentContacts(
+                                  state: dashboardState,
+                                  onOpenContact: onOpenContact,
+                                  onRetry: onRetry,
                                 ),
                               ),
                             ],
                           )
                         else
-                          const Column(
+                          Column(
                             children: [
-                              _UnavailableSection(
+                              const _UnavailableSection(
                                 icon: Icons.calendar_today_outlined,
                                 title: 'Today',
                                 message:
                                     'Follow-ups and overdue work will appear '
                                     'after task data is connected.',
                               ),
-                              SizedBox(height: 16),
-                              _UnavailableSection(
-                                icon: Icons.history,
-                                title: 'Recent leads',
-                                message:
-                                    'Recently updated leads will appear after '
-                                    'lead management is connected.',
+                              const SizedBox(height: 16),
+                              _RecentContacts(
+                                state: dashboardState,
+                                onOpenContact: onOpenContact,
+                                onRetry: onRetry,
                               ),
                             ],
                           ),
@@ -182,6 +205,14 @@ class SalesDashboardView extends StatelessWidget {
         },
       ),
     );
+  }
+
+  static String _metricValue(SalesDashboardState state, int value) {
+    return switch (state.status) {
+      SalesDashboardStatus.loading => '…',
+      SalesDashboardStatus.success => '$value',
+      SalesDashboardStatus.failure => '—',
+    };
   }
 }
 
@@ -310,12 +341,14 @@ class _OverviewCard extends StatelessWidget {
   const _OverviewCard({
     required this.icon,
     required this.label,
+    required this.value,
     required this.availability,
     required this.compact,
   });
 
   final IconData icon;
   final String label;
+  final String value;
   final String availability;
   final bool compact;
 
@@ -344,7 +377,7 @@ class _OverviewCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text('—', style: theme.textTheme.headlineMedium),
+                  Text(value, style: theme.textTheme.headlineMedium),
                 ],
               )
             : Column(
@@ -352,7 +385,7 @@ class _OverviewCard extends StatelessWidget {
                 children: [
                   Icon(icon, color: colors.primary),
                   const Spacer(),
-                  Text('—', style: theme.textTheme.headlineMedium),
+                  Text(value, style: theme.textTheme.headlineMedium),
                   const SizedBox(height: 4),
                   Text(label, style: theme.textTheme.titleMedium),
                   const SizedBox(height: 4),
@@ -360,6 +393,174 @@ class _OverviewCard extends StatelessWidget {
                 ],
               ),
       ),
+    );
+  }
+}
+
+class _PipelineSummary extends StatelessWidget {
+  const _PipelineSummary({required this.state, required this.onRetry});
+
+  final SalesDashboardState state;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: switch (state.status) {
+          SalesDashboardStatus.loading => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          SalesDashboardStatus.failure => _ContactDataFailure(
+            message: 'Unable to load pipeline data.',
+            onRetry: onRetry,
+          ),
+          SalesDashboardStatus.success => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Pipeline stages',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${state.pipelineCount} active opportunities',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: LeadStage.values
+                    .map(
+                      (stage) => Chip(
+                        label: Text(
+                          '${_stageLabel(stage)}: ${state.countStage(stage)}',
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            ],
+          ),
+        },
+      ),
+    );
+  }
+
+  static String _stageLabel(LeadStage stage) {
+    return switch (stage) {
+      LeadStage.newLead => 'New',
+      LeadStage.contacted => 'Contacted',
+      LeadStage.qualified => 'Qualified',
+      LeadStage.proposal => 'Proposal',
+      LeadStage.lost => 'Lost',
+    };
+  }
+}
+
+class _RecentContacts extends StatelessWidget {
+  const _RecentContacts({
+    required this.state,
+    required this.onOpenContact,
+    required this.onRetry,
+  });
+
+  final SalesDashboardState state;
+  final ValueChanged<String> onOpenContact;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: switch (state.status) {
+          SalesDashboardStatus.loading => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          SalesDashboardStatus.failure => _ContactDataFailure(
+            message: 'Unable to load recent contacts.',
+            onRetry: onRetry,
+          ),
+          SalesDashboardStatus.success when state.recentContacts.isEmpty =>
+            const _EmptyRecentContacts(),
+          SalesDashboardStatus.success => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Recent contacts',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              ...state.recentContacts.map(
+                (contact) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    contact is Lead
+                        ? Icons.person_search_outlined
+                        : Icons.person_outline,
+                  ),
+                  title: Text(contact.fullName),
+                  subtitle: Text(contact is Lead ? 'Lead' : 'Client'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => onOpenContact(contact.id),
+                ),
+              ),
+            ],
+          ),
+        },
+      ),
+    );
+  }
+}
+
+class _EmptyRecentContacts extends StatelessWidget {
+  const _EmptyRecentContacts();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(
+          Icons.history,
+          size: 40,
+          color: Theme.of(context).colorScheme.primary,
+        ),
+        const SizedBox(height: 12),
+        Text('Recent contacts', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        const Text(
+          'Created and updated contacts will appear here.',
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+}
+
+class _ContactDataFailure extends StatelessWidget {
+  const _ContactDataFailure({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.cloud_off_outlined),
+        const SizedBox(height: 8),
+        Text(message, textAlign: TextAlign.center),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Try again'),
+        ),
+      ],
     );
   }
 }

@@ -8,12 +8,16 @@ const {
   initializeTestEnvironment,
 } = require('@firebase/rules-unit-testing');
 const {
+  collection,
   collectionGroup,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
   query,
+  serverTimestamp,
   setDoc,
+  updateDoc,
   where,
 } = require('firebase/firestore');
 
@@ -60,7 +64,39 @@ beforeEach(async () => {
         workspaceId: 'workspace-one',
         role: 'sales_rep',
         status: 'active',
+        displayName: 'Sales User',
+        email: 'sales@example.com',
       },
+    );
+    await setDoc(
+      doc(database, 'workspaces', 'workspace-one', 'members', 'other-sales'),
+      {
+        userId: 'other-sales',
+        workspaceId: 'workspace-one',
+        role: 'sales_rep',
+        status: 'active',
+        displayName: 'Other Sales',
+        email: 'other@example.com',
+      },
+    );
+    await setDoc(
+      doc(database, 'workspaces', 'workspace-one', 'members', 'inactive-sales'),
+      {
+        userId: 'inactive-sales',
+        workspaceId: 'workspace-one',
+        role: 'sales_rep',
+        status: 'suspended',
+        displayName: 'Inactive Sales',
+        email: 'inactive@example.com',
+      },
+    );
+    await setDoc(
+      doc(database, 'workspaces', 'workspace-one', 'contacts', 'owned-lead'),
+      leadData({ ownerId: 'sales-user' }),
+    );
+    await setDoc(
+      doc(database, 'workspaces', 'workspace-one', 'contacts', 'other-lead'),
+      leadData({ ownerId: 'other-sales' }),
     );
   });
 });
@@ -130,3 +166,268 @@ test('rejects client writes to profiles and memberships', async () => {
     ),
   );
 });
+
+test('allows an admin to read all workspace contacts', async () => {
+  const database = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+
+  await assertSucceeds(
+    getDocs(collection(database, 'workspaces', 'workspace-one', 'contacts')),
+  );
+});
+
+test('allows a sales rep to query only contacts assigned to them', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const ownedContacts = query(
+    collection(database, 'workspaces', 'workspace-one', 'contacts'),
+    where('ownerId', '==', 'sales-user'),
+  );
+
+  await assertSucceeds(getDocs(ownedContacts));
+  await assertFails(
+    getDoc(
+      doc(database, 'workspaces', 'workspace-one', 'contacts', 'other-lead'),
+    ),
+  );
+});
+
+test('allows valid lead creation for admin and sales roles', async () => {
+  const adminDatabase = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+  const salesDatabase = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+
+  await assertSucceeds(
+    setDoc(
+      doc(adminDatabase, 'workspaces', 'workspace-one', 'contacts', 'admin-new'),
+      leadData({
+        actorUserId: 'admin-user',
+        ownerId: 'other-sales',
+        useServerTimestamp: true,
+      }),
+    ),
+  );
+  await assertSucceeds(
+    setDoc(
+      doc(salesDatabase, 'workspaces', 'workspace-one', 'contacts', 'sales-new'),
+      leadData({
+        actorUserId: 'sales-user',
+        ownerId: 'sales-user',
+        useServerTimestamp: true,
+      }),
+    ),
+  );
+});
+
+test('rejects invalid sales ownership and inactive assignees', async () => {
+  const salesDatabase = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const adminDatabase = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+
+  await assertFails(
+    setDoc(
+      doc(
+        salesDatabase,
+        'workspaces',
+        'workspace-one',
+        'contacts',
+        'wrong-owner',
+      ),
+      leadData({
+        actorUserId: 'sales-user',
+        ownerId: 'other-sales',
+        useServerTimestamp: true,
+      }),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(
+        adminDatabase,
+        'workspaces',
+        'workspace-one',
+        'contacts',
+        'inactive-owner',
+      ),
+      leadData({
+        actorUserId: 'admin-user',
+        ownerId: 'inactive-sales',
+        useServerTimestamp: true,
+      }),
+    ),
+  );
+});
+
+test('allows owners and admins to update contacts safely', async () => {
+  const salesDatabase = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const adminDatabase = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+  const reference = doc(
+    salesDatabase,
+    'workspaces',
+    'workspace-one',
+    'contacts',
+    'owned-lead',
+  );
+
+  await assertSucceeds(
+    updateDoc(reference, {
+      fullName: 'Updated Lead',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+  await assertSucceeds(
+    updateDoc(
+      doc(
+        adminDatabase,
+        'workspaces',
+        'workspace-one',
+        'contacts',
+        'other-lead',
+      ),
+      {
+        ownerId: 'sales-user',
+        updatedAt: serverTimestamp(),
+        updatedByUserId: 'admin-user',
+      },
+    ),
+  );
+});
+
+test('rejects sales reassignment and immutable field changes', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const reference = doc(
+    database,
+    'workspaces',
+    'workspace-one',
+    'contacts',
+    'owned-lead',
+  );
+
+  await assertFails(
+    updateDoc(reference, {
+      ownerId: 'other-sales',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+  await assertFails(
+    updateDoc(reference, {
+      createdByUserId: 'sales-user',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+});
+
+test('allows atomic lead conversion and prevents reversing a client', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const reference = doc(
+    database,
+    'workspaces',
+    'workspace-one',
+    'contacts',
+    'owned-lead',
+  );
+
+  await assertSucceeds(
+    updateDoc(reference, {
+      kind: 'client',
+      leadStage: null,
+      convertedAt: serverTimestamp(),
+      convertedByUserId: 'sales-user',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+  await assertFails(
+    updateDoc(reference, {
+      kind: 'lead',
+      leadStage: 'new',
+      convertedAt: null,
+      convertedByUserId: null,
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+});
+
+test('allows soft archive but rejects hard deletion', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const reference = doc(
+    database,
+    'workspaces',
+    'workspace-one',
+    'contacts',
+    'owned-lead',
+  );
+
+  await assertSucceeds(
+    updateDoc(reference, {
+      isArchived: true,
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+  await assertFails(deleteDoc(reference));
+});
+
+test('allows admins to read the active sales-assignee directory', async () => {
+  const database = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+  const activeSales = query(
+    collection(database, 'workspaces', 'workspace-one', 'members'),
+    where('role', '==', 'sales_rep'),
+    where('status', '==', 'active'),
+  );
+
+  await assertSucceeds(getDocs(activeSales));
+});
+
+function leadData({
+  actorUserId = 'admin-user',
+  ownerId,
+  useServerTimestamp = false,
+} = {}) {
+  const timestamp = useServerTimestamp
+    ? serverTimestamp()
+    : new Date('2026-01-01T00:00:00.000Z');
+
+  return {
+    workspaceId: 'workspace-one',
+    kind: 'lead',
+    fullName: 'Example Lead',
+    companyName: null,
+    email: 'lead@example.com',
+    phone: null,
+    notes: null,
+    ownerId,
+    leadStage: 'new',
+    isArchived: false,
+    createdByUserId: actorUserId,
+    updatedByUserId: actorUserId,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    convertedAt: null,
+    convertedByUserId: null,
+  };
+}

@@ -8,11 +8,23 @@ abstract final class AppRoutes {
   static const admin = '/admin';
   static const adminHome = '$admin/home';
   static const adminLeads = '$admin/leads';
+  static const adminNewLead = '$adminLeads/new';
   static const adminTasks = '$admin/tasks';
   static const adminMore = '$admin/more';
   static const sales = '/sales';
   static const salesHome = '$sales/home';
   static const salesLeads = '$sales/leads';
+  static const salesNewLead = '$salesLeads/new';
   static const salesTasks = '$sales/tasks';
   static const salesMore = '$sales/more';
+
+  static String adminContact(String contactId) => '$adminLeads/$contactId';
+
+  static String salesContact(String contactId) => '$salesLeads/$contactId';
+
+  static String adminEditContact(String contactId) =>
+      '${adminContact(contactId)}/edit';
+
+  static String salesEditContact(String contactId) =>
+      '${salesContact(contactId)}/edit';
 }
