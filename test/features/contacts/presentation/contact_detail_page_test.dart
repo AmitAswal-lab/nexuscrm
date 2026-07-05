@@ -18,12 +18,14 @@ void main() {
   });
 
   testWidgets('renders lead details for an admin', (tester) async {
+    var editOpened = false;
     _stubContact(contactRepository, Stream.value(_lead));
 
     await _pumpDetail(
       tester,
       repository: contactRepository,
       isSalesView: false,
+      onEdit: () => editOpened = true,
     );
 
     expect(find.text('Asha Lead'), findsOneWidget);
@@ -33,6 +35,8 @@ void main() {
     expect(find.text('Ready to talk.'), findsOneWidget);
     expect(find.text('Assigned sales representative'), findsOneWidget);
     expect(find.text('1 Jan 2026'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Edit'));
+    expect(editOpened, isTrue);
   });
 
   testWidgets('renders client history and sales assignment wording', (
@@ -103,6 +107,7 @@ Future<void> _pumpDetail(
   WidgetTester tester, {
   required ContactRepository repository,
   required bool isSalesView,
+  VoidCallback? onEdit,
 }) async {
   final cubit = ContactDetailCubit(
     contactRepository: repository,
@@ -116,7 +121,10 @@ Future<void> _pumpDetail(
       home: Scaffold(
         body: BlocProvider.value(
           value: cubit,
-          child: ContactDetailPage(isSalesView: isSalesView, onEdit: () {}),
+          child: ContactDetailPage(
+            isSalesView: isSalesView,
+            onEdit: onEdit ?? () {},
+          ),
         ),
       ),
     ),
