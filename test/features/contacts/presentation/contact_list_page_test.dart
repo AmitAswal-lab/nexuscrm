@@ -46,6 +46,7 @@ void main() {
   testWidgets('renders lead and client information and filters results', (
     tester,
   ) async {
+    String? openedContactId;
     when(
       () => contactRepository.watchContacts(
         workspaceId: any(named: 'workspaceId'),
@@ -54,7 +55,11 @@ void main() {
       ),
     ).thenAnswer((_) => Stream.value(<CrmContact>[_lead, _client]));
 
-    await _pumpPage(tester, contactRepository);
+    await _pumpPage(
+      tester,
+      contactRepository,
+      onOpenContact: (contactId) => openedContactId = contactId,
+    );
 
     expect(find.text('Asha Lead'), findsOneWidget);
     expect(find.text('Northstar'), findsOneWidget);
@@ -62,6 +67,9 @@ void main() {
     expect(find.text('Ravi Client'), findsOneWidget);
     expect(find.text('+91 90000 00000'), findsOneWidget);
     expect(find.text('Client'), findsOneWidget);
+
+    await tester.tap(find.text('Asha Lead'));
+    expect(openedContactId, 'lead-one');
 
     await tester.tap(find.text('Clients'));
     await tester.pump();
@@ -105,8 +113,9 @@ void main() {
 
 Future<void> _pumpPage(
   WidgetTester tester,
-  ContactRepository contactRepository,
-) async {
+  ContactRepository contactRepository, {
+  ValueChanged<String>? onOpenContact,
+}) async {
   final cubit = ContactListCubit(
     contactRepository: contactRepository,
     workspaceId: 'workspace-one',
@@ -122,7 +131,7 @@ Future<void> _pumpPage(
           title: 'Leads & clients',
           description: 'All active contacts in this workspace.',
           onCreateLead: () {},
-          onOpenContact: (_) {},
+          onOpenContact: onOpenContact ?? (_) {},
         ),
       ),
     ),
