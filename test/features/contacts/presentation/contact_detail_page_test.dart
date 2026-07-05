@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
@@ -36,6 +39,8 @@ void main() {
     expect(find.text('Ready to talk.'), findsOneWidget);
     expect(find.text('Assigned sales representative'), findsOneWidget);
     expect(find.text('1 Jan 2026'), findsOneWidget);
+    expect(find.text('Convert to client'), findsOneWidget);
+    expect(find.text('Archive contact'), findsOneWidget);
     await tester.tap(find.widgetWithText(FilledButton, 'Edit'));
     expect(editOpened, isTrue);
   });
@@ -51,6 +56,8 @@ void main() {
     expect(find.text('Assigned to you'), findsOneWidget);
     expect(find.text('Client history'), findsOneWidget);
     expect(find.text('Converted'), findsOneWidget);
+    expect(find.text('Convert to client'), findsNothing);
+    expect(find.text('Archive contact'), findsOneWidget);
   });
 
   testWidgets('renders a missing-contact state', (tester) async {
@@ -92,6 +99,136 @@ void main() {
       find.widgetWithText(FilledButton, 'Try again'),
     );
     expect(retryButton.onPressed, isNotNull);
+  });
+
+  testWidgets('cancels conversion without calling the repository', (
+    tester,
+  ) async {
+    _stubContact(contactRepository, Stream.value(_lead));
+    await _pumpDetail(
+      tester,
+      repository: contactRepository,
+      isSalesView: false,
+    );
+
+    final convertAction = find.text('Convert to client');
+    await tester.ensureVisible(convertAction);
+    await tester.pump();
+    await tester.tap(convertAction);
+    await tester.pumpAndSettle();
+    expect(find.text('Convert lead to client?'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    verifyNever(
+      () => contactRepository.convertLead(
+        workspaceId: any(named: 'workspaceId'),
+        contactId: any(named: 'contactId'),
+        actorUserId: any(named: 'actorUserId'),
+      ),
+    );
+  });
+
+  testWidgets('confirms conversion and shows success feedback', (tester) async {
+    when(
+      () => contactRepository.convertLead(
+        workspaceId: 'workspace-one',
+        contactId: 'lead-one',
+        actorUserId: 'admin-user',
+      ),
+    ).thenAnswer((_) async {});
+    _stubContact(contactRepository, Stream.value(_lead));
+    await _pumpDetail(
+      tester,
+      repository: contactRepository,
+      isSalesView: false,
+    );
+
+    final convertAction = find.text('Convert to client');
+    await tester.ensureVisible(convertAction);
+    await tester.pump();
+    await tester.tap(convertAction);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Convert'));
+    await tester.pump();
+    await tester.pump();
+
+    verify(
+      () => contactRepository.convertLead(
+        workspaceId: 'workspace-one',
+        contactId: 'lead-one',
+        actorUserId: 'admin-user',
+      ),
+    ).called(1);
+    expect(find.text('Lead converted to a client.'), findsOneWidget);
+  });
+
+  testWidgets('returns to the contact list after archive', (tester) async {
+    when(
+      () => contactRepository.archiveContact(
+        workspaceId: 'workspace-one',
+        contactId: 'lead-one',
+        actorUserId: 'admin-user',
+      ),
+    ).thenAnswer((_) async {});
+    _stubContact(contactRepository, Stream.value(_lead));
+    final router = GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) =>
+              const Scaffold(body: Center(child: Text('Contact list'))),
+        ),
+        GoRoute(
+          path: '/detail',
+          builder: (context, state) {
+            return Scaffold(
+              body: MultiBlocProvider(
+                providers: [
+                  BlocProvider(
+                    create: (_) => ContactDetailCubit(
+                      contactRepository: contactRepository,
+                      workspaceId: 'workspace-one',
+                      contactId: 'lead-one',
+                    ),
+                  ),
+                  BlocProvider(
+                    create: (_) => ContactActionsCubit(
+                      contactRepository: contactRepository,
+                      workspaceId: 'workspace-one',
+                      contactId: 'lead-one',
+                      actorUserId: 'admin-user',
+                    ),
+                  ),
+                ],
+                child: ContactDetailPage(isSalesView: false, onEdit: () {}),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    unawaited(router.push('/detail'));
+    await tester.pumpAndSettle();
+
+    final archiveAction = find.text('Archive contact');
+    await tester.ensureVisible(archiveAction);
+    await tester.pump();
+    await tester.tap(archiveAction);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Archive'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Contact list'), findsOneWidget);
+    verify(
+      () => contactRepository.archiveContact(
+        workspaceId: 'workspace-one',
+        contactId: 'lead-one',
+        actorUserId: 'admin-user',
+      ),
+    ).called(1);
   });
 }
 
