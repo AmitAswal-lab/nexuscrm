@@ -5,6 +5,7 @@ import 'package:nexuscrm/features/authentication/domain/entities/auth_user.dart'
 import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/authentication_repository.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/membership_repository.dart';
+import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/sales/presentation/cubit/sales_dashboard/sales_dashboard_cubit.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
 
@@ -86,6 +87,39 @@ void main() {
     },
   );
 
+  testWidgets('renders real contact metrics and opens a recent contact', (
+    tester,
+  ) async {
+    _useSize(tester, const Size(390, 1000));
+    String? openedContactId;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SalesDashboardView(
+          userLabel: 'Amit',
+          dashboardState: SalesDashboardState(
+            status: SalesDashboardStatus.success,
+            contacts: <CrmContact>[_dashboardLead, _dashboardClient],
+          ),
+          onOpenLeads: () {},
+          onOpenTasks: () {},
+          onOpenContact: (contactId) => openedContactId = contactId,
+          onRetry: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('1'), findsNWidgets(2));
+    expect(find.text('New: 1'), findsOneWidget);
+    expect(find.text('Recent contacts'), findsOneWidget);
+    expect(find.text('Dashboard lead'), findsOneWidget);
+    expect(find.text('Dashboard client'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Dashboard lead'));
+    await tester.tap(find.text('Dashboard lead'));
+    expect(openedContactId, 'dashboard-lead');
+  });
+
   testWidgets('uses the authenticated display name', (tester) async {
     const user = AuthUser(
       id: 'sales-user',
@@ -122,6 +156,41 @@ void main() {
     expect(find.text('Welcome back, sales@example.com'), findsOneWidget);
   });
 }
+
+final _dashboardTime = DateTime.utc(2026);
+final _dashboardLead = Lead(
+  id: 'dashboard-lead',
+  workspaceId: 'workspace-one',
+  fullName: 'Dashboard lead',
+  companyName: null,
+  email: 'lead@example.com',
+  phone: null,
+  notes: null,
+  ownerId: 'sales-user',
+  stage: LeadStage.newLead,
+  isArchived: false,
+  createdByUserId: 'sales-user',
+  updatedByUserId: 'sales-user',
+  createdAt: _dashboardTime,
+  updatedAt: _dashboardTime,
+);
+final _dashboardClient = ClientContact(
+  id: 'dashboard-client',
+  workspaceId: 'workspace-one',
+  fullName: 'Dashboard client',
+  companyName: null,
+  email: 'client@example.com',
+  phone: null,
+  notes: null,
+  ownerId: 'sales-user',
+  isArchived: false,
+  createdByUserId: 'sales-user',
+  updatedByUserId: 'sales-user',
+  createdAt: _dashboardTime,
+  updatedAt: _dashboardTime,
+  convertedAt: _dashboardTime,
+  convertedByUserId: 'sales-user',
+);
 
 void _useSize(WidgetTester tester, Size size) {
   tester.view.devicePixelRatio = 1;
