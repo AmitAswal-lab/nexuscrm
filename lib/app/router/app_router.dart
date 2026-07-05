@@ -28,6 +28,7 @@ import 'package:nexuscrm/features/contacts/presentation/pages/contact_detail_pag
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_edit_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_list_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/lead_form_page.dart';
+import 'package:nexuscrm/features/sales/presentation/cubit/sales_dashboard/sales_dashboard_cubit.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
 
 final class AppRouter {
@@ -229,7 +230,7 @@ final class AppRouter {
           routes: [
             GoRoute(
               path: AppRoutes.salesHome,
-              builder: (context, state) => const SalesDashboardPage(),
+              builder: (context, state) => _salesDashboardPage(context),
             ),
           ],
         ),
@@ -331,6 +332,19 @@ final class AppRouter {
         onCreateLead: () => context.go(createLeadRoute),
         onOpenContact: (contactId) => context.go(contactRoute(contactId)),
       ),
+    );
+  }
+
+  static Widget _salesDashboardPage(BuildContext context) {
+    final session = _authenticatedSession(context);
+
+    return BlocProvider(
+      create: (context) => SalesDashboardCubit(
+        contactRepository: context.read<ContactRepository>(),
+        workspaceId: session.membership.workspaceId,
+        ownerId: session.user.id,
+      ),
+      child: const SalesDashboardPage(),
     );
   }
 

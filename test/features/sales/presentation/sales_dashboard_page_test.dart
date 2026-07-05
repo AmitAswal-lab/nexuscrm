@@ -5,6 +5,7 @@ import 'package:nexuscrm/features/authentication/domain/entities/auth_user.dart'
 import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/authentication_repository.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/membership_repository.dart';
+import 'package:nexuscrm/features/sales/presentation/cubit/sales_dashboard/sales_dashboard_cubit.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
 
 import '../../../helpers/empty_contact_repository.dart';
@@ -21,8 +22,13 @@ void main() {
       MaterialApp(
         home: SalesDashboardView(
           userLabel: 'Amit',
+          dashboardState: const SalesDashboardState(
+            status: SalesDashboardStatus.success,
+          ),
           onOpenLeads: () => leadsOpened++,
           onOpenTasks: () => tasksOpened++,
+          onOpenContact: (_) {},
+          onRetry: () {},
         ),
       ),
     );
@@ -31,14 +37,15 @@ void main() {
     expect(find.text('Welcome back, Amit'), findsOneWidget);
     expect(find.text('Quick actions'), findsOneWidget);
     expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('—'), findsNWidgets(4));
+    expect(find.text('—'), findsNWidgets(2));
     expect(find.text('Leads'), findsOneWidget);
+    expect(find.text('Clients'), findsOneWidget);
     expect(find.text("Today's follow-ups"), findsOneWidget);
     expect(find.text('Overdue tasks'), findsOneWidget);
-    expect(find.text('Pipeline'), findsOneWidget);
+    expect(find.text('Pipeline stages'), findsOneWidget);
     expect(find.text('Today'), findsOneWidget);
-    expect(find.text('Recent leads'), findsOneWidget);
-    expect(find.textContaining('Available with'), findsNWidgets(4));
+    expect(find.text('Recent contacts'), findsOneWidget);
+    expect(find.textContaining('Available with'), findsNWidgets(2));
 
     await tester.tap(find.text('Open leads'));
     await tester.tap(find.text('Open tasks'));
@@ -56,8 +63,13 @@ void main() {
         MaterialApp(
           home: SalesDashboardView(
             userLabel: 'Amit',
+            dashboardState: const SalesDashboardState(
+              status: SalesDashboardStatus.success,
+            ),
             onOpenLeads: () {},
             onOpenTasks: () {},
+            onOpenContact: (_) {},
+            onRetry: () {},
           ),
         ),
       );
@@ -69,7 +81,7 @@ void main() {
       expect(gridDelegate.crossAxisCount, 4);
       expect(
         tester.getTopLeft(find.text('Today')).dy,
-        tester.getTopLeft(find.text('Recent leads')).dy,
+        closeTo(tester.getTopLeft(find.text('Recent contacts')).dy, 8),
       );
     },
   );
