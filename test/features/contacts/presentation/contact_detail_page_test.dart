@@ -5,6 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
+import 'package:nexuscrm/features/contacts/presentation/cubit/contact_actions/contact_actions_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_detail_page.dart';
 
@@ -114,13 +115,23 @@ Future<void> _pumpDetail(
     workspaceId: 'workspace-one',
     contactId: 'lead-one',
   );
+  final actionsCubit = ContactActionsCubit(
+    contactRepository: repository,
+    workspaceId: 'workspace-one',
+    contactId: 'lead-one',
+    actorUserId: 'admin-user',
+  );
   addTearDown(cubit.close);
+  addTearDown(actionsCubit.close);
 
   await tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
-        body: BlocProvider.value(
-          value: cubit,
+        body: MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: cubit),
+            BlocProvider.value(value: actionsCubit),
+          ],
           child: ContactDetailPage(
             isSalesView: isSalesView,
             onEdit: onEdit ?? () {},

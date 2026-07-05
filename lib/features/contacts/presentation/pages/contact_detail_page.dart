@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
+import 'package:nexuscrm/features/contacts/presentation/cubit/contact_actions/contact_actions_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
 
 class ContactDetailPage extends StatelessWidget {
@@ -19,20 +20,53 @@ class ContactDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<ContactDetailCubit>().state;
 
-    return SafeArea(
-      child: switch (state.status) {
-        ContactDetailStatus.loading => const Center(
-          child: CircularProgressIndicator(),
-        ),
-        ContactDetailStatus.notFound => const _NotFoundView(),
-        ContactDetailStatus.failure => _FailureView(failure: state.failure),
-        ContactDetailStatus.success => _ContactDetailView(
-          contact: state.contact!,
-          isSalesView: isSalesView,
-          onEdit: onEdit,
-        ),
+    return BlocListener<ContactActionsCubit, ContactActionsState>(
+      listenWhen: (previous, current) => previous.status != current.status,
+      listener: (context, actionState) {
+        switch (actionState.status) {
+          case ContactActionStatus.conversionSuccess:
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Lead converted to a client.')),
+            );
+          case ContactActionStatus.archiveSuccess:
+            context.pop();
+          case ContactActionStatus.failure:
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(_actionFailure(actionState.failure))),
+            );
+          case ContactActionStatus.idle ||
+              ContactActionStatus.converting ||
+              ContactActionStatus.archiving:
+            break;
+        }
       },
+      child: SafeArea(
+        child: switch (state.status) {
+          ContactDetailStatus.loading => const Center(
+            child: CircularProgressIndicator(),
+          ),
+          ContactDetailStatus.notFound => const _NotFoundView(),
+          ContactDetailStatus.failure => _FailureView(failure: state.failure),
+          ContactDetailStatus.success => _ContactDetailView(
+            contact: state.contact!,
+            isSalesView: isSalesView,
+            onEdit: onEdit,
+          ),
+        },
+      ),
     );
+  }
+
+  static String _actionFailure(ContactFailure? failure) {
+    return switch (failure?.code) {
+      ContactFailureCode.permissionDenied =>
+        'You do not have permission to update this contact.',
+      ContactFailureCode.networkUnavailable =>
+        'The action failed. Check your connection and try again.',
+      ContactFailureCode.conflict =>
+        'The contact changed. Refresh and try again.',
+      _ => 'The action could not be completed right now.',
+    };
   }
 }
 
@@ -134,6 +168,8 @@ class _ContactDetailView extends StatelessWidget {
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              _ContactActions(contact: contact),
               if (contact case ClientContact(:final convertedAt)) ...[
                 const SizedBox(height: 16),
                 _DetailSection(
@@ -180,6 +216,95 @@ class _ContactDetailView extends StatelessWidget {
     final local = value.toLocal();
 
     return '${local.day} ${months[local.month - 1]} ${local.year}';
+  }
+}
+
+class _ContactActions extends StatelessWidget {
+  const _ContactActions({required this.contact});
+
+  final CrmContact contact;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<ContactActionsCubit>().state;
+
+    return _DetailSection(
+      title: 'Actions',
+      children: [
+        if (contact is Lead)
+          FilledButton.tonalIcon(
+            onPressed: state.isBusy ? null : () => _confirmConversion(context),
+            icon: const Icon(Icons.handshake_outlined),
+            label: Text(
+              state.status == ContactActionStatus.converting
+                  ? 'Converting…'
+                  : 'Convert to client',
+            ),
+          ),
+        if (contact is Lead) const SizedBox(height: 10),
+        OutlinedButton.icon(
+          onPressed: state.isBusy ? null : () => _confirmArchive(context),
+          icon: const Icon(Icons.archive_outlined),
+          label: Text(
+            state.status == ContactActionStatus.archiving
+                ? 'Archiving…'
+                : 'Archive contact',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirmConversion(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Convert lead to client?'),
+        content: const Text(
+          'The same contact record and history will be preserved.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Convert'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      await context.read<ContactActionsCubit>().convertLead();
+    }
+  }
+
+  Future<void> _confirmArchive(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Archive contact?'),
+        content: const Text(
+          'The contact will leave active lists but its record will be kept.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Archive'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      await context.read<ContactActionsCubit>().archiveContact();
+    }
   }
 }
 

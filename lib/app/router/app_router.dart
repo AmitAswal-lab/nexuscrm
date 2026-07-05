@@ -19,6 +19,7 @@ import 'package:nexuscrm/features/authentication/presentation/pages/sign_in_page
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
+import 'package:nexuscrm/features/contacts/presentation/cubit/contact_actions/contact_actions_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_edit/contact_edit_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_list/contact_list_cubit.dart';
@@ -341,12 +342,24 @@ final class AppRouter {
   }) {
     final session = _authenticatedSession(context);
 
-    return BlocProvider(
-      create: (context) => ContactDetailCubit(
-        contactRepository: context.read<ContactRepository>(),
-        workspaceId: session.membership.workspaceId,
-        contactId: contactId,
-      ),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => ContactDetailCubit(
+            contactRepository: context.read<ContactRepository>(),
+            workspaceId: session.membership.workspaceId,
+            contactId: contactId,
+          ),
+        ),
+        BlocProvider(
+          create: (context) => ContactActionsCubit(
+            contactRepository: context.read<ContactRepository>(),
+            workspaceId: session.membership.workspaceId,
+            contactId: contactId,
+            actorUserId: session.user.id,
+          ),
+        ),
+      ],
       child: ContactDetailPage(
         isSalesView: isSalesView,
         onEdit: () => context.go(editRoute(contactId)),
