@@ -122,6 +122,7 @@ Future<void> _pumpPage(
           title: 'Leads & clients',
           description: 'All active contacts in this workspace.',
           onCreateLead: () {},
+          onOpenContact: (_) {},
         ),
       ),
     ),

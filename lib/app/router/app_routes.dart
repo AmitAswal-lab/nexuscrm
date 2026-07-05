@@ -17,4 +17,8 @@ abstract final class AppRoutes {
   static const salesNewLead = '$salesLeads/new';
   static const salesTasks = '$sales/tasks';
   static const salesMore = '$sales/more';
+
+  static String adminContact(String contactId) => '$adminLeads/$contactId';
+
+  static String salesContact(String contactId) => '$salesLeads/$contactId';
 }

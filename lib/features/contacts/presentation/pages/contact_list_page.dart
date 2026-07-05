@@ -9,12 +9,14 @@ class ContactListPage extends StatelessWidget {
     required this.title,
     required this.description,
     required this.onCreateLead,
+    required this.onOpenContact,
     super.key,
   });
 
   final String title;
   final String description;
   final VoidCallback onCreateLead;
+  final ValueChanged<String> onOpenContact;
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +54,7 @@ class ContactListPage extends StatelessWidget {
                 const SizedBox(height: 20),
                 const _ContactFilter(),
                 const SizedBox(height: 16),
-                const Expanded(child: _ContactListBody()),
+                Expanded(child: _ContactListBody(onOpenContact: onOpenContact)),
               ],
             ),
           ),
@@ -93,7 +95,9 @@ class _ContactFilter extends StatelessWidget {
 }
 
 class _ContactListBody extends StatelessWidget {
-  const _ContactListBody();
+  const _ContactListBody({required this.onOpenContact});
+
+  final ValueChanged<String> onOpenContact;
 
   @override
   Widget build(BuildContext context) {
@@ -106,15 +110,16 @@ class _ContactListBody extends StatelessWidget {
       ContactListStatus.failure when state.contacts.isEmpty => _FailureView(
         failure: state.failure,
       ),
-      _ => _ContactResults(state: state),
+      _ => _ContactResults(state: state, onOpenContact: onOpenContact),
     };
   }
 }
 
 class _ContactResults extends StatelessWidget {
-  const _ContactResults({required this.state});
+  const _ContactResults({required this.state, required this.onOpenContact});
 
   final ContactListState state;
+  final ValueChanged<String> onOpenContact;
 
   @override
   Widget build(BuildContext context) {
@@ -128,15 +133,19 @@ class _ContactResults extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 24),
       itemCount: contacts.length,
       separatorBuilder: (context, index) => const SizedBox(height: 10),
-      itemBuilder: (context, index) => _ContactCard(contact: contacts[index]),
+      itemBuilder: (context, index) => _ContactCard(
+        contact: contacts[index],
+        onTap: () => onOpenContact(contacts[index].id),
+      ),
     );
   }
 }
 
 class _ContactCard extends StatelessWidget {
-  const _ContactCard({required this.contact});
+  const _ContactCard({required this.contact, required this.onTap});
 
   final CrmContact contact;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -145,55 +154,59 @@ class _ContactCard extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              backgroundColor: theme.colorScheme.secondaryContainer,
-              foregroundColor: theme.colorScheme.onSecondaryContainer,
-              child: Icon(
-                contact.kind == ContactKind.lead
-                    ? Icons.person_search_outlined
-                    : Icons.person_outline,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                backgroundColor: theme.colorScheme.secondaryContainer,
+                foregroundColor: theme.colorScheme.onSecondaryContainer,
+                child: Icon(
+                  contact.kind == ContactKind.lead
+                      ? Icons.person_search_outlined
+                      : Icons.person_outline,
+                ),
               ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(contact.fullName, style: theme.textTheme.titleMedium),
-                  if (secondaryText != null) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      secondaryText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(contact.fullName, style: theme.textTheme.titleMedium),
+                    if (secondaryText != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        secondaryText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
-                  ],
-                  if (contact.companyName != null &&
-                      _contactMethod(contact) != null) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      _contactMethod(contact)!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                    ],
+                    if (contact.companyName != null &&
+                        _contactMethod(contact) != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        _contactMethod(contact)!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            _ContactStatus(contact: contact),
-          ],
+              const SizedBox(width: 12),
+              _ContactStatus(contact: contact),
+            ],
+          ),
         ),
       ),
     );

@@ -19,8 +19,10 @@ import 'package:nexuscrm/features/authentication/presentation/pages/sign_in_page
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
+import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_list/contact_list_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/lead_form/lead_form_cubit.dart';
+import 'package:nexuscrm/features/contacts/presentation/pages/contact_detail_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_list_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/lead_form_page.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
@@ -151,12 +153,21 @@ final class AppRouter {
                 title: 'Leads & clients',
                 description: 'All active contacts in this workspace.',
                 createLeadRoute: AppRoutes.adminNewLead,
+                contactRoute: AppRoutes.adminContact,
               ),
               routes: [
                 GoRoute(
                   path: 'new',
                   builder: (context, state) =>
                       _leadFormPage(context, canAssignOwner: true),
+                ),
+                GoRoute(
+                  path: ':contactId',
+                  builder: (context, state) => _contactDetailPage(
+                    context,
+                    contactId: state.pathParameters['contactId']!,
+                    isSalesView: false,
+                  ),
                 ),
               ],
             ),
@@ -221,6 +232,7 @@ final class AppRouter {
                   title: 'Leads & clients',
                   description: 'Contacts currently assigned to you.',
                   createLeadRoute: AppRoutes.salesNewLead,
+                  contactRoute: AppRoutes.salesContact,
                 );
               },
               routes: [
@@ -228,6 +240,14 @@ final class AppRouter {
                   path: 'new',
                   builder: (context, state) =>
                       _leadFormPage(context, canAssignOwner: false),
+                ),
+                GoRoute(
+                  path: ':contactId',
+                  builder: (context, state) => _contactDetailPage(
+                    context,
+                    contactId: state.pathParameters['contactId']!,
+                    isSalesView: true,
+                  ),
                 ),
               ],
             ),
@@ -270,6 +290,7 @@ final class AppRouter {
     required String title,
     required String description,
     required String createLeadRoute,
+    required String Function(String) contactRoute,
   }) {
     final session = _authenticatedSession(context);
 
@@ -283,7 +304,25 @@ final class AppRouter {
         title: title,
         description: description,
         onCreateLead: () => context.go(createLeadRoute),
+        onOpenContact: (contactId) => context.go(contactRoute(contactId)),
       ),
+    );
+  }
+
+  static Widget _contactDetailPage(
+    BuildContext context, {
+    required String contactId,
+    required bool isSalesView,
+  }) {
+    final session = _authenticatedSession(context);
+
+    return BlocProvider(
+      create: (context) => ContactDetailCubit(
+        contactRepository: context.read<ContactRepository>(),
+        workspaceId: session.membership.workspaceId,
+        contactId: contactId,
+      ),
+      child: ContactDetailPage(isSalesView: isSalesView),
     );
   }
 
