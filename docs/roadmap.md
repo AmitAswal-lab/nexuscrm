@@ -42,7 +42,7 @@ enterprise reporting.
 | 1. Authentication foundation | Complete | Firebase sessions, membership resolution, role routing, rules, and indexes |
 | 2. Navigation shell | Complete | Role-aware application navigation and feature destinations |
 | 3. Sales dashboard | Complete | A useful sales home with staged data integration |
-| 4. Lead and client management | Planned | Teams maintain customer records and ownership |
+| 4. Lead and client management | Complete | Teams maintain customer records and ownership |
 | 5. Tasks and follow-ups | Planned | Representatives organize actionable work |
 | 6. Dialer and post-call notes | Planned | Representatives launch calls and record outcomes |
 | 7. Admin user management and invitations | Planned | Administrators securely manage and invite representatives |
@@ -104,45 +104,38 @@ Delivered:
 
 - Authenticated display-name greeting with email fallback
 - Leads and Tasks quick actions
-- Leads, follow-ups, overdue tasks, and pipeline overview cards
-- Honest unavailable states without fabricated counts or CRM records
-- Today and Recent Leads sections ready for later repositories
+- Real lead and client overview counts
+- Pipeline-stage summary and recent-contact navigation
+- Honest unavailable task and follow-up states without fabricated data
 - Responsive phone, medium, and wide layouts
 - Widget, identity-fallback, quick-action, layout, and routing tests
 
-Lead, task, follow-up, and pipeline summaries remain intentionally unavailable
-until their data features are implemented.
+Lead, client, pipeline, and recent-contact summaries now use real contact data.
+Task and follow-up summaries remain unavailable until their milestone.
 
 See [Sales dashboard](sales-dashboard.md) for presentation and integration
 details.
 
-## Planned MVP milestones
-
 ### 4. Lead and client management
 
-Goal: establish the core CRM records and ownership workflow.
+Delivered:
 
-Planned scope:
+- One stable contact record across the lead-to-client lifecycle
+- Workspace-scoped Firestore contact persistence
+- Administrator workspace access and sales ownership isolation
+- Lead/client lists with local type filters
+- Lead creation with role-aware assignment
+- Read-only contact details and lead/client editing
+- Basic lead stages and atomic lead-to-client conversion
+- Soft archive without destructive deletion
+- Active sales-assignee directory for administrator assignment
+- Real sales-dashboard counts, pipeline stages, and recent contacts
+- Firestore rules, indexes, emulator tests, Cubit tests, and widget tests
 
-- Typed lead and client models
-- Workspace-scoped Firestore repositories
-- Lead and client lists with loading, empty, and error states
-- Create, view, edit, and archive flows
-- Contact information and concise sales notes
-- Lead ownership assignment to an active representative
-- Basic lead status or pipeline stage
-- Lead-to-client conversion
-- Dashboard lead and pipeline integration
-- Role-aware Firestore rules, indexes, and tests
+See [Lead and client management](lead-management.md) for implementation and
+security details.
 
-Definition of done:
-
-- Administrators and authorized representatives can manage records permitted by
-  their role.
-- Every record is isolated to its workspace.
-- A lead can move through basic stages and convert into a client without losing
-  relevant history.
-- Dashboard lead summaries use real workspace data.
+## Planned MVP milestones
 
 ### 5. Tasks and follow-ups
 

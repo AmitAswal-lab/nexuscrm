@@ -7,8 +7,8 @@ follow-ups.
 
 ## Project status
 
-The project foundation, authentication foundation, navigation shell, and sales
-dashboard foundation are complete.
+The project foundation, authentication foundation, navigation shell, sales
+dashboard, and lead/client management milestones are complete.
 
 The application currently supports:
 
@@ -17,9 +17,14 @@ The application currently supports:
 - Single-workspace membership resolution
 - Administrator and sales-representative role routing
 - Adaptive Home, Leads, Tasks, and More navigation
-- Role-specific feature placeholders with preserved tab state
-- Responsive sales dashboard with honest unavailable data states
+- Role-specific navigation with preserved tab state
+- Responsive sales dashboard with real owner-scoped contact metrics
 - Sales quick actions for Leads and Tasks
+- Workspace-scoped lead and client lists
+- Lead creation, contact details, and lead/client editing
+- Administrator assignment and sales ownership enforcement
+- Lead-to-client conversion and soft archive
+- Pipeline-stage summaries and recently updated contacts
 - Explicit invited, suspended, revoked, and misconfigured access states
 - Default-deny Firestore rules with focused emulator coverage
 
@@ -82,7 +87,9 @@ security model, development seeding, and deferred onboarding flow.
 See [Navigation shell](docs/navigation.md) for the adaptive layout, route map,
 role guards, and feature integration guidance.
 See [Sales dashboard](docs/sales-dashboard.md) for the presentation foundation
-and future data-integration boundaries.
+and current contact-data integration.
+See [Lead and client management](docs/lead-management.md) for the contact
+model, permissions, routes, lifecycle, and Firestore schema.
 
 ## Quality checks
 
@@ -131,6 +138,10 @@ lib/
 ├── features/
 │   ├── admin/
 │   ├── authentication/
+│   │   ├── data/
+│   │   ├── domain/
+│   │   └── presentation/
+│   ├── contacts/
 │   │   ├── data/
 │   │   ├── domain/
 │   │   └── presentation/
