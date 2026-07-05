@@ -116,7 +116,7 @@ Future<void> _pumpDetail(
       home: Scaffold(
         body: BlocProvider.value(
           value: cubit,
-          child: ContactDetailPage(isSalesView: isSalesView),
+          child: ContactDetailPage(isSalesView: isSalesView, onEdit: () {}),
         ),
       ),
     ),

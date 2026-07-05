@@ -6,9 +6,14 @@ import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart'
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
 
 class ContactDetailPage extends StatelessWidget {
-  const ContactDetailPage({required this.isSalesView, super.key});
+  const ContactDetailPage({
+    required this.isSalesView,
+    required this.onEdit,
+    super.key,
+  });
 
   final bool isSalesView;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +29,7 @@ class ContactDetailPage extends StatelessWidget {
         ContactDetailStatus.success => _ContactDetailView(
           contact: state.contact!,
           isSalesView: isSalesView,
+          onEdit: onEdit,
         ),
       },
     );
@@ -31,10 +37,15 @@ class ContactDetailPage extends StatelessWidget {
 }
 
 class _ContactDetailView extends StatelessWidget {
-  const _ContactDetailView({required this.contact, required this.isSalesView});
+  const _ContactDetailView({
+    required this.contact,
+    required this.isSalesView,
+    required this.onEdit,
+  });
 
   final CrmContact contact;
   final bool isSalesView;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +78,12 @@ class _ContactDetailView extends StatelessWidget {
                         _StatusChip(contact: contact),
                       ],
                     ),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton.tonalIcon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit'),
                   ),
                 ],
               ),

@@ -21,4 +21,10 @@ abstract final class AppRoutes {
   static String adminContact(String contactId) => '$adminLeads/$contactId';
 
   static String salesContact(String contactId) => '$salesLeads/$contactId';
+
+  static String adminEditContact(String contactId) =>
+      '${adminContact(contactId)}/edit';
+
+  static String salesEditContact(String contactId) =>
+      '${salesContact(contactId)}/edit';
 }

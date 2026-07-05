@@ -20,9 +20,11 @@ import 'package:nexuscrm/features/contacts/domain/repositories/contact_repositor
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
+import 'package:nexuscrm/features/contacts/presentation/cubit/contact_edit/contact_edit_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_list/contact_list_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/lead_form/lead_form_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_detail_page.dart';
+import 'package:nexuscrm/features/contacts/presentation/pages/contact_edit_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_list_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/lead_form_page.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
@@ -167,7 +169,18 @@ final class AppRouter {
                     context,
                     contactId: state.pathParameters['contactId']!,
                     isSalesView: false,
+                    editRoute: AppRoutes.adminEditContact,
                   ),
+                  routes: [
+                    GoRoute(
+                      path: 'edit',
+                      builder: (context, state) => _contactEditPage(
+                        context,
+                        contactId: state.pathParameters['contactId']!,
+                        canAssignOwner: true,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -247,7 +260,18 @@ final class AppRouter {
                     context,
                     contactId: state.pathParameters['contactId']!,
                     isSalesView: true,
+                    editRoute: AppRoutes.salesEditContact,
                   ),
+                  routes: [
+                    GoRoute(
+                      path: 'edit',
+                      builder: (context, state) => _contactEditPage(
+                        context,
+                        contactId: state.pathParameters['contactId']!,
+                        canAssignOwner: false,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -313,6 +337,7 @@ final class AppRouter {
     BuildContext context, {
     required String contactId,
     required bool isSalesView,
+    required String Function(String) editRoute,
   }) {
     final session = _authenticatedSession(context);
 
@@ -322,7 +347,31 @@ final class AppRouter {
         workspaceId: session.membership.workspaceId,
         contactId: contactId,
       ),
-      child: ContactDetailPage(isSalesView: isSalesView),
+      child: ContactDetailPage(
+        isSalesView: isSalesView,
+        onEdit: () => context.go(editRoute(contactId)),
+      ),
+    );
+  }
+
+  static Widget _contactEditPage(
+    BuildContext context, {
+    required String contactId,
+    required bool canAssignOwner,
+  }) {
+    final session = _authenticatedSession(context);
+
+    return BlocProvider(
+      create: (context) => ContactEditCubit(
+        contactRepository: context.read<ContactRepository>(),
+        salesAssigneeRepository: context.read<SalesAssigneeRepository>(),
+        workspaceId: session.membership.workspaceId,
+        contactId: contactId,
+        actorUserId: session.user.id,
+        requiresAssigneeDirectory: canAssignOwner,
+        fixedOwnerId: canAssignOwner ? null : session.user.id,
+      ),
+      child: ContactEditPage(canAssignOwner: canAssignOwner),
     );
   }
 
