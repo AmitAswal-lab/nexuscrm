@@ -19,6 +19,7 @@ final class LeadFormCubit extends Cubit<LeadFormState> {
     required String actorUserId,
     required bool requiresAssigneeDirectory,
     String? fixedOwnerId,
+    Duration syncWaitThreshold = const Duration(seconds: 8),
   }) {
     return LeadFormCubit._(
       contactRepository,
@@ -27,6 +28,7 @@ final class LeadFormCubit extends Cubit<LeadFormState> {
       actorUserId,
       requiresAssigneeDirectory,
       fixedOwnerId,
+      syncWaitThreshold,
     );
   }
 
@@ -37,6 +39,7 @@ final class LeadFormCubit extends Cubit<LeadFormState> {
     this._actorUserId,
     this._requiresAssigneeDirectory,
     this._fixedOwnerId,
+    this._syncWaitThreshold,
   ) : super(
         LeadFormState(
           assigneeStatus: _requiresAssigneeDirectory
@@ -55,6 +58,7 @@ final class LeadFormCubit extends Cubit<LeadFormState> {
   final String _actorUserId;
   final bool _requiresAssigneeDirectory;
   final String? _fixedOwnerId;
+  final Duration _syncWaitThreshold;
 
   StreamSubscription<List<SalesAssignee>>? _assigneeSubscription;
 
@@ -90,8 +94,10 @@ final class LeadFormCubit extends Cubit<LeadFormState> {
     required String? ownerId,
     required LeadStage stage,
   }) async {
-    if (state.submissionStatus == LeadFormSubmissionStatus.submitting ||
-        state.assigneeStatus != AssigneeDirectoryStatus.ready) {
+    if ((state.submissionStatus == LeadFormSubmissionStatus.submitting ||
+            state.submissionStatus ==
+                LeadFormSubmissionStatus.waitingForSync) ||
+        state.assigneeStatus == AssigneeDirectoryStatus.loading) {
       return;
     }
 
@@ -103,7 +109,7 @@ final class LeadFormCubit extends Cubit<LeadFormState> {
     );
 
     try {
-      await _contactRepository.createLead(
+      final createLead = _contactRepository.createLead(
         workspaceId: _workspaceId,
         actorUserId: _actorUserId,
         input: LeadInput(
@@ -112,10 +118,28 @@ final class LeadFormCubit extends Cubit<LeadFormState> {
           email: email,
           phone: phone,
           notes: notes,
-          ownerId: _fixedOwnerId ?? ownerId,
+          ownerId:
+              _fixedOwnerId ??
+              (state.assigneeStatus == AssigneeDirectoryStatus.ready
+                  ? ownerId
+                  : null),
           stage: stage,
         ),
       );
+      final isStillWaiting = await Future.any<bool>([
+        createLead.then((_) => false),
+        Future<bool>.delayed(_syncWaitThreshold, () => true),
+      ]);
+
+      if (isStillWaiting && !isClosed) {
+        emit(
+          state.copyWith(
+            submissionStatus: LeadFormSubmissionStatus.waitingForSync,
+          ),
+        );
+      }
+
+      await createLead;
 
       if (!isClosed) {
         emit(

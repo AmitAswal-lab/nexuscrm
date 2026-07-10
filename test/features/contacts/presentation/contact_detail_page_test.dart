@@ -99,6 +99,7 @@ void main() {
       find.widgetWithText(FilledButton, 'Try again'),
     );
     expect(retryButton.onPressed, isNotNull);
+    expect(find.text('Back to contacts'), findsOneWidget);
   });
 
   testWidgets('cancels conversion without calling the repository', (

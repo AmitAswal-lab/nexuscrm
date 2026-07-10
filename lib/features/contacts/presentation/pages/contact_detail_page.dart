@@ -42,8 +42,11 @@ class ContactDetailPage extends StatelessWidget {
       },
       child: SafeArea(
         child: switch (state.status) {
-          ContactDetailStatus.loading => const Center(
-            child: CircularProgressIndicator(),
+          ContactDetailStatus.loading => const _MessageView(
+            icon: Icons.sync_outlined,
+            message: 'Loading this contact…',
+            onRetry: null,
+            isLoading: true,
           ),
           ContactDetailStatus.notFound => const _NotFoundView(),
           ContactDetailStatus.failure => _FailureView(failure: state.failure),
@@ -435,11 +438,13 @@ class _MessageView extends StatelessWidget {
     required this.icon,
     required this.message,
     required this.onRetry,
+    this.isLoading = false,
   });
 
   final IconData icon;
   final String message;
   final VoidCallback? onRetry;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -449,7 +454,13 @@ class _MessageView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 52),
+            if (isLoading)
+              const SizedBox.square(
+                dimension: 44,
+                child: CircularProgressIndicator(),
+              )
+            else
+              Icon(icon, size: 52),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),
@@ -458,13 +469,13 @@ class _MessageView extends StatelessWidget {
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Try again'),
-              )
-            else
-              FilledButton.tonalIcon(
-                onPressed: context.pop,
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Back to contacts'),
               ),
+            if (onRetry != null) const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: context.pop,
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Back to contacts'),
+            ),
           ],
         ),
       ),

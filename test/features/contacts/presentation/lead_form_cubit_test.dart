@@ -181,6 +181,83 @@ void main() {
     ).called(2);
   });
 
+  test('admin can create an unassigned lead after directory failure', () async {
+    when(
+      () => salesAssigneeRepository.watchActiveSalesAssignees(
+        workspaceId: 'workspace-one',
+      ),
+    ).thenAnswer(
+      (_) => Stream.error(const ContactFailure(ContactFailureCode.invalidData)),
+    );
+
+    final cubit = _adminCubit(contactRepository, salesAssigneeRepository);
+    addTearDown(cubit.close);
+    await _flushAsync();
+
+    await cubit.submit(
+      fullName: 'Unassigned Lead',
+      companyName: null,
+      email: 'lead@example.com',
+      phone: null,
+      notes: null,
+      ownerId: 'stale-sales-user',
+      stage: LeadStage.newLead,
+    );
+
+    final input =
+        verify(
+              () => contactRepository.createLead(
+                workspaceId: 'workspace-one',
+                actorUserId: 'admin-user',
+                input: captureAny(named: 'input'),
+              ),
+            ).captured.single
+            as LeadInput;
+    expect(input.ownerId, isNull);
+    expect(cubit.state.submissionStatus, LeadFormSubmissionStatus.success);
+  });
+
+  test('reports when a lead save is still waiting for Firestore', () async {
+    final completion = Completer<String>();
+    when(
+      () => contactRepository.createLead(
+        workspaceId: any(named: 'workspaceId'),
+        actorUserId: any(named: 'actorUserId'),
+        input: any(named: 'input'),
+      ),
+    ).thenAnswer((_) => completion.future);
+    final cubit = LeadFormCubit(
+      contactRepository: contactRepository,
+      salesAssigneeRepository: salesAssigneeRepository,
+      workspaceId: 'workspace-one',
+      actorUserId: 'sales-user',
+      requiresAssigneeDirectory: false,
+      fixedOwnerId: 'sales-user',
+      syncWaitThreshold: Duration.zero,
+    );
+    addTearDown(cubit.close);
+
+    final submission = cubit.submit(
+      fullName: 'Asha Lead',
+      companyName: null,
+      email: 'asha@example.com',
+      phone: null,
+      notes: null,
+      ownerId: null,
+      stage: LeadStage.newLead,
+    );
+    await _flushAsync();
+
+    expect(
+      cubit.state.submissionStatus,
+      LeadFormSubmissionStatus.waitingForSync,
+    );
+
+    completion.complete('lead-one');
+    await submission;
+    expect(cubit.state.submissionStatus, LeadFormSubmissionStatus.success);
+  });
+
   test('preserves typed lead submission failures', () async {
     when(
       () => contactRepository.createLead(

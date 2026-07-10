@@ -2,7 +2,13 @@ part of 'lead_form_cubit.dart';
 
 enum AssigneeDirectoryStatus { loading, ready, failure }
 
-enum LeadFormSubmissionStatus { initial, submitting, success, failure }
+enum LeadFormSubmissionStatus {
+  initial,
+  submitting,
+  waitingForSync,
+  success,
+  failure,
+}
 
 final class LeadFormState extends Equatable {
   const LeadFormState({

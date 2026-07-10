@@ -7,6 +7,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/contact_input.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
+import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/lead_form/lead_form_cubit.dart';
@@ -112,6 +113,86 @@ void main() {
       find.byType(DropdownButton<LeadStage>),
     );
     expect(stageDropdown.value, LeadStage.qualified);
+  });
+
+  testWidgets('keeps the form usable when the assignee directory fails', (
+    tester,
+  ) async {
+    when(
+      () => salesAssigneeRepository.watchActiveSalesAssignees(
+        workspaceId: 'workspace-one',
+      ),
+    ).thenAnswer(
+      (_) => Stream.error(const ContactFailure(ContactFailureCode.invalidData)),
+    );
+    final cubit = LeadFormCubit(
+      contactRepository: contactRepository,
+      salesAssigneeRepository: salesAssigneeRepository,
+      workspaceId: 'workspace-one',
+      actorUserId: 'admin-user',
+      requiresAssigneeDirectory: true,
+    );
+    addTearDown(cubit.close);
+
+    await _pumpForm(tester, cubit: cubit, canAssignOwner: true);
+
+    expect(find.byTooltip('Back'), findsOneWidget);
+    expect(find.text('New lead'), findsOneWidget);
+    expect(
+      find.text('A sales membership is missing required profile information.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('You can still create this lead unassigned.'),
+      findsOneWidget,
+    );
+    expect(find.text('Try again'), findsOneWidget);
+
+    final createButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Create lead'),
+    );
+    expect(createButton.onPressed, isNotNull);
+  });
+
+  testWidgets('explains when a lead save is waiting for Firestore', (
+    tester,
+  ) async {
+    final completion = Completer<String>();
+    when(
+      () => contactRepository.createLead(
+        workspaceId: any(named: 'workspaceId'),
+        actorUserId: any(named: 'actorUserId'),
+        input: any(named: 'input'),
+      ),
+    ).thenAnswer((_) => completion.future);
+    final cubit = LeadFormCubit(
+      contactRepository: contactRepository,
+      salesAssigneeRepository: salesAssigneeRepository,
+      workspaceId: 'workspace-one',
+      actorUserId: 'sales-user',
+      requiresAssigneeDirectory: false,
+      fixedOwnerId: 'sales-user',
+      syncWaitThreshold: Duration.zero,
+    );
+    addTearDown(cubit.close);
+
+    await _pumpForm(tester, cubit: cubit, canAssignOwner: false);
+    await tester.enterText(find.byType(TextFormField).at(0), 'Asha Lead');
+    await tester.enterText(
+      find.byType(TextFormField).at(2),
+      'asha@example.com',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Create lead'));
+    await tester.pump(const Duration(milliseconds: 1));
+
+    expect(find.text('Still saving this lead'), findsOneWidget);
+    expect(
+      find.textContaining('Waiting for Firestore to confirm the save.'),
+      findsOneWidget,
+    );
+    expect(find.text('Back to Leads'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
+
   });
 }
 
