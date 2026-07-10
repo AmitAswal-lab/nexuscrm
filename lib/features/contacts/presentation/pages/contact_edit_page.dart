@@ -55,8 +55,10 @@ class _ContactEditPageState extends State<ContactEditPage> {
         child: BlocBuilder<ContactEditCubit, ContactEditState>(
           builder: (context, state) {
             return switch (state.status) {
-              ContactEditStatus.loading => const Center(
-                child: CircularProgressIndicator(),
+              ContactEditStatus.loading => const _LoadMessage(
+                message: 'Loading this contact…',
+                onRetry: null,
+                isLoading: true,
               ),
               ContactEditStatus.notFound => _LoadMessage(
                 message: 'This contact is no longer available.',
@@ -79,6 +81,9 @@ class _ContactEditPageState extends State<ContactEditPage> {
     _initialize(contact);
     final isSubmitting =
         state.submissionStatus == ContactEditSubmissionStatus.submitting;
+    final isWaitingForSync =
+        state.submissionStatus == ContactEditSubmissionStatus.waitingForSync;
+    final isSaving = isSubmitting || isWaitingForSync;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -183,41 +188,49 @@ class _ContactEditPageState extends State<ContactEditPage> {
                 ],
                 const SizedBox(height: 16),
                 if (widget.canAssignOwner)
-                  DropdownButtonFormField<String>(
-                    initialValue: _ownerId,
-                    decoration: const InputDecoration(
-                      labelText: 'Assigned sales representative',
-                      border: OutlineInputBorder(),
+                  switch (state.assigneeStatus) {
+                    ContactEditAssigneeStatus.loading =>
+                      const _AssigneeLoadingCard(),
+                    ContactEditAssigneeStatus.failure => _AssigneeFailureCard(
+                      failure: state.assigneeFailure,
                     ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: '',
-                        child: Text('Unassigned'),
-                      ),
-                      if (_ownerId.isNotEmpty &&
-                          !state.assignees.any(
-                            (assignee) => assignee.userId == _ownerId,
-                          ))
-                        DropdownMenuItem(
-                          value: _ownerId,
-                          child: const Text('Current assignee (inactive)'),
+                    ContactEditAssigneeStatus.ready =>
+                      DropdownButtonFormField<String>(
+                        initialValue: _ownerId,
+                        decoration: const InputDecoration(
+                          labelText: 'Assigned sales representative',
+                          border: OutlineInputBorder(),
                         ),
-                      ...state.assignees.map(
-                        (assignee) => DropdownMenuItem(
-                          value: assignee.userId,
-                          child: Text(
-                            '${assignee.displayName} (${assignee.email})',
-                            overflow: TextOverflow.ellipsis,
+                        items: [
+                          const DropdownMenuItem(
+                            value: '',
+                            child: Text('Unassigned'),
                           ),
-                        ),
+                          if (_ownerId.isNotEmpty &&
+                              !state.assignees.any(
+                                (assignee) => assignee.userId == _ownerId,
+                              ))
+                            DropdownMenuItem(
+                              value: _ownerId,
+                              child: const Text('Current assignee (inactive)'),
+                            ),
+                          ...state.assignees.map(
+                            (assignee) => DropdownMenuItem(
+                              value: assignee.userId,
+                              child: Text(
+                                '${assignee.displayName} (${assignee.email})',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
+                        onChanged: isSubmitting
+                            ? null
+                            : (ownerId) {
+                                setState(() => _ownerId = ownerId ?? '');
+                              },
                       ),
-                    ],
-                    onChanged: isSubmitting
-                        ? null
-                        : (ownerId) {
-                            setState(() => _ownerId = ownerId ?? '');
-                          },
-                  )
+                  }
                 else
                   const ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -239,15 +252,25 @@ class _ContactEditPageState extends State<ContactEditPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                if (isWaitingForSync) ...[
+                  const _WaitingForSyncCard(),
+                  const SizedBox(height: 16),
+                ],
                 FilledButton.icon(
-                  onPressed: isSubmitting ? null : _submit,
-                  icon: isSubmitting
+                  onPressed: isSaving ? null : _submit,
+                  icon: isSaving
                       ? const SizedBox.square(
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.save_outlined),
-                  label: Text(isSubmitting ? 'Saving…' : 'Save changes'),
+                  label: Text(
+                    isSubmitting
+                        ? 'Saving…'
+                        : isWaitingForSync
+                        ? 'Waiting to sync…'
+                        : 'Save changes',
+                  ),
                 ),
               ],
             ),
@@ -329,10 +352,15 @@ class _ContactEditPageState extends State<ContactEditPage> {
 }
 
 class _LoadMessage extends StatelessWidget {
-  const _LoadMessage({required this.message, required this.onRetry});
+  const _LoadMessage({
+    required this.message,
+    required this.onRetry,
+    this.isLoading = false,
+  });
 
   final String message;
   final VoidCallback? onRetry;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -342,7 +370,13 @@ class _LoadMessage extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.edit_off_outlined, size: 52),
+            if (isLoading)
+              const SizedBox.square(
+                dimension: 44,
+                child: CircularProgressIndicator(),
+              )
+            else
+              const Icon(Icons.edit_off_outlined, size: 52),
             const SizedBox(height: 12),
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),
@@ -351,16 +385,144 @@ class _LoadMessage extends StatelessWidget {
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Try again'),
-              )
-            else
-              FilledButton.tonalIcon(
-                onPressed: context.pop,
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Back to contacts'),
               ),
+            if (onRetry != null) const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: context.pop,
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Back to contacts'),
+            ),
           ],
         ),
       ),
     );
+  }
+}
+
+class _AssigneeLoadingCard extends StatelessWidget {
+  const _AssigneeLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Card.outlined(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Row(
+          children: [
+            SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 16),
+            Expanded(child: Text('Loading active sales representatives…')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WaitingForSyncCard extends StatelessWidget {
+  const _WaitingForSyncCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card.outlined(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.cloud_upload_outlined),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Still saving changes',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Waiting for Firestore to confirm the update. You can go '
+                    'back to the contact; do not submit these changes again.',
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: context.pop,
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Back to contact'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AssigneeFailureCard extends StatelessWidget {
+  const _AssigneeFailureCard({required this.failure});
+
+  final ContactFailure? failure;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card.outlined(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.people_outline, color: colorScheme.error),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _message,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleSmall?.copyWith(color: colorScheme.error),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'You can still update the contact. Its current assignment will '
+              'remain unchanged.',
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: context.read<ContactEditCubit>().loadAssignees,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Try again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String get _message {
+    return switch (failure?.code) {
+      ContactFailureCode.invalidData =>
+        'A sales membership is missing required profile information.',
+      ContactFailureCode.permissionDenied =>
+        'You do not have permission to load sales representatives.',
+      ContactFailureCode.networkUnavailable =>
+        'Sales representatives are unavailable. Check your connection.',
+      _ => 'Unable to load active sales representatives.',
+    };
   }
 }

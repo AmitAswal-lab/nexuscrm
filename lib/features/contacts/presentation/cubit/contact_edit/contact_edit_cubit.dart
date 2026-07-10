@@ -20,6 +20,7 @@ final class ContactEditCubit extends Cubit<ContactEditState> {
     required String actorUserId,
     required bool requiresAssigneeDirectory,
     String? fixedOwnerId,
+    Duration syncWaitThreshold = const Duration(seconds: 8),
   }) {
     return ContactEditCubit._(
       contactRepository,
@@ -29,6 +30,7 @@ final class ContactEditCubit extends Cubit<ContactEditState> {
       actorUserId,
       requiresAssigneeDirectory,
       fixedOwnerId,
+      syncWaitThreshold,
     );
   }
 
@@ -38,9 +40,17 @@ final class ContactEditCubit extends Cubit<ContactEditState> {
     this._workspaceId,
     this._contactId,
     this._actorUserId,
-    this._requiresAssigneeDirectory,
+    bool requiresAssigneeDirectory,
     this._fixedOwnerId,
-  ) : super(const ContactEditState()) {
+    this._syncWaitThreshold,
+  ) : _requiresAssigneeDirectory = requiresAssigneeDirectory,
+      super(
+        ContactEditState(
+          assigneeStatus: requiresAssigneeDirectory
+              ? ContactEditAssigneeStatus.loading
+              : ContactEditAssigneeStatus.ready,
+        ),
+      ) {
     unawaited(load());
   }
 
@@ -51,13 +61,10 @@ final class ContactEditCubit extends Cubit<ContactEditState> {
   final String _actorUserId;
   final bool _requiresAssigneeDirectory;
   final String? _fixedOwnerId;
+  final Duration _syncWaitThreshold;
 
   StreamSubscription<CrmContact?>? _contactSubscription;
   StreamSubscription<List<SalesAssignee>>? _assigneeSubscription;
-  CrmContact? _contact;
-  List<SalesAssignee> _assignees = const [];
-  bool _contactResolved = false;
-  bool _assigneesResolved = false;
 
   Future<void> load() async {
     await _contactSubscription?.cancel();
@@ -67,21 +74,46 @@ final class ContactEditCubit extends Cubit<ContactEditState> {
       return;
     }
 
-    _contact = null;
-    _assignees = const [];
-    _contactResolved = false;
-    _assigneesResolved = !_requiresAssigneeDirectory;
-    emit(const ContactEditState());
+    emit(
+      ContactEditState(
+        assigneeStatus: _requiresAssigneeDirectory
+            ? ContactEditAssigneeStatus.loading
+            : ContactEditAssigneeStatus.ready,
+      ),
+    );
 
     _contactSubscription = _contactRepository
         .watchContact(workspaceId: _workspaceId, contactId: _contactId)
-        .listen(_onContact, onError: _onLoadError);
+        .listen(_onContact, onError: _onContactError);
 
     if (_requiresAssigneeDirectory) {
       _assigneeSubscription = _salesAssigneeRepository
           .watchActiveSalesAssignees(workspaceId: _workspaceId)
-          .listen(_onAssignees, onError: _onLoadError);
+          .listen(_onAssignees, onError: _onAssigneeError);
     }
+  }
+
+  Future<void> loadAssignees() async {
+    if (!_requiresAssigneeDirectory) {
+      return;
+    }
+
+    await _assigneeSubscription?.cancel();
+
+    if (isClosed) {
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        assigneeStatus: ContactEditAssigneeStatus.loading,
+        clearAssigneeFailure: true,
+      ),
+    );
+
+    _assigneeSubscription = _salesAssigneeRepository
+        .watchActiveSalesAssignees(workspaceId: _workspaceId)
+        .listen(_onAssignees, onError: _onAssigneeError);
   }
 
   Future<void> submit({
@@ -97,7 +129,9 @@ final class ContactEditCubit extends Cubit<ContactEditState> {
 
     if (contact == null ||
         state.status != ContactEditStatus.ready ||
-        state.submissionStatus == ContactEditSubmissionStatus.submitting) {
+        (state.submissionStatus == ContactEditSubmissionStatus.submitting ||
+            state.submissionStatus ==
+                ContactEditSubmissionStatus.waitingForSync)) {
       return;
     }
 
@@ -111,37 +145,49 @@ final class ContactEditCubit extends Cubit<ContactEditState> {
     final resolvedOwnerId = _fixedOwnerId ?? ownerId;
 
     try {
-      switch (contact) {
-        case Lead():
-          await _contactRepository.updateLead(
-            workspaceId: _workspaceId,
-            contactId: _contactId,
-            actorUserId: _actorUserId,
-            input: LeadInput(
-              fullName: fullName,
-              companyName: companyName,
-              email: email,
-              phone: phone,
-              notes: notes,
-              ownerId: resolvedOwnerId,
-              stage: leadStage ?? contact.stage,
-            ),
-          );
-        case ClientContact():
-          await _contactRepository.updateClient(
-            workspaceId: _workspaceId,
-            contactId: _contactId,
-            actorUserId: _actorUserId,
-            input: ClientInput(
-              fullName: fullName,
-              companyName: companyName,
-              email: email,
-              phone: phone,
-              notes: notes,
-              ownerId: resolvedOwnerId,
-            ),
-          );
+      final update = switch (contact) {
+        Lead() => _contactRepository.updateLead(
+          workspaceId: _workspaceId,
+          contactId: _contactId,
+          actorUserId: _actorUserId,
+          input: LeadInput(
+            fullName: fullName,
+            companyName: companyName,
+            email: email,
+            phone: phone,
+            notes: notes,
+            ownerId: resolvedOwnerId,
+            stage: leadStage ?? contact.stage,
+          ),
+        ),
+        ClientContact() => _contactRepository.updateClient(
+          workspaceId: _workspaceId,
+          contactId: _contactId,
+          actorUserId: _actorUserId,
+          input: ClientInput(
+            fullName: fullName,
+            companyName: companyName,
+            email: email,
+            phone: phone,
+            notes: notes,
+            ownerId: resolvedOwnerId,
+          ),
+        ),
+      };
+      final isStillWaiting = await Future.any<bool>([
+        update.then((_) => false),
+        Future<bool>.delayed(_syncWaitThreshold, () => true),
+      ]);
+
+      if (isStillWaiting && !isClosed) {
+        emit(
+          state.copyWith(
+            submissionStatus: ContactEditSubmissionStatus.waitingForSync,
+          ),
+        );
       }
+
+      await update;
 
       if (!isClosed) {
         emit(
@@ -164,44 +210,55 @@ final class ContactEditCubit extends Cubit<ContactEditState> {
       return;
     }
 
-    _contactResolved = true;
-    _contact = contact;
-
     if (contact == null) {
-      emit(const ContactEditState(status: ContactEditStatus.notFound));
-    } else {
-      _emitReadyIfResolved();
-    }
-  }
-
-  void _onAssignees(List<SalesAssignee> assignees) {
-    if (!isClosed) {
-      _assigneesResolved = true;
-      _assignees = assignees;
-      _emitReadyIfResolved();
-    }
-  }
-
-  void _emitReadyIfResolved() {
-    if (_contactResolved && _assigneesResolved && _contact != null) {
       emit(
-        ContactEditState(
+        state.copyWith(
+          status: ContactEditStatus.notFound,
+          clearContact: true,
+          clearFailure: true,
+        ),
+      );
+    } else {
+      emit(
+        state.copyWith(
           status: ContactEditStatus.ready,
-          contact: _contact,
-          assignees: _assignees,
-          submissionStatus: state.submissionStatus,
-          submissionFailure: state.submissionFailure,
+          contact: contact,
+          clearFailure: true,
         ),
       );
     }
   }
 
-  void _onLoadError(Object error, StackTrace stackTrace) {
+  void _onAssignees(List<SalesAssignee> assignees) {
+    if (!isClosed) {
+      emit(
+        state.copyWith(
+          assigneeStatus: ContactEditAssigneeStatus.ready,
+          assignees: assignees,
+          clearAssigneeFailure: true,
+        ),
+      );
+    }
+  }
+
+  void _onContactError(Object error, StackTrace stackTrace) {
     if (!isClosed) {
       emit(
         ContactEditState(
           status: ContactEditStatus.failure,
+          assigneeStatus: state.assigneeStatus,
           failure: _typedFailure(error),
+        ),
+      );
+    }
+  }
+
+  void _onAssigneeError(Object error, StackTrace stackTrace) {
+    if (!isClosed) {
+      emit(
+        state.copyWith(
+          assigneeStatus: ContactEditAssigneeStatus.failure,
+          assigneeFailure: _typedFailure(error),
         ),
       );
     }

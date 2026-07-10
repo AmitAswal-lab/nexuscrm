@@ -50,19 +50,7 @@ class _LeadFormPageState extends State<LeadFormPage> {
         }
       },
       child: SafeArea(
-        child: BlocBuilder<LeadFormCubit, LeadFormState>(
-          builder: (context, state) {
-            if (state.assigneeStatus == AssigneeDirectoryStatus.loading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            if (state.assigneeStatus == AssigneeDirectoryStatus.failure) {
-              return _AssigneeFailureView(failure: state.assigneeFailure);
-            }
-
-            return _buildForm(context, state);
-          },
-        ),
+        child: BlocBuilder<LeadFormCubit, LeadFormState>(builder: _buildForm),
       ),
     );
   }
@@ -70,6 +58,11 @@ class _LeadFormPageState extends State<LeadFormPage> {
   Widget _buildForm(BuildContext context, LeadFormState state) {
     final isSubmitting =
         state.submissionStatus == LeadFormSubmissionStatus.submitting;
+    final isWaitingForSync =
+        state.submissionStatus == LeadFormSubmissionStatus.waitingForSync;
+    final isSaving = isSubmitting || isWaitingForSync;
+    final isLoadingAssignees =
+        state.assigneeStatus == AssigneeDirectoryStatus.loading;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -189,33 +182,41 @@ class _LeadFormPageState extends State<LeadFormPage> {
                 ),
                 const SizedBox(height: 16),
                 if (widget.canAssignOwner)
-                  DropdownButtonFormField<String>(
-                    initialValue: _ownerId,
-                    decoration: const InputDecoration(
-                      labelText: 'Assigned sales representative',
-                      border: OutlineInputBorder(),
+                  switch (state.assigneeStatus) {
+                    AssigneeDirectoryStatus.loading =>
+                      const _AssigneeLoadingCard(),
+                    AssigneeDirectoryStatus.failure => _AssigneeFailureCard(
+                      failure: state.assigneeFailure,
                     ),
-                    items: [
-                      const DropdownMenuItem(
-                        value: '',
-                        child: Text('Unassigned'),
-                      ),
-                      ...state.assignees.map(
-                        (assignee) => DropdownMenuItem(
-                          value: assignee.userId,
-                          child: Text(
-                            '${assignee.displayName} (${assignee.email})',
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                    AssigneeDirectoryStatus.ready =>
+                      DropdownButtonFormField<String>(
+                        initialValue: _ownerId,
+                        decoration: const InputDecoration(
+                          labelText: 'Assigned sales representative',
+                          border: OutlineInputBorder(),
                         ),
+                        items: [
+                          const DropdownMenuItem(
+                            value: '',
+                            child: Text('Unassigned'),
+                          ),
+                          ...state.assignees.map(
+                            (assignee) => DropdownMenuItem(
+                              value: assignee.userId,
+                              child: Text(
+                                '${assignee.displayName} (${assignee.email})',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
+                        onChanged: isSubmitting
+                            ? null
+                            : (ownerId) {
+                                setState(() => _ownerId = ownerId ?? '');
+                              },
                       ),
-                    ],
-                    onChanged: isSubmitting
-                        ? null
-                        : (ownerId) {
-                            setState(() => _ownerId = ownerId ?? '');
-                          },
-                  )
+                  }
                 else
                   const ListTile(
                     contentPadding: EdgeInsets.zero,
@@ -238,15 +239,25 @@ class _LeadFormPageState extends State<LeadFormPage> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                if (isWaitingForSync) ...[
+                  const _WaitingForSyncCard(),
+                  const SizedBox(height: 16),
+                ],
                 FilledButton.icon(
-                  onPressed: isSubmitting ? null : _submit,
-                  icon: isSubmitting
+                  onPressed: isSaving || isLoadingAssignees ? null : _submit,
+                  icon: isSaving
                       ? const SizedBox.square(
                           dimension: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.person_add_outlined),
-                  label: Text(isSubmitting ? 'Saving…' : 'Create lead'),
+                  label: Text(
+                    isSubmitting
+                        ? 'Saving…'
+                        : isWaitingForSync
+                        ? 'Waiting to sync…'
+                        : 'Create lead',
+                  ),
                 ),
               ],
             ),
@@ -261,13 +272,18 @@ class _LeadFormPageState extends State<LeadFormPage> {
       return;
     }
 
-    context.read<LeadFormCubit>().submit(
+    final cubit = context.read<LeadFormCubit>();
+    final ownerId = cubit.state.assigneeStatus == AssigneeDirectoryStatus.ready
+        ? _ownerId
+        : '';
+
+    cubit.submit(
       fullName: _fullNameController.text,
       companyName: _optional(_companyController.text),
       email: _optional(_emailController.text),
       phone: _optional(_phoneController.text),
       notes: _optional(_notesController.text),
-      ownerId: _ownerId.isEmpty ? null : _ownerId,
+      ownerId: ownerId.isEmpty ? null : ownerId,
       stage: _stage,
     );
   }
@@ -300,31 +316,108 @@ class _LeadFormPageState extends State<LeadFormPage> {
   }
 }
 
-class _AssigneeFailureView extends StatelessWidget {
-  const _AssigneeFailureView({required this.failure});
+class _AssigneeLoadingCard extends StatelessWidget {
+  const _AssigneeLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Card.outlined(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Row(
+          children: [
+            SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 16),
+            Expanded(child: Text('Loading active sales representatives…')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WaitingForSyncCard extends StatelessWidget {
+  const _WaitingForSyncCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card.outlined(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(Icons.cloud_upload_outlined),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Still saving this lead',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Waiting for Firestore to confirm the save. You can go '
+                    'back to Leads; do not submit this lead again.',
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: context.pop,
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Back to Leads'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AssigneeFailureCard extends StatelessWidget {
+  const _AssigneeFailureCard({required this.failure});
 
   final ContactFailure? failure;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card.outlined(
+      margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              Icons.people_outline,
-              size: 52,
-              color: Theme.of(context).colorScheme.error,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.people_outline, color: colorScheme.error),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _message,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleSmall?.copyWith(color: colorScheme.error),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
-            const Text(
-              'Unable to load active sales representatives.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.tonalIcon(
+            const Text('You can still create this lead unassigned.'),
+            const SizedBox(height: 12),
+            TextButton.icon(
               onPressed: context.read<LeadFormCubit>().loadAssignees,
               icon: const Icon(Icons.refresh),
               label: const Text('Try again'),
@@ -333,5 +426,17 @@ class _AssigneeFailureView extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String get _message {
+    return switch (failure?.code) {
+      ContactFailureCode.invalidData =>
+        'A sales membership is missing required profile information.',
+      ContactFailureCode.permissionDenied =>
+        'You do not have permission to load sales representatives.',
+      ContactFailureCode.networkUnavailable =>
+        'Sales representatives are unavailable. Check your connection.',
+      _ => 'Unable to load active sales representatives.',
+    };
   }
 }

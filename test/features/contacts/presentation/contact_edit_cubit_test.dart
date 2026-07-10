@@ -45,27 +45,92 @@ void main() {
     ).thenAnswer((_) async {});
   });
 
-  test('admin waits for contact and assignee data', () async {
-    final contactStream = StreamController<CrmContact?>.broadcast();
-    final assigneeStream = StreamController<List<SalesAssignee>>.broadcast();
-    addTearDown(contactStream.close);
-    addTearDown(assigneeStream.close);
-    _stubContact(contacts, contactStream.stream);
+  test(
+    'admin can edit while the assignee directory is still loading',
+    () async {
+      final contactStream = StreamController<CrmContact?>.broadcast();
+      final assigneeStream = StreamController<List<SalesAssignee>>.broadcast();
+      addTearDown(contactStream.close);
+      addTearDown(assigneeStream.close);
+      _stubContact(contacts, contactStream.stream);
+      when(
+        () => assignees.watchActiveSalesAssignees(workspaceId: 'workspace-one'),
+      ).thenAnswer((_) => assigneeStream.stream);
+      final cubit = _adminCubit(contacts, assignees);
+      addTearDown(cubit.close);
+      await _flush();
+
+      contactStream.add(_lead);
+      await _flush();
+      expect(cubit.state.status, ContactEditStatus.ready);
+      expect(cubit.state.assigneeStatus, ContactEditAssigneeStatus.loading);
+
+      assigneeStream.add(const [_assignee]);
+      await _flush();
+      expect(cubit.state.status, ContactEditStatus.ready);
+      expect(cubit.state.assignees, const [_assignee]);
+    },
+  );
+
+  test('admin can edit a contact when the assignee directory fails', () async {
+    _stubContact(contacts, Stream.value(_lead));
     when(
       () => assignees.watchActiveSalesAssignees(workspaceId: 'workspace-one'),
-    ).thenAnswer((_) => assigneeStream.stream);
+    ).thenAnswer(
+      (_) => Stream.error(const ContactFailure(ContactFailureCode.invalidData)),
+    );
     final cubit = _adminCubit(contacts, assignees);
     addTearDown(cubit.close);
     await _flush();
 
-    contactStream.add(_lead);
-    await _flush();
-    expect(cubit.state.status, ContactEditStatus.loading);
-
-    assigneeStream.add(const [_assignee]);
-    await _flush();
     expect(cubit.state.status, ContactEditStatus.ready);
-    expect(cubit.state.assignees, const [_assignee]);
+    expect(cubit.state.contact, _lead);
+    expect(cubit.state.assigneeStatus, ContactEditAssigneeStatus.failure);
+  });
+
+  test('reports when an edit is still waiting for Firestore', () async {
+    final completion = Completer<void>();
+    _stubContact(contacts, Stream.value(_lead));
+    when(
+      () => contacts.updateLead(
+        workspaceId: any(named: 'workspaceId'),
+        contactId: any(named: 'contactId'),
+        actorUserId: any(named: 'actorUserId'),
+        input: any(named: 'input'),
+      ),
+    ).thenAnswer((_) => completion.future);
+    final cubit = ContactEditCubit(
+      contactRepository: contacts,
+      salesAssigneeRepository: assignees,
+      workspaceId: 'workspace-one',
+      contactId: 'contact-one',
+      actorUserId: 'sales-user',
+      requiresAssigneeDirectory: false,
+      fixedOwnerId: 'sales-user',
+      syncWaitThreshold: Duration.zero,
+    );
+    addTearDown(cubit.close);
+    await _flush();
+
+    final submission = cubit.submit(
+      fullName: 'Updated Lead',
+      companyName: null,
+      email: 'updated@example.com',
+      phone: null,
+      notes: null,
+      ownerId: null,
+      leadStage: LeadStage.proposal,
+    );
+    await _flush();
+
+    expect(
+      cubit.state.submissionStatus,
+      ContactEditSubmissionStatus.waitingForSync,
+    );
+
+    completion.complete();
+    await submission;
+    expect(cubit.state.submissionStatus, ContactEditSubmissionStatus.success);
   });
 
   test('sales lead updates preserve sales ownership and stage', () async {

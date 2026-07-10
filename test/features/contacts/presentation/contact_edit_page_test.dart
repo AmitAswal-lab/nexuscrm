@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:nexuscrm/features/contacts/domain/entities/contact_input.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
+import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_edit/contact_edit_cubit.dart';
@@ -17,6 +21,20 @@ final class _MockAssigneeRepository extends Mock
 void main() {
   late ContactRepository contacts;
   late SalesAssigneeRepository assignees;
+
+  setUpAll(() {
+    registerFallbackValue(
+      const LeadInput(
+        fullName: 'Fallback',
+        companyName: null,
+        email: 'fallback@example.com',
+        phone: null,
+        notes: null,
+        ownerId: null,
+        stage: LeadStage.newLead,
+      ),
+    );
+  });
 
   setUp(() {
     contacts = _MockContactRepository();
@@ -73,6 +91,75 @@ void main() {
       find.text('Enter an email address or phone number.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('keeps an admin edit form usable when assignees fail to load', (
+    tester,
+  ) async {
+    _stubContact(contacts, _lead);
+    when(
+      () => assignees.watchActiveSalesAssignees(workspaceId: 'workspace-one'),
+    ).thenAnswer(
+      (_) => Stream.error(const ContactFailure(ContactFailureCode.invalidData)),
+    );
+    final cubit = _adminCubit(contacts, assignees);
+    addTearDown(cubit.close);
+
+    await _pump(tester, cubit, canAssignOwner: true);
+
+    expect(find.text('Edit lead'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
+    expect(
+      find.text('A sales membership is missing required profile information.'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('current assignment will remain unchanged'),
+      findsOneWidget,
+    );
+    expect(find.text('Try again'), findsOneWidget);
+    final saveButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Save changes'),
+    );
+    expect(saveButton.onPressed, isNotNull);
+  });
+
+  testWidgets('explains when an edit is waiting for Firestore', (tester) async {
+    final completion = Completer<void>();
+    _stubContact(contacts, _lead);
+    when(
+      () => contacts.updateLead(
+        workspaceId: any(named: 'workspaceId'),
+        contactId: any(named: 'contactId'),
+        actorUserId: any(named: 'actorUserId'),
+        input: any(named: 'input'),
+      ),
+    ).thenAnswer((_) => completion.future);
+    final cubit = ContactEditCubit(
+      contactRepository: contacts,
+      salesAssigneeRepository: assignees,
+      workspaceId: 'workspace-one',
+      contactId: 'contact-one',
+      actorUserId: 'sales-user',
+      requiresAssigneeDirectory: false,
+      fixedOwnerId: 'sales-user',
+      syncWaitThreshold: Duration.zero,
+    );
+    addTearDown(cubit.close);
+
+    await _pump(tester, cubit, canAssignOwner: false);
+    final saveButton = find.widgetWithText(FilledButton, 'Save changes');
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pump(const Duration(milliseconds: 1));
+
+    expect(find.text('Still saving changes'), findsOneWidget);
+    expect(
+      find.textContaining('Waiting for Firestore to confirm the update.'),
+      findsOneWidget,
+    );
+    expect(find.text('Back to contact'), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
   });
 }
 

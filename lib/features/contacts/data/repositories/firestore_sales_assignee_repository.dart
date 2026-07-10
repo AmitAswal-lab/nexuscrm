@@ -30,11 +30,21 @@ final class FirestoreSalesAssigneeRepository
           continue;
         }
 
-        final assignees =
-            snapshot.docs
-                .map(FirestoreSalesAssigneeMapper.fromDocument)
-                .toList()
-              ..sort(_compareAssignees);
+        late final List<SalesAssignee> assignees;
+
+        try {
+          assignees =
+              snapshot.docs
+                  .map(FirestoreSalesAssigneeMapper.fromDocument)
+                  .toList()
+                ..sort(_compareAssignees);
+        } on FormatException {
+          if (snapshot.metadata.isFromCache) {
+            continue;
+          }
+
+          rethrow;
+        }
 
         yield List.unmodifiable(assignees);
       }
