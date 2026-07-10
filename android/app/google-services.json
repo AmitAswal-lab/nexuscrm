@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "537756058705",
+    "project_id": "nexuscrm-dev-amitaswal",
+    "storage_bucket": "nexuscrm-dev-amitaswal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:537756058705:android:7c077487b6e7b8de4d6470",
+        "android_client_info": {
+          "package_name": "com.amitaswal.nexuscrm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAReiieTCYCnrklaR4HwOXQrq-rKuddjWE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

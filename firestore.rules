@@ -1,0 +1,242 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function membershipPath(workspaceId, userId) {
+      return /databases/$(database)/documents/workspaces/$(workspaceId)/members/$(userId);
+    }
+
+    function hasActiveRole(workspaceId, userId, role) {
+      return exists(membershipPath(workspaceId, userId))
+        && get(membershipPath(workspaceId, userId)).data.userId == userId
+        && get(membershipPath(workspaceId, userId)).data.workspaceId == workspaceId
+        && get(membershipPath(workspaceId, userId)).data.status == 'active'
+        && get(membershipPath(workspaceId, userId)).data.role == role;
+    }
+
+    function isActiveAdmin(workspaceId) {
+      return isSignedIn()
+        && hasActiveRole(workspaceId, request.auth.uid, 'admin');
+    }
+
+    function isActiveSalesRep(workspaceId) {
+      return isSignedIn()
+        && hasActiveRole(workspaceId, request.auth.uid, 'sales_rep');
+    }
+
+    function isActiveSalesAssignee(workspaceId, userId) {
+      return userId is string
+        && hasActiveRole(workspaceId, userId, 'sales_rep');
+    }
+
+    function hasValidContactKeys(data) {
+      return data.keys().hasOnly([
+        'workspaceId',
+        'kind',
+        'fullName',
+        'companyName',
+        'email',
+        'phone',
+        'notes',
+        'ownerId',
+        'leadStage',
+        'isArchived',
+        'createdByUserId',
+        'updatedByUserId',
+        'createdAt',
+        'updatedAt',
+        'convertedAt',
+        'convertedByUserId',
+      ]);
+    }
+
+    function isOptionalString(value) {
+      return value == null || (value is string && value.size() > 0);
+    }
+
+    function hasValidContactData(data, workspaceId) {
+      return hasValidContactKeys(data)
+        && data.workspaceId == workspaceId
+        && data.fullName is string
+        && data.fullName.size() > 0
+        && isOptionalString(data.companyName)
+        && isOptionalString(data.email)
+        && isOptionalString(data.phone)
+        && isOptionalString(data.notes)
+        && isOptionalString(data.ownerId)
+        && (data.email != null || data.phone != null)
+        && data.isArchived is bool
+        && data.createdByUserId is string
+        && data.createdByUserId.size() > 0
+        && data.updatedByUserId is string
+        && data.updatedByUserId.size() > 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (
+          (
+            data.kind == 'lead'
+            && data.leadStage in [
+              'new',
+              'contacted',
+              'qualified',
+              'proposal',
+              'lost',
+            ]
+            && data.convertedAt == null
+            && data.convertedByUserId == null
+          )
+          || (
+            data.kind == 'client'
+            && data.leadStage == null
+            && data.convertedAt is timestamp
+            && data.convertedByUserId is string
+            && data.convertedByUserId.size() > 0
+          )
+        );
+    }
+
+    function hasValidOwner(workspaceId, ownerId) {
+      return ownerId == null || isActiveSalesAssignee(workspaceId, ownerId);
+    }
+
+    function canReadContact(workspaceId) {
+      return isActiveAdmin(workspaceId)
+        || (
+          isActiveSalesRep(workspaceId)
+          && resource.data.ownerId == request.auth.uid
+        );
+    }
+
+    function canCreateContact(workspaceId) {
+      return (
+          isActiveAdmin(workspaceId)
+          && hasValidOwner(workspaceId, request.resource.data.ownerId)
+        )
+        || (
+          isActiveSalesRep(workspaceId)
+          && request.resource.data.ownerId == request.auth.uid
+        );
+    }
+
+    function canUpdateContact(workspaceId) {
+      return (
+          isActiveAdmin(workspaceId)
+          && hasValidOwner(workspaceId, request.resource.data.ownerId)
+        )
+        || (
+          isActiveSalesRep(workspaceId)
+          && resource.data.ownerId == request.auth.uid
+          && request.resource.data.ownerId == request.auth.uid
+        );
+    }
+
+    function hasValidContactCreation(workspaceId) {
+      return hasValidContactData(request.resource.data, workspaceId)
+        && request.resource.data.kind == 'lead'
+        && request.resource.data.isArchived == false
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.updatedByUserId == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function hasValidKindTransition() {
+      return (
+          resource.data.kind == 'lead'
+          && (
+            request.resource.data.kind == 'lead'
+            || (
+              request.resource.data.kind == 'client'
+              && request.resource.data.convertedAt == request.time
+              && request.resource.data.convertedByUserId == request.auth.uid
+            )
+          )
+        )
+        || (
+          resource.data.kind == 'client'
+          && request.resource.data.kind == 'client'
+          && request.resource.data.convertedAt == resource.data.convertedAt
+          && request.resource.data.convertedByUserId
+            == resource.data.convertedByUserId
+        );
+    }
+
+    function isArchiveOnlyUpdate() {
+      return request.resource.data.isArchived == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'isArchived',
+          'updatedAt',
+          'updatedByUserId',
+        ]);
+    }
+
+    function isContactContentUpdate() {
+      return request.resource.data.isArchived == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'kind',
+          'fullName',
+          'companyName',
+          'email',
+          'phone',
+          'notes',
+          'ownerId',
+          'leadStage',
+          'updatedByUserId',
+          'updatedAt',
+          'convertedAt',
+          'convertedByUserId',
+        ])
+        && hasValidKindTransition();
+    }
+
+    function hasValidContactUpdate(workspaceId) {
+      return resource.data.isArchived == false
+        && hasValidContactData(request.resource.data, workspaceId)
+        && request.resource.data.workspaceId == resource.data.workspaceId
+        && request.resource.data.createdByUserId
+          == resource.data.createdByUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedByUserId == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && (isArchiveOnlyUpdate() || isContactContentUpdate());
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    match /workspaces/{workspaceId} {
+      allow read, write: if false;
+    }
+
+    match /{path=**}/members/{memberId} {
+      allow read: if isSignedIn()
+        && request.auth.uid == resource.data.userId;
+      allow write: if false;
+    }
+
+    match /workspaces/{workspaceId}/members/{memberId} {
+      allow read: if resource.data.role == 'sales_rep'
+        && resource.data.status == 'active'
+        && isActiveAdmin(workspaceId);
+    }
+
+    match /workspaces/{workspaceId}/contacts/{contactId} {
+      allow read: if canReadContact(workspaceId);
+      allow create: if canCreateContact(workspaceId)
+        && hasValidContactCreation(workspaceId);
+      allow update: if canUpdateContact(workspaceId)
+        && hasValidContactUpdate(workspaceId);
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

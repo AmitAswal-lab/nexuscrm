@@ -1,0 +1,43 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "nexuscrm-dev-amitaswal",
+          "appId": "1:537756058705:android:7c077487b6e7b8de4d6470",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "nexuscrm-dev-amitaswal",
+          "appId": "1:537756058705:ios:933b102b34d693824d6470",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "nexuscrm-dev-amitaswal",
+          "configurations": {
+            "android": "1:537756058705:android:7c077487b6e7b8de4d6470",
+            "ios": "1:537756058705:ios:933b102b34d693824d6470"
+          }
+        }
+      }
+    }
+  }
+}
