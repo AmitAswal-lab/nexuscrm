@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexuscrm/app/navigation/app_navigation_shell.dart';
 import 'package:nexuscrm/app/navigation/pages/more_page.dart';
-import 'package:nexuscrm/app/navigation/pages/navigation_placeholder_page.dart';
 import 'package:nexuscrm/app/router/app_routes.dart';
 import 'package:nexuscrm/app/router/router_refresh_notifier.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_home_placeholder.dart';
@@ -30,6 +29,10 @@ import 'package:nexuscrm/features/contacts/presentation/pages/contact_list_page.
 import 'package:nexuscrm/features/contacts/presentation/pages/lead_form_page.dart';
 import 'package:nexuscrm/features/sales/presentation/cubit/sales_dashboard/sales_dashboard_cubit.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
+import 'package:nexuscrm/features/tasks/domain/repositories/task_repository.dart';
+import 'package:nexuscrm/features/tasks/domain/value_objects/task_access_scope.dart';
+import 'package:nexuscrm/features/tasks/presentation/cubit/task_list/task_list_cubit.dart';
+import 'package:nexuscrm/features/tasks/presentation/pages/task_list_page.dart';
 
 final class AppRouter {
   AppRouter(this._sessionBloc)
@@ -192,12 +195,12 @@ final class AppRouter {
           routes: [
             GoRoute(
               path: AppRoutes.adminTasks,
-              builder: (context, state) => const NavigationPlaceholderPage(
-                icon: Icons.fact_check_outlined,
+              builder: (context, state) => _taskListPage(
+                context,
                 title: 'Workspace tasks',
-                message:
-                    'Administrator task oversight is planned for a later '
-                    'milestone.',
+                description: 'Tasks and follow-ups across this workspace.',
+                accessScope: const WorkspaceTaskAccess(),
+                showAssignee: true,
               ),
             ),
           ],
@@ -283,12 +286,17 @@ final class AppRouter {
           routes: [
             GoRoute(
               path: AppRoutes.salesTasks,
-              builder: (context, state) => const NavigationPlaceholderPage(
-                icon: Icons.task_alt,
-                title: 'My tasks',
-                message:
-                    'Tasks and follow-ups are planned for a later milestone.',
-              ),
+              builder: (context, state) {
+                final session = _authenticatedSession(context);
+
+                return _taskListPage(
+                  context,
+                  title: 'My tasks',
+                  description: 'Tasks and follow-ups assigned to you.',
+                  accessScope: AssignedTaskAccess(session.user.id),
+                  showAssignee: false,
+                );
+              },
             ),
           ],
         ),
@@ -345,6 +353,29 @@ final class AppRouter {
         ownerId: session.user.id,
       ),
       child: const SalesDashboardPage(),
+    );
+  }
+
+  static Widget _taskListPage(
+    BuildContext context, {
+    required String title,
+    required String description,
+    required TaskAccessScope accessScope,
+    required bool showAssignee,
+  }) {
+    final session = _authenticatedSession(context);
+
+    return BlocProvider(
+      create: (context) => TaskListCubit(
+        taskRepository: context.read<TaskRepository>(),
+        workspaceId: session.membership.workspaceId,
+        accessScope: accessScope,
+      ),
+      child: TaskListPage(
+        title: title,
+        description: description,
+        showAssignee: showAssignee,
+      ),
     );
   }
 

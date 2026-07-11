@@ -16,6 +16,7 @@ void main() {
         membershipRepository: _EmptyMembershipRepository(),
         contactRepository: const EmptyContactRepository(),
         salesAssigneeRepository: const EmptySalesAssigneeRepository(),
+        taskRepository: const EmptyTaskRepository(),
       ),
     );
     await tester.pumpAndSettle();

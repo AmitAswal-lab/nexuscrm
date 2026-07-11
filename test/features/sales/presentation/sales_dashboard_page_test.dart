@@ -133,6 +133,7 @@ void main() {
         membershipRepository: const _MembershipRepository(),
         contactRepository: const EmptyContactRepository(),
         salesAssigneeRepository: const EmptySalesAssigneeRepository(),
+        taskRepository: const EmptyTaskRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -149,6 +150,7 @@ void main() {
         membershipRepository: const _MembershipRepository(),
         contactRepository: const EmptyContactRepository(),
         salesAssigneeRepository: const EmptySalesAssigneeRepository(),
+        taskRepository: const EmptyTaskRepository(),
       ),
     );
     await tester.pumpAndSettle();
