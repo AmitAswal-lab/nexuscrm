@@ -11,6 +11,9 @@ import 'package:nexuscrm/features/contacts/domain/repositories/contact_repositor
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_actions/contact_actions_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_detail_page.dart';
+import 'package:nexuscrm/features/tasks/domain/value_objects/task_access_scope.dart';
+
+import '../../../helpers/empty_contact_repository.dart';
 
 final class _MockContactRepository extends Mock implements ContactRepository {}
 
@@ -202,7 +205,14 @@ void main() {
                     ),
                   ),
                 ],
-                child: ContactDetailPage(isSalesView: false, onEdit: () {}),
+                child: ContactDetailPage(
+                  isSalesView: false,
+                  onEdit: () {},
+                  onAddFollowUp: () {},
+                  workspaceId: 'workspace-one',
+                  taskAccessScope: const WorkspaceTaskAccess(),
+                  taskRepository: const EmptyTaskRepository(),
+                ),
               ),
             );
           },
@@ -273,6 +283,10 @@ Future<void> _pumpDetail(
           child: ContactDetailPage(
             isSalesView: isSalesView,
             onEdit: onEdit ?? () {},
+            onAddFollowUp: () {},
+            workspaceId: 'workspace-one',
+            taskAccessScope: const WorkspaceTaskAccess(),
+            taskRepository: const EmptyTaskRepository(),
           ),
         ),
       ),

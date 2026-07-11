@@ -38,7 +38,7 @@ void main() {
 
     expect(find.text('Call Asha'), findsOneWidget);
     expect(find.text('Follow-up'), findsOneWidget);
-    expect(find.text('Assigned to sales-user'), findsOneWidget);
+    expect(find.text('Assigned to Sales representative'), findsOneWidget);
     expect(find.text('Write proposal'), findsNothing);
 
     await tester.tap(find.text('Upcoming'));
@@ -126,6 +126,7 @@ Future<void> _pumpPage(
           showAssignee: showAssignee,
           onCreateTask: () {},
           onOpenTask: (_) {},
+          workspaceId: 'workspace-one',
         ),
       ),
     ),

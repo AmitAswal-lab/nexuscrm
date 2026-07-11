@@ -43,7 +43,7 @@ enterprise reporting.
 | 2. Navigation shell | Complete | Role-aware application navigation and feature destinations |
 | 3. Sales dashboard | Complete | A useful sales home with staged data integration |
 | 4. Lead and client management | Complete | Teams maintain customer records and ownership |
-| 5. Tasks and follow-ups | Planned | Representatives organize actionable work |
+| 5. Tasks and follow-ups | In progress | Representatives organize actionable work |
 | 6. Dialer and post-call notes | Planned | Representatives launch calls and record outcomes |
 | 7. Admin user management and invitations | Planned | Administrators securely manage and invite representatives |
 | 8. Sales-representative onboarding | Planned | Invited representatives establish accounts and enter the workspace |
@@ -140,6 +140,10 @@ security details.
 ### 5. Tasks and follow-ups
 
 Goal: turn CRM records into clear next actions.
+
+Current implementation includes role-scoped task lists, task creation/editing,
+completion and reopen actions, contact follow-up links, and sales-dashboard
+Today/overdue summaries. Final manual review remains before merging to `dev`.
 
 Planned scope:
 

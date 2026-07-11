@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
+import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
 import 'package:nexuscrm/features/tasks/domain/failures/task_failure.dart';
 import 'package:nexuscrm/features/tasks/presentation/cubit/task_list/task_list_cubit.dart';
@@ -11,6 +13,8 @@ class TaskListPage extends StatelessWidget {
     required this.showAssignee,
     required this.onCreateTask,
     required this.onOpenTask,
+    required this.workspaceId,
+    this.assigneeRepository,
     super.key,
   });
 
@@ -19,6 +23,8 @@ class TaskListPage extends StatelessWidget {
   final bool showAssignee;
   final VoidCallback onCreateTask;
   final ValueChanged<String> onOpenTask;
+  final String workspaceId;
+  final SalesAssigneeRepository? assigneeRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -57,9 +63,23 @@ class TaskListPage extends StatelessWidget {
                 const _TaskFilter(),
                 const SizedBox(height: 16),
                 Expanded(
-                  child: _TaskListBody(
-                    showAssignee: showAssignee,
-                    onOpenTask: onOpenTask,
+                  child: StreamBuilder<List<SalesAssignee>>(
+                    stream: assigneeRepository?.watchActiveSalesAssignees(
+                      workspaceId: workspaceId,
+                    ),
+                    builder: (context, snapshot) {
+                      final assignees =
+                          snapshot.data ?? const <SalesAssignee>[];
+                      final Map<String, String> names = {
+                        for (final assignee in assignees)
+                          assignee.userId: assignee.displayName,
+                      };
+                      return _TaskListBody(
+                        showAssignee: showAssignee,
+                        onOpenTask: onOpenTask,
+                        assigneeNames: names,
+                      );
+                    },
                   ),
                 ),
               ],
@@ -103,10 +123,15 @@ class _TaskFilter extends StatelessWidget {
 }
 
 class _TaskListBody extends StatelessWidget {
-  const _TaskListBody({required this.showAssignee, required this.onOpenTask});
+  const _TaskListBody({
+    required this.showAssignee,
+    required this.onOpenTask,
+    required this.assigneeNames,
+  });
 
   final bool showAssignee;
   final ValueChanged<String> onOpenTask;
+  final Map<String, String> assigneeNames;
 
   @override
   Widget build(BuildContext context) {
@@ -123,6 +148,7 @@ class _TaskListBody extends StatelessWidget {
         state: state,
         showAssignee: showAssignee,
         onOpenTask: onOpenTask,
+        assigneeNames: assigneeNames,
       ),
     };
   }
@@ -133,11 +159,13 @@ class _TaskResults extends StatelessWidget {
     required this.state,
     required this.showAssignee,
     required this.onOpenTask,
+    required this.assigneeNames,
   });
 
   final TaskListState state;
   final bool showAssignee;
   final ValueChanged<String> onOpenTask;
+  final Map<String, String> assigneeNames;
 
   @override
   Widget build(BuildContext context) {
@@ -156,6 +184,7 @@ class _TaskResults extends StatelessWidget {
         today: state.today,
         showAssignee: showAssignee,
         onTap: () => onOpenTask(tasks[index].id),
+        assigneeName: assigneeNames[tasks[index].assigneeId],
       ),
     );
   }
@@ -167,12 +196,14 @@ class _TaskCard extends StatelessWidget {
     required this.today,
     required this.showAssignee,
     required this.onTap,
+    required this.assigneeName,
   });
 
   final CrmTask task;
   final String today;
   final bool showAssignee;
   final VoidCallback onTap;
+  final String? assigneeName;
 
   @override
   Widget build(BuildContext context) {
@@ -233,7 +264,7 @@ class _TaskCard extends StatelessWidget {
                     if (showAssignee) ...[
                       const SizedBox(height: 4),
                       Text(
-                        'Assigned to ${task.assigneeId}',
+                        'Assigned to ${assigneeName ?? 'Sales representative'}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(

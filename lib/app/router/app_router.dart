@@ -179,6 +179,7 @@ final class AppRouter {
                     contactId: state.pathParameters['contactId']!,
                     isSalesView: false,
                     editRoute: AppRoutes.adminEditContact,
+                    newTaskRoute: AppRoutes.adminNewTask,
                   ),
                   routes: [
                     GoRoute(
@@ -276,6 +277,7 @@ final class AppRouter {
                     contactId: state.pathParameters['contactId']!,
                     isSalesView: true,
                     editRoute: AppRoutes.salesEditContact,
+                    newTaskRoute: AppRoutes.salesNewTask,
                   ),
                   routes: [
                     GoRoute(
@@ -367,6 +369,7 @@ final class AppRouter {
         contactRepository: context.read<ContactRepository>(),
         workspaceId: session.membership.workspaceId,
         ownerId: session.user.id,
+        taskRepository: context.read<TaskRepository>(),
       ),
       child: const SalesDashboardPage(),
     );
@@ -395,6 +398,8 @@ final class AppRouter {
         showAssignee: showAssignee,
         onCreateTask: () => context.go(newRoute),
         onOpenTask: (id) => context.go(taskRoute(id)),
+        workspaceId: session.membership.workspaceId,
+        assigneeRepository: context.read<SalesAssigneeRepository>(),
       ),
     );
   }
@@ -405,7 +410,11 @@ final class AppRouter {
   }) => [
     GoRoute(
       path: 'new',
-      builder: (context, state) => _taskFormPage(context, canAssign: canAssign),
+      builder: (context, state) => _taskFormPage(
+        context,
+        canAssign: canAssign,
+        initialContactId: state.uri.queryParameters['contactId'],
+      ),
     ),
     GoRoute(
       path: ':taskId',
@@ -431,6 +440,7 @@ final class AppRouter {
     BuildContext context, {
     required bool canAssign,
     String? taskId,
+    String? initialContactId,
   }) {
     final session = _authenticatedSession(context);
     return BlocProvider(
@@ -447,7 +457,10 @@ final class AppRouter {
         fixedAssigneeId: canAssign ? null : session.user.id,
         taskId: taskId,
       ),
-      child: TaskFormPage(canAssign: canAssign),
+      child: TaskFormPage(
+        canAssign: canAssign,
+        initialContactId: initialContactId,
+      ),
     );
   }
 
@@ -464,7 +477,12 @@ final class AppRouter {
         taskId: taskId,
         actorUserId: session.user.id,
       ),
-      child: TaskDetailPage(onEdit: () => context.go(editRoute(taskId))),
+      child: TaskDetailPage(
+        onEdit: () => context.go(editRoute(taskId)),
+        workspaceId: session.membership.workspaceId,
+        contactRepository: context.read<ContactRepository>(),
+        assigneeRepository: context.read<SalesAssigneeRepository>(),
+      ),
     );
   }
 
@@ -473,6 +491,7 @@ final class AppRouter {
     required String contactId,
     required bool isSalesView,
     required String Function(String) editRoute,
+    required String newTaskRoute,
   }) {
     final session = _authenticatedSession(context);
 
@@ -497,6 +516,12 @@ final class AppRouter {
       child: ContactDetailPage(
         isSalesView: isSalesView,
         onEdit: () => context.go(editRoute(contactId)),
+        onAddFollowUp: () => context.go('$newTaskRoute?contactId=$contactId'),
+        workspaceId: session.membership.workspaceId,
+        taskAccessScope: isSalesView
+            ? AssignedTaskAccess(session.user.id)
+            : const WorkspaceTaskAccess(),
+        taskRepository: context.read<TaskRepository>(),
       ),
     );
   }

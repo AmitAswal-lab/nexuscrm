@@ -6,8 +6,13 @@ import 'package:nexuscrm/features/tasks/domain/entities/task_input.dart';
 import 'package:nexuscrm/features/tasks/presentation/cubit/task_form/task_form_cubit.dart';
 
 class TaskFormPage extends StatefulWidget {
-  const TaskFormPage({required this.canAssign, super.key});
+  const TaskFormPage({
+    required this.canAssign,
+    this.initialContactId,
+    super.key,
+  });
   final bool canAssign;
+  final String? initialContactId;
   @override
   State<TaskFormPage> createState() => _TaskFormPageState();
 }
@@ -146,16 +151,18 @@ class _TaskFormPageState extends State<TaskFormPage> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _dueOn,
-                  keyboardType: TextInputType.datetime,
+                  readOnly: true,
+                  onTap: saving ? null : _selectDueDate,
                   decoration: const InputDecoration(
                     labelText: 'Due date',
-                    helperText: 'YYYY-MM-DD',
+                    helperText: 'Choose a calendar date.',
+                    suffixIcon: Icon(Icons.calendar_today_outlined),
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) =>
                       RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(v?.trim() ?? '')
                       ? null
-                      : 'Enter a due date as YYYY-MM-DD.',
+                      : 'Choose a due date.',
                 ),
                 const SizedBox(height: 16),
                 if (widget.canAssign)
@@ -226,8 +233,8 @@ class _TaskFormPageState extends State<TaskFormPage> {
   void _initialize(CrmTask? task, String fixed) {
     if (!_didInitialize) {
       _didInitialize = true;
-      _contactId = task?.contactId;
-      _assigneeId = task?.assigneeId ?? fixed;
+      _contactId = task?.contactId ?? widget.initialContactId;
+      _assigneeId = task?.assigneeId ?? (fixed.isEmpty ? null : fixed);
       _kind = task?.kind ?? TaskKind.task;
       _title.text = task?.title ?? '';
       _notes.text = task?.notes ?? '';
@@ -247,6 +254,24 @@ class _TaskFormPageState extends State<TaskFormPage> {
         dueOn: _dueOn.text,
       ),
     );
+  }
+
+  Future<void> _selectDueDate() async {
+    final existing = DateTime.tryParse(_dueOn.text);
+    final now = DateTime.now();
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: existing ?? now,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+
+    if (selected != null && mounted) {
+      setState(() {
+        _dueOn.text =
+            '${selected.year}-${selected.month.toString().padLeft(2, '0')}-${selected.day.toString().padLeft(2, '0')}';
+      });
+    }
   }
 }
 

@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
+import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/tasks/presentation/cubit/task_detail/task_detail_cubit.dart';
 
 class TaskDetailPage extends StatelessWidget {
-  const TaskDetailPage({required this.onEdit, super.key});
+  const TaskDetailPage({
+    required this.onEdit,
+    required this.workspaceId,
+    required this.contactRepository,
+    required this.assigneeRepository,
+    super.key,
+  });
   final VoidCallback onEdit;
+  final String workspaceId;
+  final ContactRepository contactRepository;
+  final SalesAssigneeRepository assigneeRepository;
   @override
   Widget build(BuildContext context) => SafeArea(
     child: BlocConsumer<TaskDetailCubit, TaskDetailState>(
@@ -78,9 +89,34 @@ class TaskDetailPage extends StatelessWidget {
                           const SizedBox(height: 8),
                           Text('Due ${task.dueOn}'),
                           const SizedBox(height: 8),
-                          Text('Linked contact: ${task.contactId}'),
+                          StreamBuilder(
+                            stream: contactRepository.watchContact(
+                              workspaceId: workspaceId,
+                              contactId: task.contactId,
+                            ),
+                            builder: (context, snapshot) => Text(
+                              'Linked contact: ${snapshot.data?.fullName ?? 'Contact'}',
+                            ),
+                          ),
                           const SizedBox(height: 8),
-                          Text('Assigned to ${task.assigneeId}'),
+                          StreamBuilder(
+                            stream: assigneeRepository
+                                .watchActiveSalesAssignees(
+                                  workspaceId: workspaceId,
+                                ),
+                            builder: (context, snapshot) {
+                              final name = (snapshot.data ?? const [])
+                                  .where(
+                                    (assignee) =>
+                                        assignee.userId == task.assigneeId,
+                                  )
+                                  .map((assignee) => assignee.displayName)
+                                  .firstOrNull;
+                              return Text(
+                                'Assigned to ${name ?? 'Sales representative'}',
+                              );
+                            },
+                          ),
                           if (task.notes != null) ...[
                             const SizedBox(height: 16),
                             Text(task.notes!),

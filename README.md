@@ -27,6 +27,8 @@ The application currently supports:
 - Pipeline-stage summaries and recently updated contacts
 - Explicit invited, suspended, revoked, and misconfigured access states
 - Default-deny Firestore rules with focused emulator coverage
+- Tasks and follow-ups with role-scoped lists, lifecycle actions, contact links,
+  and sales-dashboard metrics
 
 Sales-representative invitation and onboarding are intentionally deferred to a
 later feature.

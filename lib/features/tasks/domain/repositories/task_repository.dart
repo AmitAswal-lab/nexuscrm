@@ -13,6 +13,12 @@ abstract interface class TaskRepository {
     required String taskId,
   });
 
+  Stream<List<CrmTask>> watchContactTasks({
+    required String workspaceId,
+    required String contactId,
+    required TaskAccessScope accessScope,
+  });
+
   Future<String> createTask({
     required String workspaceId,
     required String actorUserId,

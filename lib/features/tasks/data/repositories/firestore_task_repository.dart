@@ -84,6 +84,42 @@ final class FirestoreTaskRepository implements TaskRepository {
   }
 
   @override
+  Stream<List<CrmTask>> watchContactTasks({
+    required String workspaceId,
+    required String contactId,
+    required TaskAccessScope accessScope,
+  }) async* {
+    try {
+      Query<Map<String, dynamic>> query =
+          _tasks(_requiredIdentifier(workspaceId, 'workspaceId')).where(
+            'contactId',
+            isEqualTo: _requiredIdentifier(contactId, 'contactId'),
+          );
+      query = switch (accessScope) {
+        WorkspaceTaskAccess() => query,
+        AssignedTaskAccess(:final assigneeId) => query.where(
+          'assigneeId',
+          isEqualTo: _requiredIdentifier(assigneeId, 'assigneeId'),
+        ),
+      };
+      await for (final snapshot in query.snapshots()) {
+        if (!snapshot.metadata.hasPendingWrites) {
+          final tasks =
+              snapshot.docs.map(FirestoreTaskMapper.fromDocument).toList()
+                ..sort(_compareTasks);
+          yield List.unmodifiable(tasks);
+        }
+      }
+    } on TaskFailure {
+      rethrow;
+    } on FormatException {
+      throw const TaskFailure(TaskFailureCode.invalidData);
+    } on FirebaseException catch (error) {
+      throw FirestoreTaskFailureMapper.fromFirebase(error);
+    }
+  }
+
+  @override
   Future<String> createTask({
     required String workspaceId,
     required String actorUserId,

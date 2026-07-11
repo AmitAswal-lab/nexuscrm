@@ -143,4 +143,13 @@ final class EmptyTaskRepository implements TaskRepository {
   }) {
     return Stream.value(const <CrmTask>[]);
   }
+
+  @override
+  Stream<List<CrmTask>> watchContactTasks({
+    required String workspaceId,
+    required String contactId,
+    required TaskAccessScope accessScope,
+  }) {
+    return Stream.value(const <CrmTask>[]);
+  }
 }
