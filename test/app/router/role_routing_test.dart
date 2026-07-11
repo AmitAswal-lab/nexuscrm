@@ -51,6 +51,10 @@ void main() {
     await tester.tap(find.widgetWithText(NavigationDestination, 'Tasks'));
     await tester.pumpAndSettle();
     expect(find.text('Workspace tasks'), findsOneWidget);
+    expect(
+      find.text('Tasks and follow-ups across this workspace.'),
+      findsOneWidget,
+    );
     expect(_selectedPhoneIndex(tester), 2);
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
@@ -99,6 +103,7 @@ void main() {
     await tester.tap(find.widgetWithText(NavigationDestination, 'Tasks'));
     await tester.pumpAndSettle();
     expect(find.text('My tasks'), findsOneWidget);
+    expect(find.text('Tasks and follow-ups assigned to you.'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
     await tester.pumpAndSettle();
@@ -159,6 +164,7 @@ void main() {
         ]),
         contactRepository: const EmptyContactRepository(),
         salesAssigneeRepository: const EmptySalesAssigneeRepository(),
+        taskRepository: const EmptyTaskRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -185,6 +191,7 @@ void main() {
         ),
         contactRepository: const EmptyContactRepository(),
         salesAssigneeRepository: const EmptySalesAssigneeRepository(),
+        taskRepository: const EmptyTaskRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -226,6 +233,7 @@ Future<void> _pumpAuthenticatedApp(
       ]),
       contactRepository: const EmptyContactRepository(),
       salesAssigneeRepository: const EmptySalesAssigneeRepository(),
+      taskRepository: const EmptyTaskRepository(),
     ),
   );
   await tester.pumpAndSettle();

@@ -7,6 +7,7 @@ import 'package:nexuscrm/features/authentication/data/repositories/firebase_auth
 import 'package:nexuscrm/features/authentication/data/repositories/firestore_membership_repository.dart';
 import 'package:nexuscrm/features/contacts/data/repositories/firestore_contact_repository.dart';
 import 'package:nexuscrm/features/contacts/data/repositories/firestore_sales_assignee_repository.dart';
+import 'package:nexuscrm/features/tasks/data/repositories/firestore_task_repository.dart';
 import 'package:nexuscrm/firebase_options.dart';
 
 Future<void> main() async {
@@ -25,6 +26,7 @@ Future<void> main() async {
       salesAssigneeRepository: FirestoreSalesAssigneeRepository(
         FirebaseFirestore.instance,
       ),
+      taskRepository: FirestoreTaskRepository(FirebaseFirestore.instance),
     ),
   );
 }

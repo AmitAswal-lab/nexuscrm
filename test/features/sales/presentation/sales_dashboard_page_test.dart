@@ -38,7 +38,7 @@ void main() {
     expect(find.text('Welcome back, Amit'), findsOneWidget);
     expect(find.text('Quick actions'), findsOneWidget);
     expect(find.text('Overview'), findsOneWidget);
-    expect(find.text('—'), findsNWidgets(2));
+    expect(find.text('…'), findsNWidgets(2));
     expect(find.text('Leads'), findsOneWidget);
     expect(find.text('Clients'), findsOneWidget);
     expect(find.text("Today's follow-ups"), findsOneWidget);
@@ -46,7 +46,8 @@ void main() {
     expect(find.text('Pipeline stages'), findsOneWidget);
     expect(find.text('Today'), findsOneWidget);
     expect(find.text('Recent contacts'), findsOneWidget);
-    expect(find.textContaining('Available with'), findsNWidgets(2));
+    expect(find.text('Open follow-ups due today'), findsOneWidget);
+    expect(find.text('Open overdue tasks'), findsOneWidget);
 
     await tester.tap(find.text('Open leads'));
     await tester.tap(find.text('Open tasks'));
@@ -133,6 +134,7 @@ void main() {
         membershipRepository: const _MembershipRepository(),
         contactRepository: const EmptyContactRepository(),
         salesAssigneeRepository: const EmptySalesAssigneeRepository(),
+        taskRepository: const EmptyTaskRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -149,6 +151,7 @@ void main() {
         membershipRepository: const _MembershipRepository(),
         contactRepository: const EmptyContactRepository(),
         salesAssigneeRepository: const EmptySalesAssigneeRepository(),
+        taskRepository: const EmptyTaskRepository(),
       ),
     );
     await tester.pumpAndSettle();

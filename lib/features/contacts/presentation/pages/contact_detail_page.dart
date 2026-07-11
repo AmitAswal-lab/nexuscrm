@@ -5,16 +5,27 @@ import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_actions/contact_actions_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
+import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
+import 'package:nexuscrm/features/tasks/domain/repositories/task_repository.dart';
+import 'package:nexuscrm/features/tasks/domain/value_objects/task_access_scope.dart';
 
 class ContactDetailPage extends StatelessWidget {
   const ContactDetailPage({
     required this.isSalesView,
     required this.onEdit,
+    required this.onAddFollowUp,
+    required this.workspaceId,
+    required this.taskAccessScope,
+    required this.taskRepository,
     super.key,
   });
 
   final bool isSalesView;
   final VoidCallback onEdit;
+  final VoidCallback onAddFollowUp;
+  final String workspaceId;
+  final TaskAccessScope taskAccessScope;
+  final TaskRepository taskRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +65,10 @@ class ContactDetailPage extends StatelessWidget {
             contact: state.contact!,
             isSalesView: isSalesView,
             onEdit: onEdit,
+            onAddFollowUp: onAddFollowUp,
+            workspaceId: workspaceId,
+            taskAccessScope: taskAccessScope,
+            taskRepository: taskRepository,
           ),
         },
       ),
@@ -78,11 +93,19 @@ class _ContactDetailView extends StatelessWidget {
     required this.contact,
     required this.isSalesView,
     required this.onEdit,
+    required this.onAddFollowUp,
+    required this.workspaceId,
+    required this.taskAccessScope,
+    required this.taskRepository,
   });
 
   final CrmContact contact;
   final bool isSalesView;
   final VoidCallback onEdit;
+  final VoidCallback onAddFollowUp;
+  final String workspaceId;
+  final TaskAccessScope taskAccessScope;
+  final TaskRepository taskRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -172,7 +195,14 @@ class _ContactDetailView extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              _ContactActions(contact: contact),
+              _ContactActions(contact: contact, onAddFollowUp: onAddFollowUp),
+              const SizedBox(height: 16),
+              _FollowUpHistory(
+                repository: taskRepository,
+                workspaceId: workspaceId,
+                contactId: contact.id,
+                accessScope: taskAccessScope,
+              ),
               if (contact case ClientContact(:final convertedAt)) ...[
                 const SizedBox(height: 16),
                 _DetailSection(
@@ -222,10 +252,63 @@ class _ContactDetailView extends StatelessWidget {
   }
 }
 
+class _FollowUpHistory extends StatelessWidget {
+  const _FollowUpHistory({
+    required this.repository,
+    required this.workspaceId,
+    required this.contactId,
+    required this.accessScope,
+  });
+  final TaskRepository repository;
+  final String workspaceId, contactId;
+  final TaskAccessScope accessScope;
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<CrmTask>>(
+      stream: repository.watchContactTasks(
+        workspaceId: workspaceId,
+        contactId: contactId,
+        accessScope: accessScope,
+      ),
+      builder: (context, snapshot) {
+        final tasks = snapshot.data ?? const <CrmTask>[];
+        return _DetailSection(
+          title: 'Follow-up history',
+          children: [
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                tasks.isEmpty)
+              const LinearProgressIndicator(),
+            if (snapshot.hasError)
+              const Text('Unable to load follow-up history.'),
+            if (!snapshot.hasError &&
+                tasks.isEmpty &&
+                snapshot.connectionState != ConnectionState.waiting)
+              const Text('No tasks are linked to this contact yet.'),
+            for (final task in tasks.take(5))
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  task.isCompleted
+                      ? Icons.check_circle_outline
+                      : Icons.pending_actions_outlined,
+                ),
+                title: Text(task.title),
+                subtitle: Text(
+                  task.isCompleted ? 'Completed' : 'Due ${task.dueOn}',
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _ContactActions extends StatelessWidget {
-  const _ContactActions({required this.contact});
+  const _ContactActions({required this.contact, required this.onAddFollowUp});
 
   final CrmContact contact;
+  final VoidCallback onAddFollowUp;
 
   @override
   Widget build(BuildContext context) {
@@ -234,6 +317,12 @@ class _ContactActions extends StatelessWidget {
     return _DetailSection(
       title: 'Actions',
       children: [
+        FilledButton.icon(
+          onPressed: state.isBusy ? null : onAddFollowUp,
+          icon: const Icon(Icons.add_task_outlined),
+          label: const Text('Add follow-up'),
+        ),
+        const SizedBox(height: 10),
         if (contact is Lead)
           FilledButton.tonalIcon(
             onPressed: state.isBusy ? null : () => _confirmConversion(context),

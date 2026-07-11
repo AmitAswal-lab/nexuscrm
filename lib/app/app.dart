@@ -9,6 +9,7 @@ import 'package:nexuscrm/features/authentication/domain/repositories/membership_
 import 'package:nexuscrm/features/authentication/presentation/bloc/session/session_bloc.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
+import 'package:nexuscrm/features/tasks/domain/repositories/task_repository.dart';
 
 class NexusCrmApp extends StatefulWidget {
   const NexusCrmApp({
@@ -16,6 +17,7 @@ class NexusCrmApp extends StatefulWidget {
     required this.membershipRepository,
     required this.contactRepository,
     required this.salesAssigneeRepository,
+    required this.taskRepository,
     super.key,
   });
 
@@ -23,6 +25,7 @@ class NexusCrmApp extends StatefulWidget {
   final MembershipRepository membershipRepository;
   final ContactRepository contactRepository;
   final SalesAssigneeRepository salesAssigneeRepository;
+  final TaskRepository taskRepository;
 
   @override
   State<NexusCrmApp> createState() => _NexusCrmAppState();
@@ -65,6 +68,7 @@ class _NexusCrmAppState extends State<NexusCrmApp> {
         RepositoryProvider<SalesAssigneeRepository>.value(
           value: widget.salesAssigneeRepository,
         ),
+        RepositoryProvider<TaskRepository>.value(value: widget.taskRepository),
       ],
       child: BlocProvider.value(
         value: _sessionBloc,

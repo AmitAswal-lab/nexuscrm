@@ -135,15 +135,19 @@ class SalesDashboardView extends StatelessWidget {
                             _OverviewCard(
                               icon: Icons.today_outlined,
                               label: "Today's follow-ups",
-                              value: '—',
-                              availability: 'Available with tasks',
+                              value: dashboardState.taskReady
+                                  ? '${dashboardState.todayFollowUpCount}'
+                                  : '…',
+                              availability: 'Open follow-ups due today',
                               compact: compactOverview,
                             ),
                             _OverviewCard(
                               icon: Icons.warning_amber_outlined,
                               label: 'Overdue tasks',
-                              value: '—',
-                              availability: 'Available with tasks',
+                              value: dashboardState.taskReady
+                                  ? '${dashboardState.overdueTasks.length}'
+                                  : '…',
+                              availability: 'Open overdue tasks',
                               compact: compactOverview,
                             ),
                           ],
@@ -158,14 +162,8 @@ class SalesDashboardView extends StatelessWidget {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Expanded(
-                                child: _UnavailableSection(
-                                  icon: Icons.calendar_today_outlined,
-                                  title: 'Today',
-                                  message:
-                                      'Follow-ups and overdue work will appear '
-                                      'after task data is connected.',
-                                ),
+                              Expanded(
+                                child: _TodayTasks(state: dashboardState),
                               ),
                               const SizedBox(width: 16),
                               Expanded(
@@ -180,13 +178,7 @@ class SalesDashboardView extends StatelessWidget {
                         else
                           Column(
                             children: [
-                              const _UnavailableSection(
-                                icon: Icons.calendar_today_outlined,
-                                title: 'Today',
-                                message:
-                                    'Follow-ups and overdue work will appear '
-                                    'after task data is connected.',
-                              ),
+                              _TodayTasks(state: dashboardState),
                               const SizedBox(height: 16),
                               _RecentContacts(
                                 state: dashboardState,
@@ -561,6 +553,29 @@ class _ContactDataFailure extends StatelessWidget {
           label: const Text('Try again'),
         ),
       ],
+    );
+  }
+}
+
+class _TodayTasks extends StatelessWidget {
+  const _TodayTasks({required this.state});
+  final SalesDashboardState state;
+  @override
+  Widget build(BuildContext context) {
+    if (!state.taskReady) {
+      return const _UnavailableSection(
+        icon: Icons.calendar_today_outlined,
+        title: 'Today',
+        message: 'Loading follow-ups and overdue work…',
+      );
+    }
+    final tasks = [...state.overdueTasks, ...state.todayTasks];
+    return _UnavailableSection(
+      icon: Icons.calendar_today_outlined,
+      title: 'Today',
+      message: tasks.isEmpty
+          ? 'No follow-ups or overdue work today.'
+          : tasks.take(4).map((task) => task.title).join('\n'),
     );
   }
 }
