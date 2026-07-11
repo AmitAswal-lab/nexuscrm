@@ -9,12 +9,16 @@ class TaskListPage extends StatelessWidget {
     required this.title,
     required this.description,
     required this.showAssignee,
+    required this.onCreateTask,
+    required this.onOpenTask,
     super.key,
   });
 
   final String title;
   final String description;
   final bool showAssignee;
+  final VoidCallback onCreateTask;
+  final ValueChanged<String> onOpenTask;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +31,21 @@ class TaskListPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(title, style: Theme.of(context).textTheme.headlineMedium),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.headlineMedium,
+                      ),
+                    ),
+                    FilledButton.icon(
+                      onPressed: onCreateTask,
+                      icon: const Icon(Icons.add),
+                      label: const Text('New task'),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 4),
                 Text(
                   description,
@@ -38,7 +56,12 @@ class TaskListPage extends StatelessWidget {
                 const SizedBox(height: 20),
                 const _TaskFilter(),
                 const SizedBox(height: 16),
-                Expanded(child: _TaskListBody(showAssignee: showAssignee)),
+                Expanded(
+                  child: _TaskListBody(
+                    showAssignee: showAssignee,
+                    onOpenTask: onOpenTask,
+                  ),
+                ),
               ],
             ),
           ),
@@ -80,9 +103,10 @@ class _TaskFilter extends StatelessWidget {
 }
 
 class _TaskListBody extends StatelessWidget {
-  const _TaskListBody({required this.showAssignee});
+  const _TaskListBody({required this.showAssignee, required this.onOpenTask});
 
   final bool showAssignee;
+  final ValueChanged<String> onOpenTask;
 
   @override
   Widget build(BuildContext context) {
@@ -95,16 +119,25 @@ class _TaskListBody extends StatelessWidget {
       TaskListStatus.failure when state.tasks.isEmpty => _FailureView(
         failure: state.failure,
       ),
-      _ => _TaskResults(state: state, showAssignee: showAssignee),
+      _ => _TaskResults(
+        state: state,
+        showAssignee: showAssignee,
+        onOpenTask: onOpenTask,
+      ),
     };
   }
 }
 
 class _TaskResults extends StatelessWidget {
-  const _TaskResults({required this.state, required this.showAssignee});
+  const _TaskResults({
+    required this.state,
+    required this.showAssignee,
+    required this.onOpenTask,
+  });
 
   final TaskListState state;
   final bool showAssignee;
+  final ValueChanged<String> onOpenTask;
 
   @override
   Widget build(BuildContext context) {
@@ -122,6 +155,7 @@ class _TaskResults extends StatelessWidget {
         task: tasks[index],
         today: state.today,
         showAssignee: showAssignee,
+        onTap: () => onOpenTask(tasks[index].id),
       ),
     );
   }
@@ -132,11 +166,13 @@ class _TaskCard extends StatelessWidget {
     required this.task,
     required this.today,
     required this.showAssignee,
+    required this.onTap,
   });
 
   final CrmTask task;
   final String today;
   final bool showAssignee;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -145,79 +181,82 @@ class _TaskCard extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              backgroundColor: task.isCompleted
-                  ? theme.colorScheme.secondaryContainer
-                  : theme.colorScheme.primaryContainer,
-              foregroundColor: task.isCompleted
-                  ? theme.colorScheme.onSecondaryContainer
-                  : theme.colorScheme.onPrimaryContainer,
-              child: Icon(
-                task.isCompleted
-                    ? Icons.check
-                    : isFollowUp
-                    ? Icons.phone_in_talk_outlined
-                    : Icons.task_alt_outlined,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                backgroundColor: task.isCompleted
+                    ? theme.colorScheme.secondaryContainer
+                    : theme.colorScheme.primaryContainer,
+                foregroundColor: task.isCompleted
+                    ? theme.colorScheme.onSecondaryContainer
+                    : theme.colorScheme.onPrimaryContainer,
+                child: Icon(
+                  task.isCompleted
+                      ? Icons.check
+                      : isFollowUp
+                      ? Icons.phone_in_talk_outlined
+                      : Icons.task_alt_outlined,
+                ),
               ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(task.title, style: theme.textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(
-                    _dueLabel(task, today),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color:
-                          task.dueOn.compareTo(today) < 0 && !task.isCompleted
-                          ? theme.colorScheme.error
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  if (task.notes != null) ...[
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(task.title, style: theme.textTheme.titleMedium),
                     const SizedBox(height: 4),
                     Text(
-                      task.notes!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                      _dueLabel(task, today),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color:
+                            task.dueOn.compareTo(today) < 0 && !task.isCompleted
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                  ],
-                  if (showAssignee) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Assigned to ${task.assigneeId}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                    if (task.notes != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        task.notes!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
-                    ),
+                    ],
+                    if (showAssignee) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Assigned to ${task.assigneeId}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Chip(
-              visualDensity: VisualDensity.compact,
-              label: Text(
-                task.isCompleted
-                    ? 'Completed'
-                    : isFollowUp
-                    ? 'Follow-up'
-                    : 'Task',
+              const SizedBox(width: 12),
+              Chip(
+                visualDensity: VisualDensity.compact,
+                label: Text(
+                  task.isCompleted
+                      ? 'Completed'
+                      : isFollowUp
+                      ? 'Follow-up'
+                      : 'Task',
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

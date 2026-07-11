@@ -124,6 +124,8 @@ Future<void> _pumpPage(
           title: 'Workspace tasks',
           description: 'Tasks and follow-ups across this workspace.',
           showAssignee: showAssignee,
+          onCreateTask: () {},
+          onOpenTask: (_) {},
         ),
       ),
     ),

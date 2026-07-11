@@ -31,7 +31,11 @@ import 'package:nexuscrm/features/sales/presentation/cubit/sales_dashboard/sales
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
 import 'package:nexuscrm/features/tasks/domain/repositories/task_repository.dart';
 import 'package:nexuscrm/features/tasks/domain/value_objects/task_access_scope.dart';
+import 'package:nexuscrm/features/tasks/presentation/cubit/task_detail/task_detail_cubit.dart';
+import 'package:nexuscrm/features/tasks/presentation/cubit/task_form/task_form_cubit.dart';
 import 'package:nexuscrm/features/tasks/presentation/cubit/task_list/task_list_cubit.dart';
+import 'package:nexuscrm/features/tasks/presentation/pages/task_detail_page.dart';
+import 'package:nexuscrm/features/tasks/presentation/pages/task_form_page.dart';
 import 'package:nexuscrm/features/tasks/presentation/pages/task_list_page.dart';
 
 final class AppRouter {
@@ -201,6 +205,12 @@ final class AppRouter {
                 description: 'Tasks and follow-ups across this workspace.',
                 accessScope: const WorkspaceTaskAccess(),
                 showAssignee: true,
+                newRoute: AppRoutes.adminNewTask,
+                taskRoute: AppRoutes.adminTask,
+              ),
+              routes: _taskRoutes(
+                canAssign: true,
+                editRoute: AppRoutes.adminEditTask,
               ),
             ),
           ],
@@ -295,8 +305,14 @@ final class AppRouter {
                   description: 'Tasks and follow-ups assigned to you.',
                   accessScope: AssignedTaskAccess(session.user.id),
                   showAssignee: false,
+                  newRoute: AppRoutes.salesNewTask,
+                  taskRoute: AppRoutes.salesTask,
                 );
               },
+              routes: _taskRoutes(
+                canAssign: false,
+                editRoute: AppRoutes.salesEditTask,
+              ),
             ),
           ],
         ),
@@ -362,6 +378,8 @@ final class AppRouter {
     required String description,
     required TaskAccessScope accessScope,
     required bool showAssignee,
+    required String newRoute,
+    required String Function(String) taskRoute,
   }) {
     final session = _authenticatedSession(context);
 
@@ -375,7 +393,78 @@ final class AppRouter {
         title: title,
         description: description,
         showAssignee: showAssignee,
+        onCreateTask: () => context.go(newRoute),
+        onOpenTask: (id) => context.go(taskRoute(id)),
       ),
+    );
+  }
+
+  static List<RouteBase> _taskRoutes({
+    required bool canAssign,
+    required String Function(String) editRoute,
+  }) => [
+    GoRoute(
+      path: 'new',
+      builder: (context, state) => _taskFormPage(context, canAssign: canAssign),
+    ),
+    GoRoute(
+      path: ':taskId',
+      builder: (context, state) => _taskDetailPage(
+        context,
+        taskId: state.pathParameters['taskId']!,
+        editRoute: editRoute,
+      ),
+      routes: [
+        GoRoute(
+          path: 'edit',
+          builder: (context, state) => _taskFormPage(
+            context,
+            canAssign: canAssign,
+            taskId: state.pathParameters['taskId']!,
+          ),
+        ),
+      ],
+    ),
+  ];
+
+  static Widget _taskFormPage(
+    BuildContext context, {
+    required bool canAssign,
+    String? taskId,
+  }) {
+    final session = _authenticatedSession(context);
+    return BlocProvider(
+      create: (context) => TaskFormCubit(
+        taskRepository: context.read<TaskRepository>(),
+        contactRepository: context.read<ContactRepository>(),
+        salesAssigneeRepository: context.read<SalesAssigneeRepository>(),
+        workspaceId: session.membership.workspaceId,
+        actorUserId: session.user.id,
+        contactAccessScope: canAssign
+            ? const WorkspaceContactAccess()
+            : OwnedContactAccess(session.user.id),
+        canAssign: canAssign,
+        fixedAssigneeId: canAssign ? null : session.user.id,
+        taskId: taskId,
+      ),
+      child: TaskFormPage(canAssign: canAssign),
+    );
+  }
+
+  static Widget _taskDetailPage(
+    BuildContext context, {
+    required String taskId,
+    required String Function(String) editRoute,
+  }) {
+    final session = _authenticatedSession(context);
+    return BlocProvider(
+      create: (context) => TaskDetailCubit(
+        taskRepository: context.read<TaskRepository>(),
+        workspaceId: session.membership.workspaceId,
+        taskId: taskId,
+        actorUserId: session.user.id,
+      ),
+      child: TaskDetailPage(onEdit: () => context.go(editRoute(taskId))),
     );
   }
 
