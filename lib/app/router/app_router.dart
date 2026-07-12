@@ -5,6 +5,9 @@ import 'package:nexuscrm/app/navigation/app_navigation_shell.dart';
 import 'package:nexuscrm/app/navigation/pages/more_page.dart';
 import 'package:nexuscrm/app/router/app_routes.dart';
 import 'package:nexuscrm/app/router/router_refresh_notifier.dart';
+import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
+import 'package:nexuscrm/features/activities/presentation/cubit/call_note_form/call_note_form_cubit.dart';
+import 'package:nexuscrm/features/activities/presentation/pages/call_note_form_page.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_home_placeholder.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/auth_session.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
@@ -180,6 +183,7 @@ final class AppRouter {
                     isSalesView: false,
                     editRoute: AppRoutes.adminEditContact,
                     newTaskRoute: AppRoutes.adminNewTask,
+                    logCallNoteRoute: AppRoutes.adminLogCallNote,
                   ),
                   routes: [
                     GoRoute(
@@ -188,6 +192,13 @@ final class AppRouter {
                         context,
                         contactId: state.pathParameters['contactId']!,
                         canAssignOwner: true,
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'call-note',
+                      builder: (context, state) => _callNoteFormPage(
+                        context,
+                        contactId: state.pathParameters['contactId']!,
                       ),
                     ),
                   ],
@@ -278,6 +289,7 @@ final class AppRouter {
                     isSalesView: true,
                     editRoute: AppRoutes.salesEditContact,
                     newTaskRoute: AppRoutes.salesNewTask,
+                    logCallNoteRoute: AppRoutes.salesLogCallNote,
                   ),
                   routes: [
                     GoRoute(
@@ -286,6 +298,13 @@ final class AppRouter {
                         context,
                         contactId: state.pathParameters['contactId']!,
                         canAssignOwner: false,
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'call-note',
+                      builder: (context, state) => _callNoteFormPage(
+                        context,
+                        contactId: state.pathParameters['contactId']!,
                       ),
                     ),
                   ],
@@ -492,6 +511,7 @@ final class AppRouter {
     required bool isSalesView,
     required String Function(String) editRoute,
     required String newTaskRoute,
+    required String Function(String) logCallNoteRoute,
   }) {
     final session = _authenticatedSession(context);
 
@@ -517,12 +537,30 @@ final class AppRouter {
         isSalesView: isSalesView,
         onEdit: () => context.go(editRoute(contactId)),
         onAddFollowUp: () => context.go('$newTaskRoute?contactId=$contactId'),
+        onLogCallNote: () => context.go(logCallNoteRoute(contactId)),
         workspaceId: session.membership.workspaceId,
         taskAccessScope: isSalesView
             ? AssignedTaskAccess(session.user.id)
             : const WorkspaceTaskAccess(),
         taskRepository: context.read<TaskRepository>(),
       ),
+    );
+  }
+
+  static Widget _callNoteFormPage(
+    BuildContext context, {
+    required String contactId,
+  }) {
+    final session = _authenticatedSession(context);
+
+    return BlocProvider(
+      create: (context) => CallNoteFormCubit(
+        activityRepository: context.read<ActivityRepository>(),
+        workspaceId: session.membership.workspaceId,
+        contactId: contactId,
+        actorUserId: session.user.id,
+      ),
+      child: const CallNoteFormPage(),
     );
   }
 

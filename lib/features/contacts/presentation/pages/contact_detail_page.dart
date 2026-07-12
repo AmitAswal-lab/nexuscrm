@@ -16,6 +16,7 @@ class ContactDetailPage extends StatelessWidget {
     required this.isSalesView,
     required this.onEdit,
     required this.onAddFollowUp,
+    required this.onLogCallNote,
     required this.workspaceId,
     required this.taskAccessScope,
     required this.taskRepository,
@@ -26,6 +27,7 @@ class ContactDetailPage extends StatelessWidget {
   final bool isSalesView;
   final VoidCallback onEdit;
   final VoidCallback onAddFollowUp;
+  final VoidCallback onLogCallNote;
   final String workspaceId;
   final TaskAccessScope taskAccessScope;
   final TaskRepository taskRepository;
@@ -70,6 +72,7 @@ class ContactDetailPage extends StatelessWidget {
             isSalesView: isSalesView,
             onEdit: onEdit,
             onAddFollowUp: onAddFollowUp,
+            onLogCallNote: onLogCallNote,
             workspaceId: workspaceId,
             taskAccessScope: taskAccessScope,
             taskRepository: taskRepository,
@@ -99,6 +102,7 @@ class _ContactDetailView extends StatelessWidget {
     required this.isSalesView,
     required this.onEdit,
     required this.onAddFollowUp,
+    required this.onLogCallNote,
     required this.workspaceId,
     required this.taskAccessScope,
     required this.taskRepository,
@@ -109,6 +113,7 @@ class _ContactDetailView extends StatelessWidget {
   final bool isSalesView;
   final VoidCallback onEdit;
   final VoidCallback onAddFollowUp;
+  final VoidCallback onLogCallNote;
   final String workspaceId;
   final TaskAccessScope taskAccessScope;
   final TaskRepository taskRepository;
@@ -205,6 +210,7 @@ class _ContactDetailView extends StatelessWidget {
               _ContactActions(
                 contact: contact,
                 onAddFollowUp: onAddFollowUp,
+                onLogCallNote: onLogCallNote,
                 phoneDialer: phoneDialer,
               ),
               const SizedBox(height: 16),
@@ -319,11 +325,13 @@ class _ContactActions extends StatelessWidget {
   const _ContactActions({
     required this.contact,
     required this.onAddFollowUp,
+    required this.onLogCallNote,
     required this.phoneDialer,
   });
 
   final CrmContact contact;
   final VoidCallback onAddFollowUp;
+  final VoidCallback onLogCallNote;
   final PhoneDialer phoneDialer;
 
   @override
@@ -342,6 +350,12 @@ class _ContactActions extends StatelessWidget {
           label: Text(
             phoneNumber == null ? 'Phone unavailable' : 'Call contact',
           ),
+        ),
+        const SizedBox(height: 10),
+        FilledButton.tonalIcon(
+          onPressed: state.isBusy ? null : onLogCallNote,
+          icon: const Icon(Icons.note_add_outlined),
+          label: const Text('Log call note'),
         ),
         const SizedBox(height: 10),
         FilledButton.icon(

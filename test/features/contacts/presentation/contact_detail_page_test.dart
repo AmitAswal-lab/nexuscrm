@@ -95,6 +95,26 @@ void main() {
     expect(callAction.onPressed, isNull);
   });
 
+  testWidgets('opens the call-note workflow from contact actions', (
+    tester,
+  ) async {
+    var callNoteOpened = false;
+    _stubContact(contactRepository, Stream.value(_lead));
+
+    await _pumpDetail(
+      tester,
+      repository: contactRepository,
+      isSalesView: true,
+      onLogCallNote: () => callNoteOpened = true,
+    );
+
+    final callNoteAction = find.text('Log call note');
+    await tester.ensureVisible(callNoteAction);
+    await tester.tap(callNoteAction);
+
+    expect(callNoteOpened, isTrue);
+  });
+
   testWidgets('launches the native dialer with a normalized contact number', (
     tester,
   ) async {
@@ -286,6 +306,7 @@ void main() {
                   isSalesView: false,
                   onEdit: () {},
                   onAddFollowUp: () {},
+                  onLogCallNote: () {},
                   workspaceId: 'workspace-one',
                   taskAccessScope: const WorkspaceTaskAccess(),
                   taskRepository: const EmptyTaskRepository(),
@@ -334,6 +355,7 @@ Future<void> _pumpDetail(
   required ContactRepository repository,
   required bool isSalesView,
   VoidCallback? onEdit,
+  VoidCallback? onLogCallNote,
   PhoneDialer phoneDialer = const _UnavailablePhoneDialer(),
 }) async {
   final cubit = ContactDetailCubit(
@@ -362,6 +384,7 @@ Future<void> _pumpDetail(
             isSalesView: isSalesView,
             onEdit: onEdit ?? () {},
             onAddFollowUp: () {},
+            onLogCallNote: onLogCallNote ?? () {},
             workspaceId: 'workspace-one',
             taskAccessScope: const WorkspaceTaskAccess(),
             taskRepository: const EmptyTaskRepository(),
