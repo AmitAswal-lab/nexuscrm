@@ -5,9 +5,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:nexuscrm/features/activities/domain/entities/call_note.dart';
+import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
+import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
 import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
+import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/services/phone_dialer.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_actions/contact_actions_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
@@ -17,6 +21,12 @@ import 'package:nexuscrm/features/tasks/domain/value_objects/task_access_scope.d
 import '../../../helpers/empty_contact_repository.dart';
 
 final class _MockContactRepository extends Mock implements ContactRepository {}
+
+final class _MockActivityRepository extends Mock
+    implements ActivityRepository {}
+
+final class _MockSalesAssigneeRepository extends Mock
+    implements SalesAssigneeRepository {}
 
 final class _MockPhoneDialer extends Mock implements PhoneDialer {}
 
@@ -82,6 +92,34 @@ void main() {
     expect(find.text('Archive contact'), findsOneWidget);
   });
 
+  testWidgets('shows an admin the assigned representative name', (
+    tester,
+  ) async {
+    final assignees = _MockSalesAssigneeRepository();
+    when(
+      () => assignees.watchActiveSalesAssignees(workspaceId: 'workspace-one'),
+    ).thenAnswer(
+      (_) => Stream.value(const [
+        SalesAssignee(
+          userId: 'sales-user',
+          workspaceId: 'workspace-one',
+          displayName: 'Asha Sharma',
+          email: 'asha@example.com',
+        ),
+      ]),
+    );
+    _stubContact(contactRepository, Stream.value(_lead));
+
+    await _pumpDetail(
+      tester,
+      repository: contactRepository,
+      isSalesView: false,
+      salesAssigneeRepository: assignees,
+    );
+
+    expect(find.text('Asha Sharma'), findsOneWidget);
+  });
+
   testWidgets('disables calling when a contact has no usable phone number', (
     tester,
   ) async {
@@ -113,6 +151,49 @@ void main() {
     await tester.tap(callNoteAction);
 
     expect(callNoteOpened, isTrue);
+  });
+
+  testWidgets('renders a compact recent activity preview', (tester) async {
+    var activityOpened = false;
+    final activityRepository = _MockActivityRepository();
+    when(
+      () => activityRepository.watchCallNotes(
+        workspaceId: 'workspace-one',
+        contactId: 'lead-one',
+      ),
+    ).thenAnswer(
+      (_) => Stream.value(<CallNote>[
+        CallNote(
+          id: 'note-one',
+          workspaceId: 'workspace-one',
+          contactId: 'lead-one',
+          outcome: CallOutcome.voicemail,
+          note: 'Asked to call back next week.',
+          actorUserId: 'sales-user',
+          createdAt: _timestamp,
+          nextTaskId: null,
+        ),
+      ]),
+    );
+    _stubContact(contactRepository, Stream.value(_lead));
+
+    await _pumpDetail(
+      tester,
+      repository: contactRepository,
+      isSalesView: true,
+      activityRepository: activityRepository,
+      onViewAllActivity: () => activityOpened = true,
+    );
+
+    await tester.ensureVisible(find.text('Recent activity'));
+    expect(find.text('Left voicemail'), findsOneWidget);
+    expect(
+      find.textContaining('Asked to call back next week.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Logged by You'), findsOneWidget);
+    await tester.tap(find.text('View all activity'));
+    expect(activityOpened, isTrue);
   });
 
   testWidgets('launches the native dialer with a normalized contact number', (
@@ -307,9 +388,12 @@ void main() {
                   onEdit: () {},
                   onAddFollowUp: () {},
                   onLogCallNote: () {},
+                  onViewAllActivity: () {},
                   workspaceId: 'workspace-one',
                   taskAccessScope: const WorkspaceTaskAccess(),
                   taskRepository: const EmptyTaskRepository(),
+                  activityRepository: const EmptyActivityRepository(),
+                  salesAssigneeRepository: const EmptySalesAssigneeRepository(),
                 ),
               ),
             );
@@ -356,7 +440,11 @@ Future<void> _pumpDetail(
   required bool isSalesView,
   VoidCallback? onEdit,
   VoidCallback? onLogCallNote,
+  VoidCallback? onViewAllActivity,
   PhoneDialer phoneDialer = const _UnavailablePhoneDialer(),
+  ActivityRepository activityRepository = const EmptyActivityRepository(),
+  SalesAssigneeRepository salesAssigneeRepository =
+      const EmptySalesAssigneeRepository(),
 }) async {
   final cubit = ContactDetailCubit(
     contactRepository: repository,
@@ -385,9 +473,12 @@ Future<void> _pumpDetail(
             onEdit: onEdit ?? () {},
             onAddFollowUp: () {},
             onLogCallNote: onLogCallNote ?? () {},
+            onViewAllActivity: onViewAllActivity ?? () {},
             workspaceId: 'workspace-one',
             taskAccessScope: const WorkspaceTaskAccess(),
             taskRepository: const EmptyTaskRepository(),
+            activityRepository: activityRepository,
+            salesAssigneeRepository: salesAssigneeRepository,
             phoneDialer: phoneDialer,
           ),
         ),
