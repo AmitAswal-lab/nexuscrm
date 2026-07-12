@@ -43,8 +43,8 @@ enterprise reporting.
 | 2. Navigation shell | Complete | Role-aware application navigation and feature destinations |
 | 3. Sales dashboard | Complete | A useful sales home with staged data integration |
 | 4. Lead and client management | Complete | Teams maintain customer records and ownership |
-| 5. Tasks and follow-ups | In progress | Representatives organize actionable work |
-| 6. Dialer and post-call notes | Planned | Representatives launch calls and record outcomes |
+| 5. Tasks and follow-ups | Complete | Representatives organize actionable work |
+| 6. Dialer and post-call notes | Complete | Representatives launch calls, log outcomes, and create follow-ups |
 | 7. Admin user management and invitations | Planned | Administrators securely manage and invite representatives |
 | 8. Sales-representative onboarding | Planned | Invited representatives establish accounts and enter the workspace |
 | 9. Admin activity and basic reporting | Planned | Administrators review team activity and lightweight summaries |
@@ -135,54 +135,20 @@ Delivered:
 See [Lead and client management](lead-management.md) for implementation and
 security details.
 
-## Planned MVP milestones
-
 ### 5. Tasks and follow-ups
 
-Goal: turn CRM records into clear next actions.
-
-Current implementation includes role-scoped task lists, task creation/editing,
-completion and reopen actions, contact follow-up links, and sales-dashboard
-Today/overdue summaries. Final manual review remains before merging to `dev`.
-
-Planned scope:
-
-- Tasks linked to leads or clients
-- Assignee, due date, status, and short notes
-- Create, edit, complete, and reopen actions
-- Today, upcoming, and overdue views
-- Basic follow-up history
-- Dashboard task and follow-up integration
-- Role-aware access rules and tests
-
-Advanced calendar views, reminders, and push notifications remain deferred.
-
-Definition of done:
-
-- A representative can identify and complete today's work.
-- Administrators can review tasks within their workspace.
-- Task updates remain linked to the relevant CRM record.
-- Dashboard task summaries use real workspace data.
+Delivered role-scoped task lists, calendar due dates, task lifecycle actions,
+contact links, dashboard metrics, and verified Firestore rules.
 
 ### 6. Dialer and post-call notes
 
-Goal: support the common call-and-follow-up workflow without building a calling
-service.
+Delivered native dialer launch, append-only call notes, optional atomic
+follow-up creation, and compact/dedicated contact activity timelines.
 
-Planned scope:
+See [Dialer, call notes, and follow-ups](dialer-post-call-notes.md) for the
+workflow, schema, permissions, and routes.
 
-- Launch the native phone dialer from a lead or client
-- Return to Nexus CRM after the call
-- Manually record call outcome, note, and next follow-up
-- Store the activity against the CRM record and acting user
-
-Automatic call detection or recording is not included.
-
-Definition of done:
-
-- A representative can initiate a call from a stored phone number.
-- The app provides a clear manual post-call note flow.
-- The resulting activity is visible on the related record.
+## Planned MVP milestones
 
 ### 7. Admin user management and invitations
 
