@@ -10,12 +10,14 @@ abstract final class AppRoutes {
   static const adminLeads = '$admin/leads';
   static const adminNewLead = '$adminLeads/new';
   static const adminTasks = '$admin/tasks';
+  static const adminNewTask = '$adminTasks/new';
   static const adminMore = '$admin/more';
   static const sales = '/sales';
   static const salesHome = '$sales/home';
   static const salesLeads = '$sales/leads';
   static const salesNewLead = '$salesLeads/new';
   static const salesTasks = '$sales/tasks';
+  static const salesNewTask = '$salesTasks/new';
   static const salesMore = '$sales/more';
 
   static String adminContact(String contactId) => '$adminLeads/$contactId';
@@ -27,4 +29,19 @@ abstract final class AppRoutes {
 
   static String salesEditContact(String contactId) =>
       '${salesContact(contactId)}/edit';
+
+  static String adminLogCallNote(String contactId) =>
+      '${adminContact(contactId)}/call-note';
+  static String adminContactActivity(String contactId) =>
+      '${adminContact(contactId)}/activity';
+
+  static String salesLogCallNote(String contactId) =>
+      '${salesContact(contactId)}/call-note';
+  static String salesContactActivity(String contactId) =>
+      '${salesContact(contactId)}/activity';
+
+  static String adminTask(String taskId) => '$adminTasks/$taskId';
+  static String salesTask(String taskId) => '$salesTasks/$taskId';
+  static String adminEditTask(String taskId) => '${adminTask(taskId)}/edit';
+  static String salesEditTask(String taskId) => '${salesTask(taskId)}/edit';
 }

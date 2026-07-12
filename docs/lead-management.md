@@ -83,11 +83,15 @@ current document type and prevent stale or conflicting writes.
 /admin/leads/new
 /admin/leads/:contactId
 /admin/leads/:contactId/edit
+/admin/leads/:contactId/call-note
+/admin/leads/:contactId/activity
 
 /sales/leads
 /sales/leads/new
 /sales/leads/:contactId
 /sales/leads/:contactId/edit
+/sales/leads/:contactId/call-note
+/sales/leads/:contactId/activity
 ```
 
 The shared list and forms receive role-specific access and ownership rules from
@@ -101,6 +105,8 @@ their route builders.
 - `ContactDetailCubit` owns one live contact subscription.
 - `ContactEditCubit` resolves contact and assignee data before updates.
 - `ContactActionsCubit` isolates conversion and archive mutations.
+- Contact details resolve active sales-owner names for administrators and link
+  to call-note and activity-timeline workflows.
 - `SalesDashboardCubit` derives owner-scoped metrics and recent contacts.
 
 Domain contracts remain independent of Flutter and Firebase. Firestore mapping

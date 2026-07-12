@@ -103,6 +103,303 @@ service cloud.firestore {
       return ownerId == null || isActiveSalesAssignee(workspaceId, ownerId);
     }
 
+    function taskContactPath(workspaceId, contactId) {
+      return /databases/$(database)/documents/workspaces/$(workspaceId)/contacts/$(contactId);
+    }
+
+    function isActiveTaskContact(workspaceId, contactId) {
+      return contactId is string
+        && exists(taskContactPath(workspaceId, contactId))
+        && get(taskContactPath(workspaceId, contactId)).data.workspaceId == workspaceId
+        && get(taskContactPath(workspaceId, contactId)).data.isArchived == false;
+    }
+
+    function isSalesOwnedTaskContact(workspaceId, contactId) {
+      return isActiveTaskContact(workspaceId, contactId)
+        && get(taskContactPath(workspaceId, contactId)).data.ownerId
+          == request.auth.uid;
+    }
+
+    function hasValidTaskKeys(data) {
+      return data.keys().hasOnly([
+        'workspaceId',
+        'contactId',
+        'kind',
+        'title',
+        'notes',
+        'assigneeId',
+        'dueOn',
+        'status',
+        'completionCount',
+        'lastCompletedAt',
+        'lastCompletedByUserId',
+        'createdByUserId',
+        'updatedByUserId',
+        'createdAt',
+        'updatedAt',
+      ]);
+    }
+
+    function isOptionalShortNotes(value) {
+      return value == null || (
+        value is string
+        && value.size() > 0
+        && value.size() <= 1000
+      );
+    }
+
+    function isTaskDueOn(value) {
+      return value is string
+        && value.matches(
+          '^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$'
+        );
+    }
+
+    function hasValidTaskCompletionData(data) {
+      return data.completionCount is int
+        && data.completionCount >= 0
+        && (
+          (
+            data.status == 'open'
+            && (
+              (
+                data.completionCount == 0
+                && data.lastCompletedAt == null
+                && data.lastCompletedByUserId == null
+              )
+              || (
+                data.completionCount > 0
+                && data.lastCompletedAt is timestamp
+                && data.lastCompletedByUserId is string
+                && data.lastCompletedByUserId.size() > 0
+              )
+            )
+          )
+          || (
+            data.status == 'completed'
+            && data.completionCount > 0
+            && data.lastCompletedAt is timestamp
+            && data.lastCompletedByUserId is string
+            && data.lastCompletedByUserId.size() > 0
+          )
+        );
+    }
+
+    function hasValidTaskData(data, workspaceId) {
+      return hasValidTaskKeys(data)
+        && data.workspaceId == workspaceId
+        && data.contactId is string
+        && data.contactId.size() > 0
+        && data.kind in ['task', 'follow_up']
+        && data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 120
+        && isOptionalShortNotes(data.notes)
+        && isActiveSalesAssignee(workspaceId, data.assigneeId)
+        && isTaskDueOn(data.dueOn)
+        && hasValidTaskCompletionData(data)
+        && data.createdByUserId is string
+        && data.createdByUserId.size() > 0
+        && data.updatedByUserId is string
+        && data.updatedByUserId.size() > 0
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function canReadTask(workspaceId) {
+      return isActiveAdmin(workspaceId)
+        || (
+          isActiveSalesRep(workspaceId)
+          && resource.data.assigneeId == request.auth.uid
+        );
+    }
+
+    function canCreateTask(workspaceId) {
+      return isActiveAdmin(workspaceId)
+        || (
+          isActiveSalesRep(workspaceId)
+          && request.resource.data.assigneeId == request.auth.uid
+          && isSalesOwnedTaskContact(
+            workspaceId,
+            request.resource.data.contactId,
+          )
+        );
+    }
+
+    function canUpdateTask(workspaceId) {
+      return isActiveAdmin(workspaceId)
+        || (
+          isActiveSalesRep(workspaceId)
+          && resource.data.assigneeId == request.auth.uid
+          && request.resource.data.assigneeId == request.auth.uid
+        );
+    }
+
+    function hasValidTaskCreation(workspaceId) {
+      return hasValidTaskData(request.resource.data, workspaceId)
+        && isActiveTaskContact(workspaceId, request.resource.data.contactId)
+        && request.resource.data.status == 'open'
+        && request.resource.data.completionCount == 0
+        && request.resource.data.lastCompletedAt == null
+        && request.resource.data.lastCompletedByUserId == null
+        && request.resource.data.createdByUserId == request.auth.uid
+        && request.resource.data.updatedByUserId == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function isTaskContentUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'kind',
+          'title',
+          'notes',
+          'assigneeId',
+          'dueOn',
+          'updatedByUserId',
+          'updatedAt',
+        ])
+        && request.resource.data.status == resource.data.status
+        && request.resource.data.completionCount == resource.data.completionCount
+        && request.resource.data.lastCompletedAt == resource.data.lastCompletedAt
+        && request.resource.data.lastCompletedByUserId
+          == resource.data.lastCompletedByUserId;
+    }
+
+    function isTaskCompletion() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'completionCount',
+          'lastCompletedAt',
+          'lastCompletedByUserId',
+          'updatedByUserId',
+          'updatedAt',
+        ])
+        && resource.data.status == 'open'
+        && request.resource.data.status == 'completed'
+        && request.resource.data.completionCount
+          == resource.data.completionCount + 1
+        && request.resource.data.lastCompletedAt == request.time
+        && request.resource.data.lastCompletedByUserId == request.auth.uid;
+    }
+
+    function isTaskReopen() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'updatedByUserId',
+          'updatedAt',
+        ])
+        && resource.data.status == 'completed'
+        && request.resource.data.status == 'open'
+        && request.resource.data.completionCount == resource.data.completionCount
+        && request.resource.data.lastCompletedAt == resource.data.lastCompletedAt
+        && request.resource.data.lastCompletedByUserId
+          == resource.data.lastCompletedByUserId;
+    }
+
+    function hasValidTaskUpdate(workspaceId) {
+      return hasValidTaskData(request.resource.data, workspaceId)
+        && request.resource.data.workspaceId == resource.data.workspaceId
+        && request.resource.data.contactId == resource.data.contactId
+        && request.resource.data.createdByUserId
+          == resource.data.createdByUserId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedByUserId == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && (
+          isTaskContentUpdate()
+          || isTaskCompletion()
+          || isTaskReopen()
+        );
+    }
+
+    function hasValidActivityKeys(data) {
+      return data.keys().hasOnly([
+        'workspaceId',
+        'type',
+        'contactId',
+        'outcome',
+        'note',
+        'actorUserId',
+        'createdAt',
+        'nextTaskId',
+      ]);
+    }
+
+    function activityTaskPath(workspaceId, taskId) {
+      return /databases/$(database)/documents/workspaces/$(workspaceId)/tasks/$(taskId);
+    }
+
+    function hasValidNewFollowUpLink(data, workspaceId) {
+      return data.nextTaskId == null
+        || (
+          data.nextTaskId is string
+          && data.nextTaskId.size() > 0
+          && existsAfter(activityTaskPath(workspaceId, data.nextTaskId))
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.workspaceId
+            == workspaceId
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.contactId
+            == data.contactId
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.kind
+            == 'follow_up'
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.status
+            == 'open'
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.createdByUserId
+            == request.auth.uid
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.updatedByUserId
+            == request.auth.uid
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.createdAt
+            == request.time
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.updatedAt
+            == request.time
+        );
+    }
+
+    function hasValidCallNoteData(data, workspaceId) {
+      return hasValidActivityKeys(data)
+        && data.workspaceId == workspaceId
+        && data.type == 'call_note'
+        && data.contactId is string
+        && data.contactId.size() > 0
+        && data.outcome in [
+          'connected',
+          'voicemail',
+          'no_answer',
+          'wrong_number',
+          'other',
+        ]
+        && isOptionalShortNotes(data.note)
+        && data.actorUserId is string
+        && data.actorUserId.size() > 0
+        && data.createdAt is timestamp
+        && hasValidNewFollowUpLink(data, workspaceId);
+    }
+
+    function canReadActivity(workspaceId) {
+      return isActiveAdmin(workspaceId)
+        || (
+          isActiveSalesRep(workspaceId)
+          && isSalesOwnedTaskContact(workspaceId, resource.data.contactId)
+        );
+    }
+
+    function canCreateActivity(workspaceId) {
+      return isActiveAdmin(workspaceId)
+        || (
+          isActiveSalesRep(workspaceId)
+          && isSalesOwnedTaskContact(
+            workspaceId,
+            request.resource.data.contactId,
+          )
+        );
+    }
+
+    function hasValidCallNoteCreation(workspaceId) {
+      return hasValidCallNoteData(request.resource.data, workspaceId)
+        && isActiveTaskContact(workspaceId, request.resource.data.contactId)
+        && request.resource.data.actorUserId == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+    }
+
     function canReadContact(workspaceId) {
       return isActiveAdmin(workspaceId)
         || (
@@ -233,6 +530,22 @@ service cloud.firestore {
       allow update: if canUpdateContact(workspaceId)
         && hasValidContactUpdate(workspaceId);
       allow delete: if false;
+    }
+
+    match /workspaces/{workspaceId}/tasks/{taskId} {
+      allow read: if canReadTask(workspaceId);
+      allow create: if canCreateTask(workspaceId)
+        && hasValidTaskCreation(workspaceId);
+      allow update: if canUpdateTask(workspaceId)
+        && hasValidTaskUpdate(workspaceId);
+      allow delete: if false;
+    }
+
+    match /workspaces/{workspaceId}/activities/{activityId} {
+      allow read: if canReadActivity(workspaceId);
+      allow create: if canCreateActivity(workspaceId)
+        && hasValidCallNoteCreation(workspaceId);
+      allow update, delete: if false;
     }
 
     match /{document=**} {
