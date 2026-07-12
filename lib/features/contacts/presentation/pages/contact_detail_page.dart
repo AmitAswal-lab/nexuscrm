@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nexuscrm/features/activities/domain/entities/call_note.dart';
+import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
+import 'package:nexuscrm/features/contacts/data/services/url_launcher_phone_dialer.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
+import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
 import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
+import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
+import 'package:nexuscrm/features/contacts/domain/services/phone_dialer.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_actions/contact_actions_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
@@ -14,18 +20,28 @@ class ContactDetailPage extends StatelessWidget {
     required this.isSalesView,
     required this.onEdit,
     required this.onAddFollowUp,
+    required this.onLogCallNote,
+    required this.onViewAllActivity,
     required this.workspaceId,
     required this.taskAccessScope,
     required this.taskRepository,
+    required this.activityRepository,
+    required this.salesAssigneeRepository,
+    this.phoneDialer = const UrlLauncherPhoneDialer(),
     super.key,
   });
 
   final bool isSalesView;
   final VoidCallback onEdit;
   final VoidCallback onAddFollowUp;
+  final VoidCallback onLogCallNote;
+  final VoidCallback onViewAllActivity;
   final String workspaceId;
   final TaskAccessScope taskAccessScope;
   final TaskRepository taskRepository;
+  final ActivityRepository activityRepository;
+  final SalesAssigneeRepository salesAssigneeRepository;
+  final PhoneDialer phoneDialer;
 
   @override
   Widget build(BuildContext context) {
@@ -66,9 +82,14 @@ class ContactDetailPage extends StatelessWidget {
             isSalesView: isSalesView,
             onEdit: onEdit,
             onAddFollowUp: onAddFollowUp,
+            onLogCallNote: onLogCallNote,
+            onViewAllActivity: onViewAllActivity,
             workspaceId: workspaceId,
             taskAccessScope: taskAccessScope,
             taskRepository: taskRepository,
+            activityRepository: activityRepository,
+            salesAssigneeRepository: salesAssigneeRepository,
+            phoneDialer: phoneDialer,
           ),
         },
       ),
@@ -94,18 +115,28 @@ class _ContactDetailView extends StatelessWidget {
     required this.isSalesView,
     required this.onEdit,
     required this.onAddFollowUp,
+    required this.onLogCallNote,
+    required this.onViewAllActivity,
     required this.workspaceId,
     required this.taskAccessScope,
     required this.taskRepository,
+    required this.activityRepository,
+    required this.salesAssigneeRepository,
+    required this.phoneDialer,
   });
 
   final CrmContact contact;
   final bool isSalesView;
   final VoidCallback onEdit;
   final VoidCallback onAddFollowUp;
+  final VoidCallback onLogCallNote;
+  final VoidCallback onViewAllActivity;
   final String workspaceId;
   final TaskAccessScope taskAccessScope;
   final TaskRepository taskRepository;
+  final ActivityRepository activityRepository;
+  final SalesAssigneeRepository salesAssigneeRepository;
+  final PhoneDialer phoneDialer;
 
   @override
   Widget build(BuildContext context) {
@@ -172,10 +203,11 @@ class _ContactDetailView extends StatelessWidget {
               _DetailSection(
                 title: 'Assignment',
                 children: [
-                  _DetailRow(
-                    icon: Icons.assignment_ind_outlined,
-                    label: 'Owner',
-                    value: _ownerLabel(contact.ownerId),
+                  _OwnerRow(
+                    ownerId: contact.ownerId,
+                    workspaceId: workspaceId,
+                    salesAssigneeRepository: salesAssigneeRepository,
+                    isSalesView: isSalesView,
                   ),
                   _DetailRow(
                     icon: Icons.update_outlined,
@@ -195,13 +227,24 @@ class _ContactDetailView extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              _ContactActions(contact: contact, onAddFollowUp: onAddFollowUp),
+              _ContactActions(
+                contact: contact,
+                onAddFollowUp: onAddFollowUp,
+                onLogCallNote: onLogCallNote,
+                phoneDialer: phoneDialer,
+              ),
               const SizedBox(height: 16),
-              _FollowUpHistory(
-                repository: taskRepository,
+              ContactActivityTimeline(
+                title: 'Recent activity',
+                maxEntries: 3,
                 workspaceId: workspaceId,
                 contactId: contact.id,
-                accessScope: taskAccessScope,
+                activityRepository: activityRepository,
+                taskRepository: taskRepository,
+                taskAccessScope: taskAccessScope,
+                salesAssigneeRepository: salesAssigneeRepository,
+                isSalesView: isSalesView,
+                onViewAll: onViewAllActivity,
               ),
               if (contact case ClientContact(:final convertedAt)) ...[
                 const SizedBox(height: 16),
@@ -221,14 +264,6 @@ class _ContactDetailView extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _ownerLabel(String? ownerId) {
-    if (ownerId == null) {
-      return 'Unassigned';
-    }
-
-    return isSalesView ? 'Assigned to you' : 'Assigned sales representative';
   }
 
   static String _formatDate(DateTime value) {
@@ -252,71 +287,292 @@ class _ContactDetailView extends StatelessWidget {
   }
 }
 
-class _FollowUpHistory extends StatelessWidget {
-  const _FollowUpHistory({
-    required this.repository,
+class _OwnerRow extends StatelessWidget {
+  const _OwnerRow({
+    required this.ownerId,
     required this.workspaceId,
-    required this.contactId,
-    required this.accessScope,
+    required this.salesAssigneeRepository,
+    required this.isSalesView,
   });
-  final TaskRepository repository;
-  final String workspaceId, contactId;
-  final TaskAccessScope accessScope;
+
+  final String? ownerId;
+  final String workspaceId;
+  final SalesAssigneeRepository salesAssigneeRepository;
+  final bool isSalesView;
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<CrmTask>>(
-      stream: repository.watchContactTasks(
+    if (ownerId == null) {
+      return const _DetailRow(
+        icon: Icons.assignment_ind_outlined,
+        label: 'Owner',
+        value: 'Unassigned',
+      );
+    }
+    if (isSalesView) {
+      return const _DetailRow(
+        icon: Icons.assignment_ind_outlined,
+        label: 'Owner',
+        value: 'Assigned to you',
+      );
+    }
+
+    return StreamBuilder<List<SalesAssignee>>(
+      stream: salesAssigneeRepository.watchActiveSalesAssignees(
         workspaceId: workspaceId,
-        contactId: contactId,
-        accessScope: accessScope,
       ),
       builder: (context, snapshot) {
-        final tasks = snapshot.data ?? const <CrmTask>[];
-        return _DetailSection(
-          title: 'Follow-up history',
-          children: [
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                tasks.isEmpty)
-              const LinearProgressIndicator(),
-            if (snapshot.hasError)
-              const Text('Unable to load follow-up history.'),
-            if (!snapshot.hasError &&
-                tasks.isEmpty &&
-                snapshot.connectionState != ConnectionState.waiting)
-              const Text('No tasks are linked to this contact yet.'),
-            for (final task in tasks.take(5))
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  task.isCompleted
-                      ? Icons.check_circle_outline
-                      : Icons.pending_actions_outlined,
-                ),
-                title: Text(task.title),
-                subtitle: Text(
-                  task.isCompleted ? 'Completed' : 'Due ${task.dueOn}',
-                ),
-              ),
-          ],
+        SalesAssignee? owner;
+        for (final assignee in snapshot.data ?? const <SalesAssignee>[]) {
+          if (assignee.userId == ownerId) {
+            owner = assignee;
+            break;
+          }
+        }
+        return _DetailRow(
+          icon: Icons.assignment_ind_outlined,
+          label: 'Owner',
+          value: owner?.displayName ?? 'Assigned sales representative',
         );
       },
     );
   }
 }
 
+class ContactActivityTimeline extends StatelessWidget {
+  const ContactActivityTimeline({
+    required this.title,
+    required this.maxEntries,
+    required this.activityRepository,
+    required this.taskRepository,
+    required this.workspaceId,
+    required this.contactId,
+    required this.taskAccessScope,
+    required this.salesAssigneeRepository,
+    required this.isSalesView,
+    this.onViewAll,
+    super.key,
+  });
+
+  final String title;
+  final int? maxEntries;
+  final ActivityRepository activityRepository;
+  final TaskRepository taskRepository;
+  final String workspaceId;
+  final String contactId;
+  final TaskAccessScope taskAccessScope;
+  final SalesAssigneeRepository salesAssigneeRepository;
+  final bool isSalesView;
+  final VoidCallback? onViewAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<CallNote>>(
+      stream: activityRepository.watchCallNotes(
+        workspaceId: workspaceId,
+        contactId: contactId,
+      ),
+      builder: (context, notesSnapshot) {
+        final notes = notesSnapshot.data ?? const <CallNote>[];
+
+        return StreamBuilder<List<CrmTask>>(
+          stream: taskRepository.watchContactTasks(
+            workspaceId: workspaceId,
+            contactId: contactId,
+            accessScope: taskAccessScope,
+          ),
+          builder: (context, tasksSnapshot) {
+            return StreamBuilder<List<SalesAssignee>>(
+              stream: isSalesView
+                  ? Stream.value(const <SalesAssignee>[])
+                  : salesAssigneeRepository.watchActiveSalesAssignees(
+                      workspaceId: workspaceId,
+                    ),
+              builder: (context, assigneesSnapshot) {
+                final names = {
+                  for (final assignee
+                      in assigneesSnapshot.data ?? const <SalesAssignee>[])
+                    assignee.userId: assignee.displayName,
+                };
+                final entries = <_ActivityEntry>[
+                  ...notes.map((note) => _ActivityEntry.call(note)),
+                  ...(tasksSnapshot.data ?? const <CrmTask>[]).map(
+                    _ActivityEntry.followUp,
+                  ),
+                ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+                final visibleEntries = maxEntries == null
+                    ? entries
+                    : entries.take(maxEntries!).toList();
+                return _DetailSection(
+                  title: title,
+                  children: [
+                    if (notesSnapshot.connectionState ==
+                            ConnectionState.waiting &&
+                        entries.isEmpty)
+                      const LinearProgressIndicator(),
+                    if (notesSnapshot.hasError || tasksSnapshot.hasError)
+                      const Text('Unable to load activity.'),
+                    if (!notesSnapshot.hasError &&
+                        !tasksSnapshot.hasError &&
+                        entries.isEmpty &&
+                        notesSnapshot.connectionState !=
+                            ConnectionState.waiting)
+                      const Text('No activity has been logged yet.'),
+                    for (final entry in visibleEntries)
+                      _ActivityTile(
+                        entry: entry,
+                        userNames: names,
+                        isSalesView: isSalesView,
+                      ),
+                    if (onViewAll != null && entries.isNotEmpty)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: onViewAll,
+                          icon: const Icon(Icons.timeline_outlined),
+                          label: const Text('View all activity'),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+final class _ActivityEntry {
+  _ActivityEntry.call(CallNote note)
+    : callNote = note,
+      task = null,
+      createdAt = note.createdAt;
+
+  _ActivityEntry.followUp(CrmTask followUp)
+    : callNote = null,
+      task = followUp,
+      createdAt = followUp.createdAt;
+
+  final CallNote? callNote;
+  final CrmTask? task;
+  final DateTime createdAt;
+}
+
+class _ActivityTile extends StatelessWidget {
+  const _ActivityTile({
+    required this.entry,
+    required this.userNames,
+    required this.isSalesView,
+  });
+
+  final _ActivityEntry entry;
+  final Map<String, String> userNames;
+  final bool isSalesView;
+
+  @override
+  Widget build(BuildContext context) {
+    final callNote = entry.callNote;
+    final task = entry.task;
+
+    if (callNote != null) {
+      return ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(_outcomeIcon(callNote.outcome)),
+        title: Text(_outcomeLabel(callNote.outcome)),
+        subtitle: Text(
+          [
+            if (callNote.note != null) callNote.note!,
+            'Logged by ${_nameFor(callNote.actorUserId)}',
+          ].join('\n'),
+        ),
+        trailing: Text(_formatTimestamp(callNote.createdAt)),
+      );
+    }
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        task!.isCompleted
+            ? Icons.check_circle_outline
+            : Icons.pending_actions_outlined,
+      ),
+      title: Text(task.title),
+      subtitle: Text(
+        'Follow-up • Due ${task.dueOn} • ${task.isCompleted ? 'Completed' : 'Open'}\nAssigned to ${_nameFor(task.assigneeId)}',
+      ),
+      trailing: Text(_formatTimestamp(task.createdAt)),
+    );
+  }
+
+  String _nameFor(String userId) {
+    if (isSalesView) {
+      return 'You';
+    }
+
+    return userNames[userId] ?? 'Administrator';
+  }
+
+  static IconData _outcomeIcon(CallOutcome outcome) => switch (outcome) {
+    CallOutcome.connected => Icons.phone_in_talk_outlined,
+    CallOutcome.voicemail => Icons.voicemail_outlined,
+    CallOutcome.noAnswer => Icons.phone_missed_outlined,
+    CallOutcome.wrongNumber => Icons.phone_disabled_outlined,
+    CallOutcome.other => Icons.call_outlined,
+  };
+
+  static String _outcomeLabel(CallOutcome outcome) => switch (outcome) {
+    CallOutcome.connected => 'Connected',
+    CallOutcome.voicemail => 'Left voicemail',
+    CallOutcome.noAnswer => 'No answer',
+    CallOutcome.wrongNumber => 'Wrong number',
+    CallOutcome.other => 'Other call outcome',
+  };
+
+  static String _formatTimestamp(DateTime value) {
+    final local = value.toLocal();
+    return '${local.day}/${local.month}/${local.year}\n${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+}
+
 class _ContactActions extends StatelessWidget {
-  const _ContactActions({required this.contact, required this.onAddFollowUp});
+  const _ContactActions({
+    required this.contact,
+    required this.onAddFollowUp,
+    required this.onLogCallNote,
+    required this.phoneDialer,
+  });
 
   final CrmContact contact;
   final VoidCallback onAddFollowUp;
+  final VoidCallback onLogCallNote;
+  final PhoneDialer phoneDialer;
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<ContactActionsCubit>().state;
+    final phoneNumber = normalizeDialablePhoneNumber(contact.phone);
 
     return _DetailSection(
       title: 'Actions',
       children: [
+        FilledButton.icon(
+          onPressed: state.isBusy || phoneNumber == null
+              ? null
+              : () => _placeCall(context, phoneNumber),
+          icon: const Icon(Icons.phone_outlined),
+          label: Text(
+            phoneNumber == null ? 'Phone unavailable' : 'Call contact',
+          ),
+        ),
+        const SizedBox(height: 10),
+        FilledButton.tonalIcon(
+          onPressed: state.isBusy ? null : onLogCallNote,
+          icon: const Icon(Icons.note_add_outlined),
+          label: const Text('Log call note'),
+        ),
+        const SizedBox(height: 10),
         FilledButton.icon(
           onPressed: state.isBusy ? null : onAddFollowUp,
           icon: const Icon(Icons.add_task_outlined),
@@ -344,6 +600,28 @@ class _ContactActions extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _placeCall(BuildContext context, String phoneNumber) async {
+    try {
+      final launched = await phoneDialer.dial(phoneNumber);
+
+      if (!launched && context.mounted) {
+        _showDialerFailure(context);
+      }
+    } on Object {
+      if (context.mounted) {
+        _showDialerFailure(context);
+      }
+    }
+  }
+
+  void _showDialerFailure(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Unable to open the phone dialer on this device.'),
+      ),
     );
   }
 

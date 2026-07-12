@@ -5,6 +5,9 @@ import 'package:nexuscrm/app/navigation/app_navigation_shell.dart';
 import 'package:nexuscrm/app/navigation/pages/more_page.dart';
 import 'package:nexuscrm/app/router/app_routes.dart';
 import 'package:nexuscrm/app/router/router_refresh_notifier.dart';
+import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
+import 'package:nexuscrm/features/activities/presentation/cubit/call_note_form/call_note_form_cubit.dart';
+import 'package:nexuscrm/features/activities/presentation/pages/call_note_form_page.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_home_placeholder.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/auth_session.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
@@ -23,6 +26,7 @@ import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/con
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_edit/contact_edit_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_list/contact_list_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/lead_form/lead_form_cubit.dart';
+import 'package:nexuscrm/features/contacts/presentation/pages/contact_activity_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_detail_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_edit_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_list_page.dart';
@@ -180,6 +184,8 @@ final class AppRouter {
                     isSalesView: false,
                     editRoute: AppRoutes.adminEditContact,
                     newTaskRoute: AppRoutes.adminNewTask,
+                    logCallNoteRoute: AppRoutes.adminLogCallNote,
+                    activityRoute: AppRoutes.adminContactActivity,
                   ),
                   routes: [
                     GoRoute(
@@ -188,6 +194,22 @@ final class AppRouter {
                         context,
                         contactId: state.pathParameters['contactId']!,
                         canAssignOwner: true,
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'call-note',
+                      builder: (context, state) => _callNoteFormPage(
+                        context,
+                        contactId: state.pathParameters['contactId']!,
+                        canAssignFollowUp: true,
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'activity',
+                      builder: (context, state) => _contactActivityPage(
+                        context,
+                        contactId: state.pathParameters['contactId']!,
+                        isSalesView: false,
                       ),
                     ),
                   ],
@@ -278,6 +300,8 @@ final class AppRouter {
                     isSalesView: true,
                     editRoute: AppRoutes.salesEditContact,
                     newTaskRoute: AppRoutes.salesNewTask,
+                    logCallNoteRoute: AppRoutes.salesLogCallNote,
+                    activityRoute: AppRoutes.salesContactActivity,
                   ),
                   routes: [
                     GoRoute(
@@ -286,6 +310,22 @@ final class AppRouter {
                         context,
                         contactId: state.pathParameters['contactId']!,
                         canAssignOwner: false,
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'call-note',
+                      builder: (context, state) => _callNoteFormPage(
+                        context,
+                        contactId: state.pathParameters['contactId']!,
+                        canAssignFollowUp: false,
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'activity',
+                      builder: (context, state) => _contactActivityPage(
+                        context,
+                        contactId: state.pathParameters['contactId']!,
+                        isSalesView: true,
                       ),
                     ),
                   ],
@@ -492,6 +532,8 @@ final class AppRouter {
     required bool isSalesView,
     required String Function(String) editRoute,
     required String newTaskRoute,
+    required String Function(String) logCallNoteRoute,
+    required String Function(String) activityRoute,
   }) {
     final session = _authenticatedSession(context);
 
@@ -517,12 +559,56 @@ final class AppRouter {
         isSalesView: isSalesView,
         onEdit: () => context.go(editRoute(contactId)),
         onAddFollowUp: () => context.go('$newTaskRoute?contactId=$contactId'),
+        onLogCallNote: () => context.go(logCallNoteRoute(contactId)),
+        onViewAllActivity: () => context.go(activityRoute(contactId)),
         workspaceId: session.membership.workspaceId,
         taskAccessScope: isSalesView
             ? AssignedTaskAccess(session.user.id)
             : const WorkspaceTaskAccess(),
         taskRepository: context.read<TaskRepository>(),
+        activityRepository: context.read<ActivityRepository>(),
+        salesAssigneeRepository: context.read<SalesAssigneeRepository>(),
       ),
+    );
+  }
+
+  static Widget _contactActivityPage(
+    BuildContext context, {
+    required String contactId,
+    required bool isSalesView,
+  }) {
+    final session = _authenticatedSession(context);
+    return ContactActivityPage(
+      workspaceId: session.membership.workspaceId,
+      contactId: contactId,
+      activityRepository: context.read<ActivityRepository>(),
+      taskRepository: context.read<TaskRepository>(),
+      taskAccessScope: isSalesView
+          ? AssignedTaskAccess(session.user.id)
+          : const WorkspaceTaskAccess(),
+      salesAssigneeRepository: context.read<SalesAssigneeRepository>(),
+      isSalesView: isSalesView,
+    );
+  }
+
+  static Widget _callNoteFormPage(
+    BuildContext context, {
+    required String contactId,
+    required bool canAssignFollowUp,
+  }) {
+    final session = _authenticatedSession(context);
+
+    return BlocProvider(
+      create: (context) => CallNoteFormCubit(
+        activityRepository: context.read<ActivityRepository>(),
+        workspaceId: session.membership.workspaceId,
+        contactId: contactId,
+        actorUserId: session.user.id,
+        canAssignFollowUp: canAssignFollowUp,
+        fixedAssigneeId: canAssignFollowUp ? '' : session.user.id,
+        salesAssigneeRepository: context.read<SalesAssigneeRepository>(),
+      ),
+      child: const CallNoteFormPage(),
     );
   }
 

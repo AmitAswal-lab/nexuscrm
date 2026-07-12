@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:nexuscrm/app/router/app_router.dart';
 import 'package:nexuscrm/app/theme/app_theme.dart';
+import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/authentication_repository.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/membership_repository.dart';
 import 'package:nexuscrm/features/authentication/presentation/bloc/session/session_bloc.dart';
@@ -18,6 +19,7 @@ class NexusCrmApp extends StatefulWidget {
     required this.contactRepository,
     required this.salesAssigneeRepository,
     required this.taskRepository,
+    required this.activityRepository,
     super.key,
   });
 
@@ -26,6 +28,7 @@ class NexusCrmApp extends StatefulWidget {
   final ContactRepository contactRepository;
   final SalesAssigneeRepository salesAssigneeRepository;
   final TaskRepository taskRepository;
+  final ActivityRepository activityRepository;
 
   @override
   State<NexusCrmApp> createState() => _NexusCrmAppState();
@@ -69,6 +72,9 @@ class _NexusCrmAppState extends State<NexusCrmApp> {
           value: widget.salesAssigneeRepository,
         ),
         RepositoryProvider<TaskRepository>.value(value: widget.taskRepository),
+        RepositoryProvider<ActivityRepository>.value(
+          value: widget.activityRepository,
+        ),
       ],
       child: BlocProvider.value(
         value: _sessionBloc,

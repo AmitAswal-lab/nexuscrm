@@ -312,6 +312,94 @@ service cloud.firestore {
         );
     }
 
+    function hasValidActivityKeys(data) {
+      return data.keys().hasOnly([
+        'workspaceId',
+        'type',
+        'contactId',
+        'outcome',
+        'note',
+        'actorUserId',
+        'createdAt',
+        'nextTaskId',
+      ]);
+    }
+
+    function activityTaskPath(workspaceId, taskId) {
+      return /databases/$(database)/documents/workspaces/$(workspaceId)/tasks/$(taskId);
+    }
+
+    function hasValidNewFollowUpLink(data, workspaceId) {
+      return data.nextTaskId == null
+        || (
+          data.nextTaskId is string
+          && data.nextTaskId.size() > 0
+          && existsAfter(activityTaskPath(workspaceId, data.nextTaskId))
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.workspaceId
+            == workspaceId
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.contactId
+            == data.contactId
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.kind
+            == 'follow_up'
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.status
+            == 'open'
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.createdByUserId
+            == request.auth.uid
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.updatedByUserId
+            == request.auth.uid
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.createdAt
+            == request.time
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.updatedAt
+            == request.time
+        );
+    }
+
+    function hasValidCallNoteData(data, workspaceId) {
+      return hasValidActivityKeys(data)
+        && data.workspaceId == workspaceId
+        && data.type == 'call_note'
+        && data.contactId is string
+        && data.contactId.size() > 0
+        && data.outcome in [
+          'connected',
+          'voicemail',
+          'no_answer',
+          'wrong_number',
+          'other',
+        ]
+        && isOptionalShortNotes(data.note)
+        && data.actorUserId is string
+        && data.actorUserId.size() > 0
+        && data.createdAt is timestamp
+        && hasValidNewFollowUpLink(data, workspaceId);
+    }
+
+    function canReadActivity(workspaceId) {
+      return isActiveAdmin(workspaceId)
+        || (
+          isActiveSalesRep(workspaceId)
+          && isSalesOwnedTaskContact(workspaceId, resource.data.contactId)
+        );
+    }
+
+    function canCreateActivity(workspaceId) {
+      return isActiveAdmin(workspaceId)
+        || (
+          isActiveSalesRep(workspaceId)
+          && isSalesOwnedTaskContact(
+            workspaceId,
+            request.resource.data.contactId,
+          )
+        );
+    }
+
+    function hasValidCallNoteCreation(workspaceId) {
+      return hasValidCallNoteData(request.resource.data, workspaceId)
+        && isActiveTaskContact(workspaceId, request.resource.data.contactId)
+        && request.resource.data.actorUserId == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+    }
+
     function canReadContact(workspaceId) {
       return isActiveAdmin(workspaceId)
         || (
@@ -451,6 +539,13 @@ service cloud.firestore {
       allow update: if canUpdateTask(workspaceId)
         && hasValidTaskUpdate(workspaceId);
       allow delete: if false;
+    }
+
+    match /workspaces/{workspaceId}/activities/{activityId} {
+      allow read: if canReadActivity(workspaceId);
+      allow create: if canCreateActivity(workspaceId)
+        && hasValidCallNoteCreation(workspaceId);
+      allow update, delete: if false;
     }
 
     match /{document=**} {

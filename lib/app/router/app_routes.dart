@@ -30,6 +30,16 @@ abstract final class AppRoutes {
   static String salesEditContact(String contactId) =>
       '${salesContact(contactId)}/edit';
 
+  static String adminLogCallNote(String contactId) =>
+      '${adminContact(contactId)}/call-note';
+  static String adminContactActivity(String contactId) =>
+      '${adminContact(contactId)}/activity';
+
+  static String salesLogCallNote(String contactId) =>
+      '${salesContact(contactId)}/call-note';
+  static String salesContactActivity(String contactId) =>
+      '${salesContact(contactId)}/activity';
+
   static String adminTask(String taskId) => '$adminTasks/$taskId';
   static String salesTask(String taskId) => '$salesTasks/$taskId';
   static String adminEditTask(String taskId) => '${adminTask(taskId)}/edit';

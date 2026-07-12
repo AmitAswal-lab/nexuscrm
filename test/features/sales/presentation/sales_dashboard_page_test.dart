@@ -135,6 +135,7 @@ void main() {
         contactRepository: const EmptyContactRepository(),
         salesAssigneeRepository: const EmptySalesAssigneeRepository(),
         taskRepository: const EmptyTaskRepository(),
+        activityRepository: const EmptyActivityRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -152,6 +153,7 @@ void main() {
         contactRepository: const EmptyContactRepository(),
         salesAssigneeRepository: const EmptySalesAssigneeRepository(),
         taskRepository: const EmptyTaskRepository(),
+        activityRepository: const EmptyActivityRepository(),
       ),
     );
     await tester.pumpAndSettle();

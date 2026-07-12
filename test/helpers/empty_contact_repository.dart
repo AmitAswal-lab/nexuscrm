@@ -1,3 +1,6 @@
+import 'package:nexuscrm/features/activities/domain/entities/call_note.dart';
+import 'package:nexuscrm/features/activities/domain/entities/call_note_input.dart';
+import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/contact_input.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
@@ -8,6 +11,28 @@ import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/task_input.dart';
 import 'package:nexuscrm/features/tasks/domain/repositories/task_repository.dart';
 import 'package:nexuscrm/features/tasks/domain/value_objects/task_access_scope.dart';
+
+final class EmptyActivityRepository implements ActivityRepository {
+  const EmptyActivityRepository();
+
+  @override
+  Future<String> createCallNote({
+    required String workspaceId,
+    required String contactId,
+    required String actorUserId,
+    required CallNoteInput input,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Stream<List<CallNote>> watchCallNotes({
+    required String workspaceId,
+    required String contactId,
+  }) {
+    return Stream.value(const <CallNote>[]);
+  }
+}
 
 final class EmptyContactRepository implements ContactRepository {
   const EmptyContactRepository();

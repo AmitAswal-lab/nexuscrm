@@ -18,6 +18,7 @@ const {
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
   where,
 } = require('firebase/firestore');
 
@@ -105,6 +106,26 @@ beforeEach(async () => {
     await setDoc(
       doc(database, 'workspaces', 'workspace-one', 'tasks', 'other-task'),
       taskData({ contactId: 'other-lead', assigneeId: 'other-sales' }),
+    );
+    await setDoc(
+      doc(
+        database,
+        'workspaces',
+        'workspace-one',
+        'activities',
+        'owned-call-note',
+      ),
+      callNoteData({ contactId: 'owned-lead', actorUserId: 'sales-user' }),
+    );
+    await setDoc(
+      doc(
+        database,
+        'workspaces',
+        'workspace-one',
+        'activities',
+        'other-call-note',
+      ),
+      callNoteData({ contactId: 'other-lead', actorUserId: 'other-sales' }),
     );
   });
 });
@@ -579,6 +600,193 @@ test('allows assigned users to complete and reopen tasks safely', async () => {
   await assertFails(deleteDoc(reference));
 });
 
+test('allows admins to read all workspace call notes', async () => {
+  const database = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+
+  await assertSucceeds(
+    getDocs(collection(database, 'workspaces', 'workspace-one', 'activities')),
+  );
+});
+
+test('allows sales reps to read call notes only for contacts they own', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const ownedCallNotes = query(
+    collection(database, 'workspaces', 'workspace-one', 'activities'),
+    where('contactId', '==', 'owned-lead'),
+  );
+
+  await assertSucceeds(getDocs(ownedCallNotes));
+  await assertFails(
+    getDoc(
+      doc(
+        database,
+        'workspaces',
+        'workspace-one',
+        'activities',
+        'other-call-note',
+      ),
+    ),
+  );
+});
+
+test('allows valid call-note creation for admin and sales roles', async () => {
+  const adminDatabase = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+  const salesDatabase = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+
+  await assertSucceeds(
+    setDoc(
+      doc(
+        adminDatabase,
+        'workspaces',
+        'workspace-one',
+        'activities',
+        'admin-call-note',
+      ),
+      callNoteData({
+        actorUserId: 'admin-user',
+        contactId: 'other-lead',
+        useServerTimestamp: true,
+      }),
+    ),
+  );
+  await assertSucceeds(
+    setDoc(
+      doc(
+        salesDatabase,
+        'workspaces',
+        'workspace-one',
+        'activities',
+        'sales-call-note',
+      ),
+      callNoteData({
+        actorUserId: 'sales-user',
+        contactId: 'owned-lead',
+        useServerTimestamp: true,
+      }),
+    ),
+  );
+});
+
+test('allows an atomic call note and linked follow-up task', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const batch = writeBatch(database);
+
+  batch.set(
+    doc(
+      database,
+      'workspaces',
+      'workspace-one',
+      'activities',
+      'linked-call-note',
+    ),
+    callNoteData({
+      actorUserId: 'sales-user',
+      contactId: 'owned-lead',
+      nextTaskId: 'linked-follow-up',
+      useServerTimestamp: true,
+    }),
+  );
+  batch.set(
+    doc(
+      database,
+      'workspaces',
+      'workspace-one',
+      'tasks',
+      'linked-follow-up',
+    ),
+    taskData({
+      actorUserId: 'sales-user',
+      contactId: 'owned-lead',
+      assigneeId: 'sales-user',
+      useServerTimestamp: true,
+    }),
+  );
+
+  await assertSucceeds(batch.commit());
+});
+
+test('rejects invalid call-note ownership and actor spoofing', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+
+  await assertFails(
+    setDoc(
+      doc(
+        database,
+        'workspaces',
+        'workspace-one',
+        'activities',
+        'wrong-contact',
+      ),
+      callNoteData({
+        actorUserId: 'sales-user',
+        contactId: 'other-lead',
+        useServerTimestamp: true,
+      }),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(
+        database,
+        'workspaces',
+        'workspace-one',
+        'activities',
+        'unlinked-follow-up',
+      ),
+      callNoteData({
+        actorUserId: 'sales-user',
+        contactId: 'owned-lead',
+        nextTaskId: 'missing-task',
+        useServerTimestamp: true,
+      }),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(
+        database,
+        'workspaces',
+        'workspace-one',
+        'activities',
+        'spoofed-actor',
+      ),
+      callNoteData({
+        actorUserId: 'admin-user',
+        contactId: 'owned-lead',
+        useServerTimestamp: true,
+      }),
+    ),
+  );
+});
+
+test('keeps call notes append-only', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const reference = doc(
+    database,
+    'workspaces',
+    'workspace-one',
+    'activities',
+    'owned-call-note',
+  );
+
+  await assertFails(updateDoc(reference, { note: 'Changed after the call' }));
+  await assertFails(deleteDoc(reference));
+});
+
 function leadData({
   actorUserId = 'admin-user',
   ownerId,
@@ -634,5 +842,25 @@ function taskData({
     updatedByUserId: actorUserId,
     createdAt: timestamp,
     updatedAt: timestamp,
+  };
+}
+
+function callNoteData({
+  actorUserId = 'admin-user',
+  contactId = 'owned-lead',
+  nextTaskId = null,
+  useServerTimestamp = false,
+} = {}) {
+  return {
+    workspaceId: 'workspace-one',
+    type: 'call_note',
+    contactId,
+    outcome: 'connected',
+    note: 'Discussed the proposal',
+    actorUserId,
+    createdAt: useServerTimestamp
+      ? serverTimestamp()
+      : new Date('2026-01-01T00:00:00.000Z'),
+    nextTaskId,
   };
 }

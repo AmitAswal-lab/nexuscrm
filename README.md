@@ -29,6 +29,8 @@ The application currently supports:
 - Default-deny Firestore rules with focused emulator coverage
 - Tasks and follow-ups with role-scoped lists, lifecycle actions, contact links,
   and sales-dashboard metrics
+- Native contact dialing, append-only call notes, optional follow-up creation,
+  and chronological contact activity timelines
 
 Sales-representative invitation and onboarding are intentionally deferred to a
 later feature.
@@ -92,6 +94,8 @@ See [Sales dashboard](docs/sales-dashboard.md) for the presentation foundation
 and current contact-data integration.
 See [Lead and client management](docs/lead-management.md) for the contact
 model, permissions, routes, lifecycle, and Firestore schema.
+See [Dialer, call notes, and follow-ups](docs/dialer-post-call-notes.md) for
+the call workflow, activity model, security rules, and contact timeline.
 
 ## Quality checks
 
