@@ -518,9 +518,13 @@ service cloud.firestore {
     }
 
     match /workspaces/{workspaceId}/members/{memberId} {
-      allow read: if resource.data.role == 'sales_rep'
-        && resource.data.status == 'active'
-        && isActiveAdmin(workspaceId);
+      allow read: if isActiveAdmin(workspaceId);
+      allow write: if false;
+    }
+
+    match /workspaces/{workspaceId}/invitations/{invitationId} {
+      allow read: if isActiveAdmin(workspaceId);
+      allow write: if false;
     }
 
     match /workspaces/{workspaceId}/contacts/{contactId} {

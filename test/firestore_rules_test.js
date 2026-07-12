@@ -92,6 +92,10 @@ beforeEach(async () => {
       },
     );
     await setDoc(
+      doc(database, 'workspaces', 'workspace-one', 'invitations', 'pending-one'),
+      invitationData(),
+    );
+    await setDoc(
       doc(database, 'workspaces', 'workspace-one', 'contacts', 'owned-lead'),
       leadData({ ownerId: 'sales-user' }),
     );
@@ -430,6 +434,45 @@ test('allows admins to read the active sales-assignee directory', async () => {
   );
 
   await assertSucceeds(getDocs(activeSales));
+});
+
+test('allows admins, but not sales representatives, to read membership and invitation management data', async () => {
+  const adminDatabase = testEnvironment.authenticatedContext('admin-user').firestore();
+  const salesDatabase = testEnvironment.authenticatedContext('sales-user').firestore();
+
+  await assertSucceeds(
+    getDocs(collection(adminDatabase, 'workspaces', 'workspace-one', 'members')),
+  );
+  await assertSucceeds(
+    getDocs(collection(adminDatabase, 'workspaces', 'workspace-one', 'invitations')),
+  );
+  await assertFails(
+    getDocs(collection(salesDatabase, 'workspaces', 'workspace-one', 'invitations')),
+  );
+});
+
+test('denies client membership and invitation state changes', async () => {
+  const adminDatabase = testEnvironment.authenticatedContext('admin-user').firestore();
+  const salesDatabase = testEnvironment.authenticatedContext('sales-user').firestore();
+
+  await assertFails(
+    updateDoc(
+      doc(adminDatabase, 'workspaces', 'workspace-one', 'members', 'sales-user'),
+      { status: 'suspended' },
+    ),
+  );
+  await assertFails(
+    updateDoc(
+      doc(salesDatabase, 'workspaces', 'workspace-one', 'members', 'sales-user'),
+      { status: 'active', role: 'admin' },
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(adminDatabase, 'workspaces', 'workspace-one', 'invitations', 'spoofed'),
+      invitationData(),
+    ),
+  );
 });
 
 test('allows an admin to read all workspace tasks', async () => {
@@ -862,5 +905,25 @@ function callNoteData({
       ? serverTimestamp()
       : new Date('2026-01-01T00:00:00.000Z'),
     nextTaskId,
+  };
+}
+
+function invitationData() {
+  const timestamp = new Date('2026-01-01T00:00:00.000Z');
+  return {
+    workspaceId: 'workspace-one',
+    email: 'invitee@example.com',
+    role: 'sales_rep',
+    status: 'pending',
+    invitedByUserId: 'admin-user',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    expiresAt: new Date('2026-01-08T00:00:00.000Z'),
+    lastSentAt: timestamp,
+    resendCount: 0,
+    acceptedAt: null,
+    acceptedByUserId: null,
+    revokedAt: null,
+    revokedByUserId: null,
   };
 }
