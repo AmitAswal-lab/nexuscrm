@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nexuscrm/features/contacts/data/services/url_launcher_phone_dialer.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
+import 'package:nexuscrm/features/contacts/domain/services/phone_dialer.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_actions/contact_actions_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
@@ -17,6 +19,7 @@ class ContactDetailPage extends StatelessWidget {
     required this.workspaceId,
     required this.taskAccessScope,
     required this.taskRepository,
+    this.phoneDialer = const UrlLauncherPhoneDialer(),
     super.key,
   });
 
@@ -26,6 +29,7 @@ class ContactDetailPage extends StatelessWidget {
   final String workspaceId;
   final TaskAccessScope taskAccessScope;
   final TaskRepository taskRepository;
+  final PhoneDialer phoneDialer;
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +73,7 @@ class ContactDetailPage extends StatelessWidget {
             workspaceId: workspaceId,
             taskAccessScope: taskAccessScope,
             taskRepository: taskRepository,
+            phoneDialer: phoneDialer,
           ),
         },
       ),
@@ -97,6 +102,7 @@ class _ContactDetailView extends StatelessWidget {
     required this.workspaceId,
     required this.taskAccessScope,
     required this.taskRepository,
+    required this.phoneDialer,
   });
 
   final CrmContact contact;
@@ -106,6 +112,7 @@ class _ContactDetailView extends StatelessWidget {
   final String workspaceId;
   final TaskAccessScope taskAccessScope;
   final TaskRepository taskRepository;
+  final PhoneDialer phoneDialer;
 
   @override
   Widget build(BuildContext context) {
@@ -195,7 +202,11 @@ class _ContactDetailView extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              _ContactActions(contact: contact, onAddFollowUp: onAddFollowUp),
+              _ContactActions(
+                contact: contact,
+                onAddFollowUp: onAddFollowUp,
+                phoneDialer: phoneDialer,
+              ),
               const SizedBox(height: 16),
               _FollowUpHistory(
                 repository: taskRepository,
@@ -305,18 +316,34 @@ class _FollowUpHistory extends StatelessWidget {
 }
 
 class _ContactActions extends StatelessWidget {
-  const _ContactActions({required this.contact, required this.onAddFollowUp});
+  const _ContactActions({
+    required this.contact,
+    required this.onAddFollowUp,
+    required this.phoneDialer,
+  });
 
   final CrmContact contact;
   final VoidCallback onAddFollowUp;
+  final PhoneDialer phoneDialer;
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<ContactActionsCubit>().state;
+    final phoneNumber = normalizeDialablePhoneNumber(contact.phone);
 
     return _DetailSection(
       title: 'Actions',
       children: [
+        FilledButton.icon(
+          onPressed: state.isBusy || phoneNumber == null
+              ? null
+              : () => _placeCall(context, phoneNumber),
+          icon: const Icon(Icons.phone_outlined),
+          label: Text(
+            phoneNumber == null ? 'Phone unavailable' : 'Call contact',
+          ),
+        ),
+        const SizedBox(height: 10),
         FilledButton.icon(
           onPressed: state.isBusy ? null : onAddFollowUp,
           icon: const Icon(Icons.add_task_outlined),
@@ -344,6 +371,28 @@ class _ContactActions extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Future<void> _placeCall(BuildContext context, String phoneNumber) async {
+    try {
+      final launched = await phoneDialer.dial(phoneNumber);
+
+      if (!launched && context.mounted) {
+        _showDialerFailure(context);
+      }
+    } on Object {
+      if (context.mounted) {
+        _showDialerFailure(context);
+      }
+    }
+  }
+
+  void _showDialerFailure(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Unable to open the phone dialer on this device.'),
+      ),
     );
   }
 

@@ -8,6 +8,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
+import 'package:nexuscrm/features/contacts/domain/services/phone_dialer.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_actions/contact_actions_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_detail_page.dart';
@@ -17,12 +18,30 @@ import '../../../helpers/empty_contact_repository.dart';
 
 final class _MockContactRepository extends Mock implements ContactRepository {}
 
+final class _MockPhoneDialer extends Mock implements PhoneDialer {}
+
+final class _UnavailablePhoneDialer implements PhoneDialer {
+  const _UnavailablePhoneDialer();
+
+  @override
+  Future<bool> dial(String phoneNumber) async => false;
+}
+
 void main() {
   late ContactRepository contactRepository;
 
   setUp(() {
     contactRepository = _MockContactRepository();
   });
+
+  test(
+    'normalizes dialable phone numbers without inferring a country code',
+    () {
+      expect(normalizeDialablePhoneNumber('+91 90000 00000'), '+919000000000');
+      expect(normalizeDialablePhoneNumber('not-a-number'), isNull);
+      expect(normalizeDialablePhoneNumber(null), isNull);
+    },
+  );
 
   testWidgets('renders lead details for an admin', (tester) async {
     var editOpened = false;
@@ -61,6 +80,64 @@ void main() {
     expect(find.text('Converted'), findsOneWidget);
     expect(find.text('Convert to client'), findsNothing);
     expect(find.text('Archive contact'), findsOneWidget);
+  });
+
+  testWidgets('disables calling when a contact has no usable phone number', (
+    tester,
+  ) async {
+    _stubContact(contactRepository, Stream.value(_lead));
+
+    await _pumpDetail(tester, repository: contactRepository, isSalesView: true);
+
+    final callAction = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Phone unavailable'),
+    );
+    expect(callAction.onPressed, isNull);
+  });
+
+  testWidgets('launches the native dialer with a normalized contact number', (
+    tester,
+  ) async {
+    final phoneDialer = _MockPhoneDialer();
+    when(() => phoneDialer.dial('+919000000000')).thenAnswer((_) async => true);
+    _stubContact(contactRepository, Stream.value(_client));
+
+    await _pumpDetail(
+      tester,
+      repository: contactRepository,
+      isSalesView: true,
+      phoneDialer: phoneDialer,
+    );
+
+    final callAction = find.text('Call contact');
+    await tester.ensureVisible(callAction);
+    await tester.tap(callAction);
+    await tester.pump();
+
+    verify(() => phoneDialer.dial('+919000000000')).called(1);
+  });
+
+  testWidgets('shows feedback when the native dialer cannot launch', (
+    tester,
+  ) async {
+    _stubContact(contactRepository, Stream.value(_client));
+
+    await _pumpDetail(
+      tester,
+      repository: contactRepository,
+      isSalesView: true,
+      phoneDialer: const _UnavailablePhoneDialer(),
+    );
+
+    final callAction = find.text('Call contact');
+    await tester.ensureVisible(callAction);
+    await tester.tap(callAction);
+    await tester.pump();
+
+    expect(
+      find.text('Unable to open the phone dialer on this device.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('renders a missing-contact state', (tester) async {
@@ -257,6 +334,7 @@ Future<void> _pumpDetail(
   required ContactRepository repository,
   required bool isSalesView,
   VoidCallback? onEdit,
+  PhoneDialer phoneDialer = const _UnavailablePhoneDialer(),
 }) async {
   final cubit = ContactDetailCubit(
     contactRepository: repository,
@@ -287,6 +365,7 @@ Future<void> _pumpDetail(
             workspaceId: 'workspace-one',
             taskAccessScope: const WorkspaceTaskAccess(),
             taskRepository: const EmptyTaskRepository(),
+            phoneDialer: phoneDialer,
           ),
         ),
       ),
