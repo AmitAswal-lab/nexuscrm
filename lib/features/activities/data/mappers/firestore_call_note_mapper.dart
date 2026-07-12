@@ -46,6 +46,7 @@ abstract final class FirestoreCallNoteMapper {
     required String contactId,
     required String actorUserId,
     required CallNoteInput input,
+    String? nextTaskId,
   }) {
     final note = input.note?.trim();
 
@@ -69,7 +70,9 @@ abstract final class FirestoreCallNoteMapper {
       'createdAt': FieldValue.serverTimestamp(),
       // Linking a follow-up task is intentionally introduced with that
       // transactional workflow in checkpoint 3.
-      'nextTaskId': null,
+      'nextTaskId': nextTaskId == null
+          ? null
+          : _normalizedIdentifier(nextTaskId, 'nextTaskId'),
     };
   }
 

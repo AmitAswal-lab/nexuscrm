@@ -325,6 +325,35 @@ service cloud.firestore {
       ]);
     }
 
+    function activityTaskPath(workspaceId, taskId) {
+      return /databases/$(database)/documents/workspaces/$(workspaceId)/tasks/$(taskId);
+    }
+
+    function hasValidNewFollowUpLink(data, workspaceId) {
+      return data.nextTaskId == null
+        || (
+          data.nextTaskId is string
+          && data.nextTaskId.size() > 0
+          && existsAfter(activityTaskPath(workspaceId, data.nextTaskId))
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.workspaceId
+            == workspaceId
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.contactId
+            == data.contactId
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.kind
+            == 'follow_up'
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.status
+            == 'open'
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.createdByUserId
+            == request.auth.uid
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.updatedByUserId
+            == request.auth.uid
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.createdAt
+            == request.time
+          && getAfter(activityTaskPath(workspaceId, data.nextTaskId)).data.updatedAt
+            == request.time
+        );
+    }
+
     function hasValidCallNoteData(data, workspaceId) {
       return hasValidActivityKeys(data)
         && data.workspaceId == workspaceId
@@ -342,9 +371,7 @@ service cloud.firestore {
         && data.actorUserId is string
         && data.actorUserId.size() > 0
         && data.createdAt is timestamp
-        // Task links are written atomically with the follow-up workflow,
-        // introduced after this foundation checkpoint.
-        && data.nextTaskId == null;
+        && hasValidNewFollowUpLink(data, workspaceId);
     }
 
     function canReadActivity(workspaceId) {

@@ -5,6 +5,9 @@ import 'package:nexuscrm/features/activities/domain/entities/call_note.dart';
 import 'package:nexuscrm/features/activities/domain/entities/call_note_input.dart';
 import 'package:nexuscrm/features/activities/domain/failures/activity_failure.dart';
 import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
+import 'package:nexuscrm/features/tasks/data/mappers/firestore_task_mapper.dart';
+import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
+import 'package:nexuscrm/features/tasks/domain/entities/task_input.dart';
 
 final class FirestoreActivityRepository implements ActivityRepository {
   FirestoreActivityRepository(this._firestore);
@@ -54,14 +57,40 @@ final class FirestoreActivityRepository implements ActivityRepository {
       final reference = _activities(
         _requiredIdentifier(workspaceId, 'workspaceId'),
       ).doc();
+      final followUp = input.followUp;
+      final taskReference = followUp == null
+          ? null
+          : _tasks(_requiredIdentifier(workspaceId, 'workspaceId')).doc();
       final data = FirestoreCallNoteMapper.createCallNoteData(
         workspaceId: workspaceId,
         contactId: contactId,
         actorUserId: actorUserId,
         input: input,
+        nextTaskId: taskReference?.id,
       );
 
-      await reference.set(data);
+      if (followUp == null) {
+        await reference.set(data);
+      } else {
+        final batch = _firestore.batch();
+        batch.set(reference, data);
+        batch.set(
+          taskReference!,
+          FirestoreTaskMapper.createTaskData(
+            workspaceId: workspaceId,
+            actorUserId: actorUserId,
+            input: TaskInput(
+              contactId: contactId,
+              kind: TaskKind.followUp,
+              title: followUp.title,
+              notes: null,
+              assigneeId: followUp.assigneeId,
+              dueOn: followUp.dueOn,
+            ),
+          ),
+        );
+        await batch.commit();
+      }
       return reference.id;
     });
   }
@@ -71,6 +100,13 @@ final class FirestoreActivityRepository implements ActivityRepository {
         .collection('workspaces')
         .doc(workspaceId)
         .collection('activities');
+  }
+
+  CollectionReference<Map<String, dynamic>> _tasks(String workspaceId) {
+    return _firestore
+        .collection('workspaces')
+        .doc(workspaceId)
+        .collection('tasks');
   }
 
   static String _requiredIdentifier(String value, String field) {

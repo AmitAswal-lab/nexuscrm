@@ -18,6 +18,7 @@ const {
   serverTimestamp,
   setDoc,
   updateDoc,
+  writeBatch,
   where,
 } = require('firebase/firestore');
 
@@ -674,6 +675,46 @@ test('allows valid call-note creation for admin and sales roles', async () => {
   );
 });
 
+test('allows an atomic call note and linked follow-up task', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const batch = writeBatch(database);
+
+  batch.set(
+    doc(
+      database,
+      'workspaces',
+      'workspace-one',
+      'activities',
+      'linked-call-note',
+    ),
+    callNoteData({
+      actorUserId: 'sales-user',
+      contactId: 'owned-lead',
+      nextTaskId: 'linked-follow-up',
+      useServerTimestamp: true,
+    }),
+  );
+  batch.set(
+    doc(
+      database,
+      'workspaces',
+      'workspace-one',
+      'tasks',
+      'linked-follow-up',
+    ),
+    taskData({
+      actorUserId: 'sales-user',
+      contactId: 'owned-lead',
+      assigneeId: 'sales-user',
+      useServerTimestamp: true,
+    }),
+  );
+
+  await assertSucceeds(batch.commit());
+});
+
 test('rejects invalid call-note ownership and actor spoofing', async () => {
   const database = testEnvironment
     .authenticatedContext('sales-user')
@@ -691,6 +732,23 @@ test('rejects invalid call-note ownership and actor spoofing', async () => {
       callNoteData({
         actorUserId: 'sales-user',
         contactId: 'other-lead',
+        useServerTimestamp: true,
+      }),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(
+        database,
+        'workspaces',
+        'workspace-one',
+        'activities',
+        'unlinked-follow-up',
+      ),
+      callNoteData({
+        actorUserId: 'sales-user',
+        contactId: 'owned-lead',
+        nextTaskId: 'missing-task',
         useServerTimestamp: true,
       }),
     ),
@@ -790,6 +848,7 @@ function taskData({
 function callNoteData({
   actorUserId = 'admin-user',
   contactId = 'owned-lead',
+  nextTaskId = null,
   useServerTimestamp = false,
 } = {}) {
   return {
@@ -802,6 +861,6 @@ function callNoteData({
     createdAt: useServerTimestamp
       ? serverTimestamp()
       : new Date('2026-01-01T00:00:00.000Z'),
-    nextTaskId: null,
+    nextTaskId,
   };
 }

@@ -199,6 +199,7 @@ final class AppRouter {
                       builder: (context, state) => _callNoteFormPage(
                         context,
                         contactId: state.pathParameters['contactId']!,
+                        canAssignFollowUp: true,
                       ),
                     ),
                   ],
@@ -305,6 +306,7 @@ final class AppRouter {
                       builder: (context, state) => _callNoteFormPage(
                         context,
                         contactId: state.pathParameters['contactId']!,
+                        canAssignFollowUp: false,
                       ),
                     ),
                   ],
@@ -550,6 +552,7 @@ final class AppRouter {
   static Widget _callNoteFormPage(
     BuildContext context, {
     required String contactId,
+    required bool canAssignFollowUp,
   }) {
     final session = _authenticatedSession(context);
 
@@ -559,6 +562,9 @@ final class AppRouter {
         workspaceId: session.membership.workspaceId,
         contactId: contactId,
         actorUserId: session.user.id,
+        canAssignFollowUp: canAssignFollowUp,
+        fixedAssigneeId: canAssignFollowUp ? '' : session.user.id,
+        salesAssigneeRepository: context.read<SalesAssigneeRepository>(),
       ),
       child: const CallNoteFormPage(),
     );
