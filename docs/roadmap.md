@@ -155,10 +155,12 @@ workflow, schema, permissions, and routes.
 Goal: let administrators manage their sales team and initiate secure
 invitations without creating or viewing another user's password.
 
-Checkpoint 1 foundation is complete: lifecycle states, audit fields,
-backend-owned invitation semantics, default-deny client writes, indexes, and
-emulator coverage are in place. Directory UI and backend invitation delivery
-remain planned.
+Checkpoints 1 and 2 are complete: lifecycle states, audit fields,
+backend-owned invitation semantics, default-deny client writes, indexes,
+emulator coverage, and the administrator team directory are in place.
+Checkpoint 3 has a local trusted callable invitation implementation and
+provider abstraction; its billing, sender, secret configuration, deployment,
+and manual delivery review remain pending.
 
 Planned scope:
 

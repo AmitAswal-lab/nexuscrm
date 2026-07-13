@@ -1,0 +1,351 @@
+import assert from 'node:assert/strict';
+import test, { afterEach, before } from 'node:test';
+
+import { getAuth } from 'firebase-admin/auth';
+import { getApps, initializeApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+import type { InvitationEmail, InvitationEmailSender } from '../email/invitation_email_sender.js';
+import {
+  CreateWorkspaceInvitationService,
+  type PasswordSetupLinkFactory,
+} from './create_workspace_invitation.js';
+import {
+  FirestoreInvitationStore,
+  type InvitationRecord,
+  type InvitationStore,
+} from './firestore_invitation_store.js';
+import { InvitationError } from './invitation_error.js';
+
+const projectId = process.env.GCLOUD_PROJECT ?? 'demo-nexuscrm';
+const workspaceId = 'workspace-one';
+const adminUserId = 'admin-user';
+const now = new Date('2026-07-13T12:00:00.000Z');
+
+if (getApps().length === 0) initializeApp({ projectId });
+
+const firestore = getFirestore();
+const auth = getAuth();
+
+before(async () => {
+  assert.ok(process.env.FIRESTORE_EMULATOR_HOST);
+  assert.ok(process.env.FIREBASE_AUTH_EMULATOR_HOST);
+});
+
+afterEach(async () => {
+  await clearFirestore();
+  await clearAuth();
+});
+
+test('creates only a sales invitation, invited membership, and safe response', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  const sender = new RecordingSender();
+  const links = new RecordingLinkFactory();
+  const service = makeService(sender, links);
+
+  const result = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: '  Sales.Rep@Example.com ',
+  });
+
+  assert.deepEqual(result, {
+    invitationId: result.invitationId,
+    email: 'sales.rep@example.com',
+    status: 'pending',
+    expiresAtMillis: now.getTime() + 7 * 24 * 60 * 60 * 1000,
+    deliveryStatus: 'sent',
+  });
+  assert.equal('userId' in result, false);
+  assert.equal('passwordSetupLink' in result, false);
+  assert.equal(sender.messages.length, 1);
+  assert.equal(links.settings?.url, 'https://dev.example.com/invitation-complete');
+  assert.equal(links.settings?.handleCodeInApp, false);
+
+  const invitation = await firestore
+    .collection('workspaces')
+    .doc(workspaceId)
+    .collection('invitations')
+    .doc(result.invitationId)
+    .get();
+  const invitationData = invitation.data();
+  assert.equal(invitationData?.role, 'sales_rep');
+  assert.equal(invitationData?.status, 'pending');
+  assert.equal(invitationData?.deliveryStatus, 'sent');
+  assert.equal(invitationData?.invitedByUserId, adminUserId);
+  assert.equal(invitationData?.deliveryAttempts, 1);
+
+  const membership = await firestore
+    .collection('workspaces')
+    .doc(workspaceId)
+    .collection('members')
+    .doc(String(invitationData?.invitedUserId))
+    .get();
+  assert.deepEqual(
+    pick(membership.data(), ['role', 'status', 'invitationId', 'email']),
+    {
+      role: 'sales_rep',
+      status: 'invited',
+      invitationId: result.invitationId,
+      email: 'sales.rep@example.com',
+    },
+  );
+  assert.equal(
+    (await auth.getUser(String(invitationData?.invitedUserId))).email,
+    'sales.rep@example.com',
+  );
+});
+
+test('rejects a non-admin without creating an Auth user', async () => {
+  await seedMembership('sales-user', 'sales_rep', 'active');
+  const service = makeService(new RecordingSender(), new RecordingLinkFactory());
+
+  await assert.rejects(
+    service.create({
+      actingUserId: 'sales-user',
+      workspaceId,
+      email: 'blocked@example.com',
+    }),
+    (error: unknown) =>
+      error instanceof InvitationError && error.code === 'permission-denied',
+  );
+
+  await assertUserMissing('blocked@example.com');
+});
+
+test('rejects a suspended or cross-workspace administrator', async () => {
+  await seedMembership('suspended-admin', 'admin', 'suspended');
+  await firestore
+      .collection('workspaces')
+      .doc('another-workspace')
+      .collection('members')
+      .doc('other-admin')
+      .set({
+        workspaceId: 'another-workspace',
+        userId: 'other-admin',
+        role: 'admin',
+        status: 'active',
+      });
+  const service = makeService(new RecordingSender(), new RecordingLinkFactory());
+
+  for (const testCase of [
+    ['suspended-admin', 'suspended@example.com'],
+    ['other-admin', 'isolated@example.com'],
+  ] as const) {
+    await assert.rejects(
+      service.create({
+        actingUserId: testCase[0],
+        workspaceId,
+        email: testCase[1],
+      }),
+      (error: unknown) =>
+        error instanceof InvitationError && error.code === 'permission-denied',
+    );
+    await assertUserMissing(testCase[1]);
+  }
+});
+
+test('rejects an email that already has a Firebase Authentication account', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  await auth.createUser({ uid: 'existing-user', email: 'existing@example.com' });
+  const service = makeService(new RecordingSender(), new RecordingLinkFactory());
+
+  await assert.rejects(
+    service.create({
+      actingUserId: adminUserId,
+      workspaceId,
+      email: 'existing@example.com',
+    }),
+    (error: unknown) =>
+      error instanceof InvitationError && error.code === 'already-exists',
+  );
+  const invitations = await firestore
+    .collection('workspaces')
+    .doc(workspaceId)
+    .collection('invitations')
+    .get();
+  assert.equal(invitations.empty, true);
+});
+
+test('retains one invitation and Auth user while retrying a failed delivery', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  const sender = new RecordingSender({ shouldFail: true });
+  const service = makeService(sender, new RecordingLinkFactory());
+
+  const first = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'retry@example.com',
+  });
+  assert.equal(first.deliveryStatus, 'failed');
+
+  const firstInvitation = await onlyInvitation();
+  const firstUserId = String(firstInvitation.data()?.invitedUserId);
+  sender.shouldFail = false;
+
+  const second = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'retry@example.com',
+  });
+
+  assert.equal(second.deliveryStatus, 'sent');
+  assert.equal(second.invitationId, first.invitationId);
+  assert.equal((await onlyInvitation()).data()?.deliveryAttempts, 2);
+  assert.equal((await onlyInvitation()).data()?.deliveryStatus, 'sent');
+  assert.equal(
+    String((await onlyInvitation()).data()?.invitedUserId),
+    firstUserId,
+  );
+  assert.equal((await auth.getUser(firstUserId)).email, 'retry@example.com');
+});
+
+test('does not duplicate a successfully delivered pending invitation', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  const sender = new RecordingSender();
+  const service = makeService(sender, new RecordingLinkFactory());
+
+  await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'pending@example.com',
+  });
+
+  await assert.rejects(
+    service.create({
+      actingUserId: adminUserId,
+      workspaceId,
+      email: 'pending@example.com',
+    }),
+    (error: unknown) =>
+      error instanceof InvitationError && error.code === 'already-exists',
+  );
+  assert.equal((await onlyInvitation()).id.length > 0, true);
+  assert.equal(sender.messages.length, 1);
+});
+
+test('removes a just-created Auth user when atomic Firestore creation fails', async () => {
+  const failingStore: InvitationStore = {
+    requireActiveAdmin: async () => {},
+    findPendingInvitation: async () => null,
+    createInvitation: async () => {
+      throw new Error('Firestore transaction failed');
+    },
+    markDeliveryAttempt: async () => true,
+    markDeliverySent: async () => {},
+    markDeliveryFailed: async () => {},
+    markExpired: async () => {},
+  };
+  const service = new CreateWorkspaceInvitationService({
+    auth,
+    invitationStore: failingStore,
+    emailSender: new RecordingSender(),
+    passwordSetupLinkFactory: new RecordingLinkFactory(),
+    passwordSetupContinueUrl: 'https://dev.example.com/invitation-complete',
+    now: () => now,
+  });
+
+  await assert.rejects(
+    service.create({
+      actingUserId: adminUserId,
+      workspaceId,
+      email: 'cleanup@example.com',
+    }),
+    /Firestore transaction failed/,
+  );
+  await assertUserMissing('cleanup@example.com');
+});
+
+function makeService(
+  emailSender: InvitationEmailSender,
+  passwordSetupLinkFactory: PasswordSetupLinkFactory,
+) {
+  return new CreateWorkspaceInvitationService({
+    auth,
+    invitationStore: new FirestoreInvitationStore(firestore),
+    emailSender,
+    passwordSetupLinkFactory,
+    passwordSetupContinueUrl: 'https://dev.example.com/invitation-complete',
+    now: () => now,
+  });
+}
+
+async function seedMembership(
+  userId: string,
+  role: 'admin' | 'sales_rep',
+  status: 'active' | 'suspended',
+) {
+  await firestore
+    .collection('workspaces')
+    .doc(workspaceId)
+    .collection('members')
+    .doc(userId)
+    .set({ workspaceId, userId, role, status });
+}
+
+async function onlyInvitation() {
+  const invitations = await firestore
+    .collection('workspaces')
+    .doc(workspaceId)
+    .collection('invitations')
+    .get();
+  assert.equal(invitations.size, 1);
+  return invitations.docs[0]!;
+}
+
+async function assertUserMissing(email: string) {
+  await assert.rejects(
+    auth.getUserByEmail(email),
+    (error: unknown) =>
+      typeof error === 'object' && error !== null && 'code' in error &&
+      error.code === 'auth/user-not-found',
+  );
+}
+
+async function clearFirestore() {
+  const host = process.env.FIRESTORE_EMULATOR_HOST;
+  await fetch(
+    `http://${host}/emulator/v1/projects/${projectId}/databases/(default)/documents`,
+    { method: 'DELETE' },
+  );
+}
+
+async function clearAuth() {
+  const host = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+  await fetch(`http://${host}/emulator/v1/projects/${projectId}/accounts`, {
+    method: 'DELETE',
+  });
+}
+
+function pick(
+  value: Record<string, unknown> | undefined,
+  keys: readonly string[],
+) {
+  return Object.fromEntries(keys.map((key) => [key, value?.[key]]));
+}
+
+class RecordingSender implements InvitationEmailSender {
+  constructor({ shouldFail = false }: { shouldFail?: boolean } = {}) {
+    this.shouldFail = shouldFail;
+  }
+
+  shouldFail: boolean;
+  readonly messages: InvitationEmail[] = [];
+
+  async send(email: InvitationEmail): Promise<void> {
+    this.messages.push(email);
+    if (this.shouldFail) throw new Error('Provider unavailable');
+  }
+}
+
+class RecordingLinkFactory implements PasswordSetupLinkFactory {
+  settings: Parameters<PasswordSetupLinkFactory['create']>[1] | undefined;
+
+  async create(
+    _: string,
+    settings: Parameters<PasswordSetupLinkFactory['create']>[1],
+  ): Promise<string> {
+    this.settings = settings;
+    return 'https://firebase.example.com/reset-link';
+  }
+}
