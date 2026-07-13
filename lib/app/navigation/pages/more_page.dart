@@ -7,12 +7,14 @@ class MorePage extends StatelessWidget {
     required this.title,
     required this.message,
     required this.icon,
+    this.additionalActions = const <Widget>[],
     super.key,
   });
 
   final String title;
   final String message;
   final IconData icon;
+  final List<Widget> additionalActions;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +30,15 @@ class MorePage extends StatelessWidget {
           const SizedBox(height: 8),
           Text(message, style: theme.textTheme.bodyLarge),
           const SizedBox(height: 32),
+          if (additionalActions.isNotEmpty) ...[
+            Card(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: additionalActions,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Card(
             child: ListTile(
               leading: const Icon(Icons.logout),

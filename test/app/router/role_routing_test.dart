@@ -59,7 +59,11 @@ void main() {
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
     await tester.pumpAndSettle();
-    expect(find.text('Admin more'), findsOneWidget);
+    expect(
+      find.text('Workspace administration and account settings.'),
+      findsOneWidget,
+    );
+    expect(find.widgetWithText(ListTile, 'Team'), findsOneWidget);
     expect(find.widgetWithText(ListTile, 'Sign out'), findsOneWidget);
     expect(_selectedPhoneIndex(tester), 3);
 
