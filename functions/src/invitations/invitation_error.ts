@@ -3,6 +3,7 @@ export type InvitationErrorCode =
   | 'permission-denied'
   | 'invalid-argument'
   | 'already-exists'
+  | 'resource-exhausted'
   | 'failed-precondition'
   | 'internal';
 

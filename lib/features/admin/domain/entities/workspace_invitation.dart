@@ -2,6 +2,8 @@ import 'package:equatable/equatable.dart';
 
 enum InvitationStatus { pending, accepted, expired, revoked }
 
+enum InvitationDeliveryStatus { pending, sending, sent, failed }
+
 extension InvitationStatusTransitions on InvitationStatus {
   bool canTransitionTo(InvitationStatus next) {
     return switch (this) {
@@ -29,6 +31,7 @@ final class WorkspaceInvitation extends Equatable {
     required this.updatedAt,
     required this.expiresAt,
     required this.lastSentAt,
+    required this.deliveryStatus,
     required this.resendCount,
     required this.acceptedAt,
     required this.acceptedByUserId,
@@ -39,7 +42,9 @@ final class WorkspaceInvitation extends Equatable {
   final String id, workspaceId, email, invitedByUserId;
   final String role;
   final InvitationStatus status;
-  final DateTime createdAt, updatedAt, expiresAt, lastSentAt;
+  final DateTime createdAt, updatedAt, expiresAt;
+  final DateTime? lastSentAt;
+  final InvitationDeliveryStatus deliveryStatus;
   final int resendCount;
   final DateTime? acceptedAt, revokedAt;
   final String? acceptedByUserId, revokedByUserId;
@@ -56,6 +61,7 @@ final class WorkspaceInvitation extends Equatable {
     updatedAt,
     expiresAt,
     lastSentAt,
+    deliveryStatus,
     resendCount,
     acceptedAt,
     acceptedByUserId,

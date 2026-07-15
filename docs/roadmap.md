@@ -158,9 +158,12 @@ invitations without creating or viewing another user's password.
 Checkpoints 1 and 2 are complete: lifecycle states, audit fields,
 backend-owned invitation semantics, default-deny client writes, indexes,
 emulator coverage, and the administrator team directory are in place.
-Checkpoint 3 has a local trusted callable invitation implementation and
-provider abstraction; its billing, sender, secret configuration, deployment,
-and manual delivery review remain pending.
+Checkpoint 3A is complete locally: the trusted callable backend and provider
+abstraction exist. Checkpoint 3B is ready for manual UI/UX review locally: the
+Team page separates existing members and pending invitations, and administrators
+can invite by email, retry/resend safely, and revoke pending invitations.
+Billing, sender and secret configuration, deployment, and manual email-delivery
+review remain pending.
 
 Planned scope:
 

@@ -86,7 +86,7 @@ export class CreateWorkspaceInvitationService {
       }
 
       if (existingInvitation.deliveryStatus === 'failed') {
-        return this.#deliver(existingInvitation);
+        return this.#deliver(existingInvitation, false);
       }
 
       throw new InvitationError(
@@ -116,21 +116,79 @@ export class CreateWorkspaceInvitationService {
       throw error;
     }
 
-    return this.#deliver(invitation);
+    return this.#deliver(invitation, false);
+  }
+
+  async resend({
+    actingUserId,
+    workspaceId: rawWorkspaceId,
+    invitationId,
+  }: {
+    actingUserId: string;
+    workspaceId: string;
+    invitationId: string;
+  }): Promise<CreateWorkspaceInvitationResult> {
+    const workspaceId = requiredWorkspaceId(rawWorkspaceId);
+    const userId = requiredUserId(actingUserId);
+    const id = requiredInvitationId(invitationId);
+
+    await this.#store.requireActiveAdmin(workspaceId, userId);
+    const invitation = await this.#store.findInvitation(workspaceId, id);
+    if (invitation.status !== 'pending') {
+      throw new InvitationError(
+        'failed-precondition',
+        'Only pending invitations can be resent.',
+      );
+    }
+    if (invitation.expiresAt.getTime() <= this.#now().getTime()) {
+      await this.#store.markExpired(invitation, this.#now());
+      throw new InvitationError('failed-precondition', 'This invitation has expired.');
+    }
+
+    return this.#deliver(invitation, true);
+  }
+
+  async revoke({
+    actingUserId,
+    workspaceId: rawWorkspaceId,
+    invitationId,
+  }: {
+    actingUserId: string;
+    workspaceId: string;
+    invitationId: string;
+  }): Promise<void> {
+    const workspaceId = requiredWorkspaceId(rawWorkspaceId);
+    const userId = requiredUserId(actingUserId);
+    const id = requiredInvitationId(invitationId);
+
+    await this.#store.requireActiveAdmin(workspaceId, userId);
+    await this.#store.revokePendingInvitation({
+      workspaceId,
+      invitationId: id,
+      actingUserId: userId,
+      at: this.#now(),
+    });
   }
 
   async #deliver(
     invitation: InvitationRecord,
+    isResend: boolean,
   ): Promise<CreateWorkspaceInvitationResult> {
     const attemptedAt = this.#now();
-    const deliveryAttemptStarted = await this.#store.markDeliveryAttempt(
+    const deliveryAttempt = await this.#store.reserveDeliveryAttempt(
       invitation,
       attemptedAt,
     );
-    if (!deliveryAttemptStarted) {
+    if (deliveryAttempt === 'in-progress') {
       throw new InvitationError(
         'already-exists',
         'This invitation is already being delivered.',
+      );
+    }
+    if (deliveryAttempt === 'rate-limited') {
+      throw new InvitationError(
+        'resource-exhausted',
+        'Please wait before sending another invitation email.',
       );
     }
 
@@ -143,7 +201,7 @@ export class CreateWorkspaceInvitationService {
         to: invitation.email,
         passwordSetupLink,
       });
-      await this.#store.markDeliverySent(invitation, this.#now());
+      await this.#store.markDeliverySent(invitation, this.#now(), isResend);
       return resultFor(invitation, 'sent');
     } catch (_) {
       await this.#store.markDeliveryFailed(invitation, this.#now());
@@ -241,6 +299,14 @@ function requiredUserId(value: string): string {
     throw new InvitationError('unauthenticated', 'Sign in to continue.');
   }
   return userId;
+}
+
+function requiredInvitationId(value: string): string {
+  const invitationId = value.trim();
+  if (invitationId.length === 0 || invitationId.includes('/')) {
+    throw new InvitationError('invalid-argument', 'Invalid invitation.');
+  }
+  return invitationId;
 }
 
 function hashEmail(email: string): string {

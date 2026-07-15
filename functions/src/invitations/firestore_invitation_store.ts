@@ -3,7 +3,12 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 
 import { InvitationError } from './invitation_error.js';
 
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
 export type InvitationDeliveryStatus = 'pending' | 'sending' | 'sent' | 'failed';
+export type DeliveryAttemptReservation =
+  | 'reserved'
+  | 'in-progress'
+  | 'rate-limited';
 
 export interface InvitationRecord {
   readonly id: string;
@@ -12,7 +17,7 @@ export interface InvitationRecord {
   readonly emailHash: string;
   readonly invitedUserId: string;
   readonly expiresAt: Date;
-  readonly status: 'pending';
+  readonly status: InvitationStatus;
   readonly deliveryStatus: InvitationDeliveryStatus;
 }
 
@@ -33,10 +38,29 @@ export interface InvitationStore {
     emailHash: string,
   ): Promise<InvitationRecord | null>;
   createInvitation(record: NewInvitationRecord): Promise<InvitationRecord>;
-  markDeliveryAttempt(invitation: InvitationRecord, at: Date): Promise<boolean>;
-  markDeliverySent(invitation: InvitationRecord, at: Date): Promise<void>;
+  findInvitation(workspaceId: string, invitationId: string): Promise<InvitationRecord>;
+  reserveDeliveryAttempt(
+    invitation: InvitationRecord,
+    at: Date,
+  ): Promise<DeliveryAttemptReservation>;
+  markDeliverySent(
+    invitation: InvitationRecord,
+    at: Date,
+    isResend: boolean,
+  ): Promise<void>;
   markDeliveryFailed(invitation: InvitationRecord, at: Date): Promise<void>;
   markExpired(invitation: InvitationRecord, at: Date): Promise<void>;
+  revokePendingInvitation({
+    workspaceId,
+    invitationId,
+    actingUserId,
+    at,
+  }: {
+    workspaceId: string;
+    invitationId: string;
+    actingUserId: string;
+    at: Date;
+  }): Promise<void>;
 }
 
 export class FirestoreInvitationStore implements InvitationStore {
@@ -81,6 +105,17 @@ export class FirestoreInvitationStore implements InvitationStore {
       throw new InvitationError('internal', 'Invitation state is unavailable.');
     }
 
+    return this.#record(workspaceId, invitation);
+  }
+
+  async findInvitation(
+    workspaceId: string,
+    invitationId: string,
+  ): Promise<InvitationRecord> {
+    const invitation = await this.#invitation(workspaceId, invitationId).get();
+    if (!invitation.exists) {
+      throw new InvitationError('failed-precondition', 'Invitation is unavailable.');
+    }
     return this.#record(workspaceId, invitation);
   }
 
@@ -160,33 +195,51 @@ export class FirestoreInvitationStore implements InvitationStore {
     };
   }
 
-  async markDeliveryAttempt(
+  async reserveDeliveryAttempt(
     invitation: InvitationRecord,
     at: Date,
-  ): Promise<boolean> {
+  ): Promise<DeliveryAttemptReservation> {
     const reference = this.#invitation(invitation.workspaceId, invitation.id);
 
     return this.firestore.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(reference);
-      const deliveryStatus = snapshot.data()?.deliveryStatus;
-      if (deliveryStatus !== 'pending' && deliveryStatus !== 'failed') {
-        return false;
+      const data = snapshot.data();
+      if (!snapshot.exists || data?.status !== 'pending') {
+        throw new InvitationError('failed-precondition', 'Invitation is unavailable.');
+      }
+
+      if (data.deliveryStatus === 'sending') {
+        return 'in-progress';
+      }
+
+      const lastAttempt = data.lastDeliveryAttemptAt;
+      if (
+        lastAttempt instanceof Timestamp &&
+        at.getTime() - lastAttempt.toMillis() < 60 * 1000
+      ) {
+        return 'rate-limited';
       }
 
       transaction.update(reference, {
         deliveryStatus: 'sending',
         deliveryAttempts: FieldValue.increment(1),
+        lastDeliveryAttemptAt: Timestamp.fromDate(at),
         updatedAt: Timestamp.fromDate(at),
       });
-      return true;
+      return 'reserved';
     });
   }
 
-  async markDeliverySent(invitation: InvitationRecord, at: Date): Promise<void> {
+  async markDeliverySent(
+    invitation: InvitationRecord,
+    at: Date,
+    isResend: boolean,
+  ): Promise<void> {
     await this.#invitation(invitation.workspaceId, invitation.id).update({
       deliveryStatus: 'sent',
       lastSentAt: Timestamp.fromDate(at),
       updatedAt: Timestamp.fromDate(at),
+      ...(isResend ? { resendCount: FieldValue.increment(1) } : {}),
     });
   }
 
@@ -207,6 +260,73 @@ export class FirestoreInvitationStore implements InvitationStore {
         status: 'expired',
         updatedAt: Timestamp.fromDate(at),
       });
+    });
+  }
+
+  async revokePendingInvitation({
+    workspaceId,
+    invitationId,
+    actingUserId,
+    at,
+  }: {
+    workspaceId: string;
+    invitationId: string;
+    actingUserId: string;
+    at: Date;
+  }): Promise<void> {
+    const invitation = this.#invitation(workspaceId, invitationId);
+
+    await this.firestore.runTransaction(async (transaction) => {
+      const invitationSnapshot = await transaction.get(invitation);
+      const data = invitationSnapshot.data();
+      if (
+        !invitationSnapshot.exists ||
+        data?.workspaceId !== workspaceId ||
+        data.status !== 'pending' ||
+        typeof data.invitedUserId !== 'string' ||
+        typeof data.emailHash !== 'string'
+      ) {
+        throw new InvitationError(
+          'failed-precondition',
+          'Only pending invitations can be revoked.',
+        );
+      }
+
+      const member = this.#member(workspaceId, data.invitedUserId);
+      const lock = this.#lock(workspaceId, data.emailHash);
+      const [memberSnapshot, lockSnapshot] = await Promise.all([
+        transaction.get(member),
+        transaction.get(lock),
+      ]);
+
+      transaction.update(invitation, {
+        status: 'revoked',
+        revokedAt: Timestamp.fromDate(at),
+        revokedByUserId: actingUserId,
+        updatedAt: Timestamp.fromDate(at),
+      });
+
+      if (lockSnapshot.data()?.invitationId === invitationId) {
+        transaction.update(lock, {
+          status: 'revoked',
+          updatedAt: Timestamp.fromDate(at),
+        });
+      }
+
+      const memberData = memberSnapshot.data();
+      if (
+        memberSnapshot.exists &&
+        memberData?.invitationId === invitationId &&
+        memberData.status === 'invited'
+      ) {
+        transaction.update(member, {
+          status: 'revoked',
+          updatedAt: Timestamp.fromDate(at),
+          updatedByUserId: actingUserId,
+          statusChangedAt: Timestamp.fromDate(at),
+          statusChangedByUserId: actingUserId,
+        });
+      }
     });
   }
 
@@ -241,7 +361,7 @@ export class FirestoreInvitationStore implements InvitationStore {
     const data = snapshot.data();
     if (
       data?.workspaceId !== workspaceId ||
-      data.status !== 'pending' ||
+      !['pending', 'accepted', 'expired', 'revoked'].includes(data.status) ||
       typeof data.email !== 'string' ||
       typeof data.emailHash !== 'string' ||
       typeof data.invitedUserId !== 'string' ||
@@ -258,7 +378,7 @@ export class FirestoreInvitationStore implements InvitationStore {
       emailHash: data.emailHash,
       invitedUserId: data.invitedUserId,
       expiresAt: data.expiresAt.toDate(),
-      status: 'pending',
+      status: data.status as InvitationStatus,
       deliveryStatus: data.deliveryStatus as InvitationDeliveryStatus,
     };
   }

@@ -5,4 +5,14 @@ abstract interface class InvitationRepository {
     required String workspaceId,
     required String email,
   });
+
+  Future<InvitationCreationResult> resendInvitation({
+    required String workspaceId,
+    required String invitationId,
+  });
+
+  Future<void> revokeInvitation({
+    required String workspaceId,
+    required String invitationId,
+  });
 }

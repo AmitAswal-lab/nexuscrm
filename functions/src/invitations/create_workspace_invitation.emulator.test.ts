@@ -170,7 +170,12 @@ test('rejects an email that already has a Firebase Authentication account', asyn
 test('retains one invitation and Auth user while retrying a failed delivery', async () => {
   await seedMembership(adminUserId, 'admin', 'active');
   const sender = new RecordingSender({ shouldFail: true });
-  const service = makeService(sender, new RecordingLinkFactory());
+  let currentTime = now;
+  const service = makeService(
+    sender,
+    new RecordingLinkFactory(),
+    () => currentTime,
+  );
 
   const first = await service.create({
     actingUserId: adminUserId,
@@ -182,6 +187,7 @@ test('retains one invitation and Auth user while retrying a failed delivery', as
   const firstInvitation = await onlyInvitation();
   const firstUserId = String(firstInvitation.data()?.invitedUserId);
   sender.shouldFail = false;
+  currentTime = new Date(now.getTime() + 61 * 1000);
 
   const second = await service.create({
     actingUserId: adminUserId,
@@ -224,17 +230,126 @@ test('does not duplicate a successfully delivered pending invitation', async () 
   assert.equal(sender.messages.length, 1);
 });
 
+test('rate-limits a resend and records a successful resend once', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  let currentTime = now;
+  const sender = new RecordingSender();
+  const service = makeService(
+    sender,
+    new RecordingLinkFactory(),
+    () => currentTime,
+  );
+  const invitation = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'resend@example.com',
+  });
+
+  await assert.rejects(
+    service.resend({
+      actingUserId: adminUserId,
+      workspaceId,
+      invitationId: invitation.invitationId,
+    }),
+    (error: unknown) =>
+      error instanceof InvitationError && error.code === 'resource-exhausted',
+  );
+
+  currentTime = new Date(now.getTime() + 61 * 1000);
+  const resent = await service.resend({
+    actingUserId: adminUserId,
+    workspaceId,
+    invitationId: invitation.invitationId,
+  });
+
+  assert.equal(resent.deliveryStatus, 'sent');
+  assert.equal((await onlyInvitation()).data()?.resendCount, 1);
+  assert.equal((await onlyInvitation()).data()?.deliveryAttempts, 2);
+  assert.equal(sender.messages.length, 2);
+});
+
+test('revocation updates only the invited membership linked to the invitation', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  const service = makeService(new RecordingSender(), new RecordingLinkFactory());
+  const created = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'revoke@example.com',
+  });
+  const invitation = await onlyInvitation();
+  const invitedUserId = String(invitation.data()?.invitedUserId);
+
+  await service.revoke({
+    actingUserId: adminUserId,
+    workspaceId,
+    invitationId: created.invitationId,
+  });
+
+  assert.equal((await onlyInvitation()).data()?.status, 'revoked');
+  assert.equal(
+    (
+      await firestore
+        .collection('workspaces')
+        .doc(workspaceId)
+        .collection('members')
+        .doc(invitedUserId)
+        .get()
+    ).data()?.status,
+    'revoked',
+  );
+});
+
+test('revocation never changes a linked membership once it is active', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  const service = makeService(new RecordingSender(), new RecordingLinkFactory());
+  const created = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'active@example.com',
+  });
+  const invitation = await onlyInvitation();
+  const userId = String(invitation.data()?.invitedUserId);
+  await firestore
+    .collection('workspaces')
+    .doc(workspaceId)
+    .collection('members')
+    .doc(userId)
+    .update({status: 'active'});
+
+  await service.revoke({
+    actingUserId: adminUserId,
+    workspaceId,
+    invitationId: created.invitationId,
+  });
+
+  assert.equal(
+    (
+      await firestore
+        .collection('workspaces')
+        .doc(workspaceId)
+        .collection('members')
+        .doc(userId)
+        .get()
+    ).data()?.status,
+    'active',
+  );
+});
+
 test('removes a just-created Auth user when atomic Firestore creation fails', async () => {
   const failingStore: InvitationStore = {
     requireActiveAdmin: async () => {},
     findPendingInvitation: async () => null,
+    findInvitation: async () => {
+      throw new Error('Not used');
+    },
     createInvitation: async () => {
       throw new Error('Firestore transaction failed');
     },
-    markDeliveryAttempt: async () => true,
+    reserveDeliveryAttempt: async () => 'reserved',
     markDeliverySent: async () => {},
     markDeliveryFailed: async () => {},
     markExpired: async () => {},
+    revokePendingInvitation: async () => {},
   };
   const service = new CreateWorkspaceInvitationService({
     auth,
@@ -259,6 +374,7 @@ test('removes a just-created Auth user when atomic Firestore creation fails', as
 function makeService(
   emailSender: InvitationEmailSender,
   passwordSetupLinkFactory: PasswordSetupLinkFactory,
+  clock: () => Date = () => now,
 ) {
   return new CreateWorkspaceInvitationService({
     auth,
@@ -266,7 +382,7 @@ function makeService(
     emailSender,
     passwordSetupLinkFactory,
     passwordSetupContinueUrl: 'https://dev.example.com/invitation-complete',
-    now: () => now,
+    now: clock,
   });
 }
 

@@ -18,8 +18,12 @@ final class FirestoreAdminTeamRepository implements AdminTeamRepository {
             .collection('members')
             .snapshots()) {
       if (snapshot.metadata.hasPendingWrites) continue;
-      final members = snapshot.docs.map(_fromDocument).toList()
-        ..sort((a, b) => _label(a).compareTo(_label(b)));
+      final members =
+          snapshot.docs
+              .map(_fromDocument)
+              .where((member) => member.status != MembershipStatus.invited)
+              .toList()
+            ..sort((a, b) => _label(a).compareTo(_label(b)));
       yield List.unmodifiable(members);
     }
   }

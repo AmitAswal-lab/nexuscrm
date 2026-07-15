@@ -74,6 +74,34 @@ it must be an HTTPS domain authorized in Firebase Authentication. Password
 completion, invitation acceptance, and membership activation remain deferred
 to representative onboarding.
 
+## Invitation management workflow (local implementation)
+
+The Team page separates existing members from pending invitations, preventing
+the invited membership record from appearing as a duplicate team member. An
+administrator can open an invite-by-email page, see successful or failed
+delivery state, retry a failed delivery, resend a pending invitation, or revoke
+a pending invitation. The UI shows only email addresses and human-readable
+states; it does not expose Firebase user IDs.
+
+`resendWorkspaceInvitation` and `revokeWorkspaceInvitation` are trusted
+callables. Resend first reserves a delivery attempt inside a Firestore
+transaction. A pending send blocks concurrent callers, and the backend applies
+a 60-second rate limit between attempts. Every successful resend creates a
+fresh Firebase password-setup link, while failures leave the same invitation,
+membership, Auth user, and audit trail in place for a later retry.
+
+Revocation is also transactional. It changes the invitation and its email lock
+only when that specific invitation is pending. It changes a membership only
+when the membership has the exact matching `invitationId` and is still
+`invited`; an existing `active` representative is never revoked because of an
+old invitation sharing their email address. Invitation expiry, delivery state,
+and all audit fields remain backend-owned because Firestore client writes are
+denied.
+
+No onboarding, invitation acceptance, password completion, membership
+activation, secrets, provider configuration, billing change, or deployment is
+included in this checkpoint.
+
 ### Deployment prerequisites
 
 Do not deploy this Function until all of the following are complete for

@@ -25,8 +25,9 @@ Firestore model remains compatible with multiple workspaces, but workspace
 selection and switching are not implemented. More than one active membership
 is treated as a configuration error.
 
-Sales-representative invitations, Cloud Functions, email delivery, password
-setup links, and administrator user-management screens are deferred.
+The local invitation backend and administrator invitation-management screens
+are implemented, but Functions deployment, email-provider configuration, and
+representative password completion/onboarding remain pending.
 
 ## Session flow
 
@@ -99,8 +100,9 @@ Firestore rules use default-deny access:
 - Client profile and membership writes are denied.
 - Workspace and all unspecified data remain denied.
 
-Trusted backend logic will own membership writes when invitations are
-implemented.
+Trusted backend logic owns membership and invitation writes. Firestore clients
+cannot activate, suspend, revoke, or otherwise alter membership or invitation
+documents.
 
 The membership lookup uses:
 

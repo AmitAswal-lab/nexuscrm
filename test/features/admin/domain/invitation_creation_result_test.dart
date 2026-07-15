@@ -13,7 +13,7 @@ void main() {
 
     expect(result.invitationId, 'invitation-one');
     expect(result.email, 'rep@example.com');
-    expect(result.deliveryStatus, InvitationDeliveryStatus.sent);
+    expect(result.deliveryStatus, InvitationEmailDeliveryStatus.sent);
   });
 
   test('rejects responses containing an unsupported invitation state', () {

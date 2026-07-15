@@ -31,9 +31,13 @@ The application currently supports:
   and sales-dashboard metrics
 - Native contact dialing, append-only call notes, optional follow-up creation,
   and chronological contact activity timelines
+- Administrator team directory with separate pending invitations
+- Local-only invitation creation, resend, and revoke workflows backed by
+  trusted callable Functions
 
-Sales-representative invitation and onboarding are intentionally deferred to a
-later feature.
+Production invitation delivery and representative onboarding remain pending:
+the Functions have not been deployed, and no sender credentials, billing, or
+email-provider configuration is committed to this repository.
 
 See the [project roadmap](docs/roadmap.md) for completed milestones, the
 recommended MVP delivery order, and deferred work.

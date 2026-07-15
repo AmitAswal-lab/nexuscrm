@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-enum InvitationDeliveryStatus { sent, failed }
+enum InvitationEmailDeliveryStatus { sent, failed }
 
 final class InvitationCreationResult extends Equatable {
   const InvitationCreationResult({
@@ -13,7 +13,7 @@ final class InvitationCreationResult extends Equatable {
   final String invitationId;
   final String email;
   final DateTime expiresAt;
-  final InvitationDeliveryStatus deliveryStatus;
+  final InvitationEmailDeliveryStatus deliveryStatus;
 
   factory InvitationCreationResult.fromCallableData(Object? value) {
     if (value is! Map<Object?, Object?>) {
@@ -35,8 +35,8 @@ final class InvitationCreationResult extends Equatable {
       email: email,
       expiresAt: DateTime.fromMillisecondsSinceEpoch(expiresAtMillis),
       deliveryStatus: switch (deliveryStatus) {
-        'sent' => InvitationDeliveryStatus.sent,
-        'failed' => InvitationDeliveryStatus.failed,
+        'sent' => InvitationEmailDeliveryStatus.sent,
+        'failed' => InvitationEmailDeliveryStatus.failed,
         _ => throw const FormatException('Invalid invitation response.'),
       },
     );
