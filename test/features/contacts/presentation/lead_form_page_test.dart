@@ -192,7 +192,6 @@ void main() {
     );
     expect(find.text('Back to Leads'), findsOneWidget);
     expect(find.byTooltip('Back'), findsOneWidget);
-
   });
 }
 

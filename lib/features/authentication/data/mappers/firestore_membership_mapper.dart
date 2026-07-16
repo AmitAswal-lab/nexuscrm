@@ -22,11 +22,19 @@ abstract final class FirestoreMembershipMapper {
       throw const FormatException('Workspace membership IDs do not match.');
     }
 
+    final status = _parseStatus(_requiredString(data, 'status'));
+    final invitationId = data['invitationId'];
+    if (status == MembershipStatus.invited &&
+        (invitationId is! String || invitationId.trim().isEmpty)) {
+      throw const FormatException('Invited membership requires an invitation.');
+    }
+
     return WorkspaceMembership(
       workspaceId: workspaceId,
       userId: userId,
       role: _parseRole(_requiredString(data, 'role')),
-      status: _parseStatus(_requiredString(data, 'status')),
+      status: status,
+      invitationId: invitationId is String ? invitationId : null,
     );
   }
 

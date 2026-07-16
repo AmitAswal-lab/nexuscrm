@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -8,7 +10,13 @@ import 'package:nexuscrm/app/router/router_refresh_notifier.dart';
 import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
 import 'package:nexuscrm/features/activities/presentation/cubit/call_note_form/call_note_form_cubit.dart';
 import 'package:nexuscrm/features/activities/presentation/pages/call_note_form_page.dart';
+import 'package:nexuscrm/features/admin/data/repositories/firebase_callable_invitation_repository.dart';
+import 'package:nexuscrm/features/admin/data/repositories/firebase_callable_membership_management_repository.dart';
+import 'package:nexuscrm/features/admin/data/repositories/firestore_admin_team_repository.dart';
+import 'package:nexuscrm/features/admin/data/repositories/firestore_invitation_directory_repository.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_home_placeholder.dart';
+import 'package:nexuscrm/features/admin/presentation/pages/admin_invite_representative_page.dart';
+import 'package:nexuscrm/features/admin/presentation/pages/admin_team_directory_page.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/auth_session.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
 import 'package:nexuscrm/features/authentication/presentation/bloc/session/session_bloc.dart';
@@ -60,7 +68,18 @@ final class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.invitationPending,
-          builder: (context, state) => const InvitationPendingPage(),
+          builder: (context, state) {
+            final sessionState = _sessionBloc.state;
+            if (sessionState is! SessionInvitationPending) {
+              return const SessionLoadingPage();
+            }
+            return InvitationPendingPage(
+              membership: sessionState.membership,
+              invitationRepository: FirebaseCallableInvitationRepository(
+                FirebaseFunctions.instance,
+              ),
+            );
+          },
         ),
         GoRoute(
           path: AppRoutes.accessDenied,
@@ -242,13 +261,64 @@ final class AppRouter {
           routes: [
             GoRoute(
               path: AppRoutes.adminMore,
-              builder: (context, state) => const MorePage(
+              builder: (context, state) => MorePage(
                 icon: Icons.admin_panel_settings_outlined,
-                title: 'Admin more',
-                message:
-                    'Team management and activity reporting will appear here '
-                    'in future milestones.',
+                title: 'More',
+                message: 'Workspace administration and account settings.',
+                additionalActions: [
+                  ListTile(
+                    leading: const Icon(Icons.groups_outlined),
+                    title: const Text('Team'),
+                    subtitle: const Text(
+                      'View workspace representatives and access states',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutes.adminTeam),
+                  ),
+                ],
               ),
+              routes: [
+                GoRoute(
+                  path: 'team',
+                  builder: (context, state) {
+                    final session = _authenticatedSession(context);
+                    return AdminTeamDirectoryPage(
+                      workspaceId: session.membership.workspaceId,
+                      teamRepository: FirestoreAdminTeamRepository(
+                        FirebaseFirestore.instance,
+                      ),
+                      invitationDirectoryRepository:
+                          FirestoreInvitationDirectoryRepository(
+                            FirebaseFirestore.instance,
+                          ),
+                      invitationRepository:
+                          FirebaseCallableInvitationRepository(
+                            FirebaseFunctions.instance,
+                          ),
+                      membershipManagementRepository:
+                          FirebaseCallableMembershipManagementRepository(
+                            FirebaseFunctions.instance,
+                          ),
+                      onInvite: () =>
+                          context.push(AppRoutes.adminInviteRepresentative),
+                    );
+                  },
+                  routes: [
+                    GoRoute(
+                      path: 'invite',
+                      builder: (context, state) {
+                        final session = _authenticatedSession(context);
+                        return AdminInviteRepresentativePage(
+                          workspaceId: session.membership.workspaceId,
+                          repository: FirebaseCallableInvitationRepository(
+                            FirebaseFunctions.instance,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
