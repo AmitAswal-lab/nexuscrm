@@ -14,6 +14,7 @@ import 'package:nexuscrm/features/admin/data/repositories/firebase_callable_invi
 import 'package:nexuscrm/features/admin/data/repositories/firebase_callable_membership_management_repository.dart';
 import 'package:nexuscrm/features/admin/data/repositories/firestore_admin_team_repository.dart';
 import 'package:nexuscrm/features/admin/data/repositories/firestore_invitation_directory_repository.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/invitation_repository.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_home_placeholder.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_invite_representative_page.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_team_directory_page.dart';
@@ -51,7 +52,7 @@ import 'package:nexuscrm/features/tasks/presentation/pages/task_form_page.dart';
 import 'package:nexuscrm/features/tasks/presentation/pages/task_list_page.dart';
 
 final class AppRouter {
-  AppRouter(this._sessionBloc)
+  AppRouter(this._sessionBloc, {InvitationRepository? invitationRepository})
     : _refreshNotifier = RouterRefreshNotifier(_sessionBloc.stream) {
     router = GoRouter(
       initialLocation: AppRoutes.loading,
@@ -75,9 +76,11 @@ final class AppRouter {
             }
             return InvitationPendingPage(
               membership: sessionState.membership,
-              invitationRepository: FirebaseCallableInvitationRepository(
-                FirebaseFunctions.instance,
-              ),
+              invitationRepository:
+                  invitationRepository ??
+                  FirebaseCallableInvitationRepository(
+                    FirebaseFunctions.instance,
+                  ),
             );
           },
         ),
