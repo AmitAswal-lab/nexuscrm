@@ -15,4 +15,9 @@ abstract interface class InvitationRepository {
     required String workspaceId,
     required String invitationId,
   });
+
+  Future<void> acceptInvitation({
+    required String workspaceId,
+    required String invitationId,
+  });
 }

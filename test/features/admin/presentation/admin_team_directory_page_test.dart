@@ -6,6 +6,7 @@ import 'package:nexuscrm/features/admin/domain/entities/workspace_invitation.dar
 import 'package:nexuscrm/features/admin/domain/repositories/admin_team_repository.dart';
 import 'package:nexuscrm/features/admin/domain/repositories/invitation_directory_repository.dart';
 import 'package:nexuscrm/features/admin/domain/repositories/invitation_repository.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/membership_management_repository.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_team_directory_page.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
 
@@ -45,6 +46,8 @@ void main() {
               <WorkspaceInvitation>[_invitation],
             ),
             invitationRepository: const _InvitationRepository(),
+            membershipManagementRepository:
+                const _MembershipManagementRepository(),
             onInvite: () {},
           ),
         ),
@@ -61,6 +64,7 @@ void main() {
     expect(find.text('Administrator • Active'), findsOneWidget);
     expect(find.text('Sam Representative'), findsOneWidget);
     expect(find.text('Sales representative • Suspended'), findsOneWidget);
+    expect(find.byTooltip('Manage representative'), findsOneWidget);
     expect(find.text('Pending Person'), findsNothing);
     expect(find.text('pending@example.com'), findsOneWidget);
     expect(find.textContaining('Email delivery failed'), findsOneWidget);
@@ -79,6 +83,8 @@ void main() {
               const <WorkspaceInvitation>[],
             ),
             invitationRepository: const _InvitationRepository(),
+            membershipManagementRepository:
+                const _MembershipManagementRepository(),
             onInvite: () {},
           ),
         ),
@@ -141,6 +147,24 @@ final class _InvitationRepository implements InvitationRepository {
   Future<InvitationCreationResult> resendInvitation({
     required String workspaceId,
     required String invitationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> acceptInvitation({
+    required String workspaceId,
+    required String invitationId,
+  }) => throw UnimplementedError();
+}
+
+final class _MembershipManagementRepository
+    implements MembershipManagementRepository {
+  const _MembershipManagementRepository();
+
+  @override
+  Future<void> updateSalesRepresentativeStatus({
+    required String workspaceId,
+    required String userId,
+    required MembershipStatus status,
   }) => throw UnimplementedError();
 }
 

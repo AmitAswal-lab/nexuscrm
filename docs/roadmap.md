@@ -158,10 +158,13 @@ invitations without creating or viewing another user's password.
 Checkpoints 1 and 2 are complete: lifecycle states, audit fields,
 backend-owned invitation semantics, default-deny client writes, indexes,
 emulator coverage, and the administrator team directory are in place.
-Checkpoint 3A is complete locally: the trusted callable backend and provider
-abstraction exist. Checkpoint 3B is ready for manual UI/UX review locally: the
-Team page separates existing members and pending invitations, and administrators
-can invite by email, retry/resend safely, and revoke pending invitations.
+Checkpoint 3A and 3B are complete locally: the trusted callable backend,
+provider abstraction, invite-management UI, safe resend/revoke controls, and
+separate pending-invitation directory are in place. The final local code
+checkpoint adds representative invitation acceptance/activation and
+administrator suspend, reactivate, and revoke controls for sales
+representatives. Manual UI/UX review remains pending.
+
 Billing, sender and secret configuration, deployment, and manual email-delivery
 review remain pending.
 
@@ -198,12 +201,16 @@ Definition of done:
 Goal: allow an invited representative to establish their own credentials and
 enter the correct workspace.
 
-Planned scope:
+The local acceptance and activation implementation is complete as part of the
+admin-management branch. Production deployment and live verification remain
+pending.
 
-- Invitation validation
+Delivered scope:
+
+- Invitation validation and single-use acceptance
 - User-created password through Firebase's hosted flow
 - Secure association between Firebase UID, invitation, and membership
-- Membership activation
+- Transactional membership activation
 - Expired, revoked, invalid, and already-used invitation states
 - First real sales-representative sign-in verification
 - Android and iOS onboarding checks

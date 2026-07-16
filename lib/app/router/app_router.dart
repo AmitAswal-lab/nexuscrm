@@ -11,6 +11,7 @@ import 'package:nexuscrm/features/activities/domain/repositories/activity_reposi
 import 'package:nexuscrm/features/activities/presentation/cubit/call_note_form/call_note_form_cubit.dart';
 import 'package:nexuscrm/features/activities/presentation/pages/call_note_form_page.dart';
 import 'package:nexuscrm/features/admin/data/repositories/firebase_callable_invitation_repository.dart';
+import 'package:nexuscrm/features/admin/data/repositories/firebase_callable_membership_management_repository.dart';
 import 'package:nexuscrm/features/admin/data/repositories/firestore_admin_team_repository.dart';
 import 'package:nexuscrm/features/admin/data/repositories/firestore_invitation_directory_repository.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_home_placeholder.dart';
@@ -67,7 +68,18 @@ final class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.invitationPending,
-          builder: (context, state) => const InvitationPendingPage(),
+          builder: (context, state) {
+            final sessionState = _sessionBloc.state;
+            if (sessionState is! SessionInvitationPending) {
+              return const SessionLoadingPage();
+            }
+            return InvitationPendingPage(
+              membership: sessionState.membership,
+              invitationRepository: FirebaseCallableInvitationRepository(
+                FirebaseFunctions.instance,
+              ),
+            );
+          },
         ),
         GoRoute(
           path: AppRoutes.accessDenied,
@@ -281,6 +293,10 @@ final class AppRouter {
                           ),
                       invitationRepository:
                           FirebaseCallableInvitationRepository(
+                            FirebaseFunctions.instance,
+                          ),
+                      membershipManagementRepository:
+                          FirebaseCallableMembershipManagementRepository(
                             FirebaseFunctions.instance,
                           ),
                       onInvite: () =>

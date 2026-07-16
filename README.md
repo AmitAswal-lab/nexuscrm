@@ -35,7 +35,7 @@ The application currently supports:
 - Local-only invitation creation, resend, and revoke workflows backed by
   trusted callable Functions
 
-Production invitation delivery and representative onboarding remain pending:
+Production invitation delivery and live onboarding verification remain pending:
 the Functions have not been deployed, and no sender credentials, billing, or
 email-provider configuration is committed to this repository.
 

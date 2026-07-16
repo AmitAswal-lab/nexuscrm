@@ -44,6 +44,15 @@ final class FirebaseCallableInvitationRepository
     }
   }
 
+  @override
+  Future<void> acceptInvitation({
+    required String workspaceId,
+    required String invitationId,
+  }) => _callVoid('acceptWorkspaceInvitation', <String, Object>{
+    'workspaceId': workspaceId,
+    'invitationId': invitationId,
+  });
+
   Future<InvitationCreationResult> _callResult(
     String functionName,
     Map<String, Object> data,
@@ -51,6 +60,14 @@ final class FirebaseCallableInvitationRepository
     try {
       final result = await _functions.httpsCallable(functionName).call(data);
       return InvitationCreationResult.fromCallableData(result.data);
+    } on FirebaseFunctionsException catch (error) {
+      throw InvitationActionFailure(_failureCode(error.code));
+    }
+  }
+
+  Future<void> _callVoid(String functionName, Map<String, Object> data) async {
+    try {
+      await _functions.httpsCallable(functionName).call(data);
     } on FirebaseFunctionsException catch (error) {
       throw InvitationActionFailure(_failureCode(error.code));
     }

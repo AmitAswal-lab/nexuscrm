@@ -24,13 +24,15 @@ final class WorkspaceMembership extends Equatable {
     required this.userId,
     required this.role,
     required this.status,
+    this.invitationId,
   });
 
   final String workspaceId;
   final String userId;
   final WorkspaceRole role;
   final MembershipStatus status;
+  final String? invitationId;
 
   @override
-  List<Object> get props => [workspaceId, userId, role, status];
+  List<Object?> get props => [workspaceId, userId, role, status, invitationId];
 }

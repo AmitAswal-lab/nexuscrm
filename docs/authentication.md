@@ -25,9 +25,10 @@ Firestore model remains compatible with multiple workspaces, but workspace
 selection and switching are not implemented. More than one active membership
 is treated as a configuration error.
 
-The local invitation backend and administrator invitation-management screens
-are implemented, but Functions deployment, email-provider configuration, and
-representative password completion/onboarding remain pending.
+The local invitation backend, administrator invitation-management screens, and
+representative activation flow are implemented. Functions deployment,
+email-provider configuration, and live invitation/onboarding verification
+remain pending.
 
 ## Session flow
 

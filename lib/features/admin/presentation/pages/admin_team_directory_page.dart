@@ -6,6 +6,7 @@ import 'package:nexuscrm/features/admin/domain/failures/invitation_action_failur
 import 'package:nexuscrm/features/admin/domain/repositories/admin_team_repository.dart';
 import 'package:nexuscrm/features/admin/domain/repositories/invitation_directory_repository.dart';
 import 'package:nexuscrm/features/admin/domain/repositories/invitation_repository.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/membership_management_repository.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
 
 class AdminTeamDirectoryPage extends StatefulWidget {
@@ -14,6 +15,7 @@ class AdminTeamDirectoryPage extends StatefulWidget {
     required this.teamRepository,
     required this.invitationDirectoryRepository,
     required this.invitationRepository,
+    required this.membershipManagementRepository,
     required this.onInvite,
     super.key,
   });
@@ -22,6 +24,7 @@ class AdminTeamDirectoryPage extends StatefulWidget {
   final AdminTeamRepository teamRepository;
   final InvitationDirectoryRepository invitationDirectoryRepository;
   final InvitationRepository invitationRepository;
+  final MembershipManagementRepository membershipManagementRepository;
   final VoidCallback onInvite;
 
   @override
@@ -30,6 +33,7 @@ class AdminTeamDirectoryPage extends StatefulWidget {
 
 class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
   String? _busyInvitationId;
+  String? _busyMemberId;
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -97,21 +101,56 @@ class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
     if (members.isEmpty) return const Text('No existing team members.');
 
     return Column(
-      children: [
-        for (final member in members)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              member.role == WorkspaceRole.admin
-                  ? Icons.admin_panel_settings_outlined
-                  : Icons.badge_outlined,
-            ),
-            title: Text(member.displayName ?? member.email ?? 'Team member'),
-            subtitle: Text(
-              '${member.role == WorkspaceRole.admin ? 'Administrator' : 'Sales representative'} • ${_membershipStatus(member.status)}',
-            ),
-          ),
-      ],
+      children: [for (final member in members) _memberTile(member)],
+    );
+  }
+
+  Widget _memberTile(TeamMember member) {
+    final canManage =
+        member.role == WorkspaceRole.salesRep &&
+        (member.status == MembershipStatus.active ||
+            member.status == MembershipStatus.suspended);
+    final busy = _busyMemberId == member.userId;
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        member.role == WorkspaceRole.admin
+            ? Icons.admin_panel_settings_outlined
+            : Icons.badge_outlined,
+      ),
+      title: Text(member.displayName ?? member.email ?? 'Team member'),
+      subtitle: Text(
+        '${member.role == WorkspaceRole.admin ? 'Administrator' : 'Sales representative'} • ${_membershipStatus(member.status)}',
+      ),
+      trailing: busy
+          ? const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : canManage
+          ? PopupMenuButton<MembershipStatus>(
+              tooltip: 'Manage representative',
+              onSelected: (status) => _confirmMembershipChange(member, status),
+              itemBuilder: (context) => [
+                if (member.status == MembershipStatus.active)
+                  const PopupMenuItem(
+                    value: MembershipStatus.suspended,
+                    child: Text('Suspend access'),
+                  ),
+                if (member.status == MembershipStatus.suspended)
+                  const PopupMenuItem(
+                    value: MembershipStatus.active,
+                    child: Text('Reactivate access'),
+                  ),
+                const PopupMenuItem(
+                  value: MembershipStatus.revoked,
+                  child: Text('Revoke access'),
+                ),
+              ],
+            )
+          : null,
     );
   }
 
@@ -256,6 +295,61 @@ class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
     }
   }
 
+  Future<void> _confirmMembershipChange(
+    TeamMember member,
+    MembershipStatus status,
+  ) async {
+    final verb = switch (status) {
+      MembershipStatus.suspended => 'Suspend',
+      MembershipStatus.active => 'Reactivate',
+      MembershipStatus.revoked => 'Revoke',
+      MembershipStatus.invited => throw ArgumentError.value(status),
+    };
+    final completedMessage = switch (status) {
+      MembershipStatus.suspended => 'Access suspended.',
+      MembershipStatus.active => 'Access reactivated.',
+      MembershipStatus.revoked => 'Access revoked.',
+      MembershipStatus.invited => throw ArgumentError.value(status),
+    };
+    final label = member.displayName ?? member.email ?? 'this representative';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('$verb access?'),
+        content: Text('$verb workspace access for $label.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text('$verb access'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _busyMemberId = member.userId);
+    try {
+      await widget.membershipManagementRepository
+          .updateSalesRepresentativeStatus(
+            workspaceId: widget.workspaceId,
+            userId: member.userId,
+            status: status,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(completedMessage)));
+    } on InvitationActionFailure catch (failure) {
+      if (mounted) _showMembershipFailure(failure);
+    } finally {
+      if (mounted) setState(() => _busyMemberId = null);
+    }
+  }
+
   void _showFailure(InvitationActionFailure failure) {
     final message = switch (failure.code) {
       InvitationActionFailureCode.rateLimited =>
@@ -266,6 +360,19 @@ class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
       InvitationActionFailureCode.unavailable =>
         'Invitation service is temporarily unavailable.',
       _ => 'Unable to update this invitation.',
+    };
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showMembershipFailure(InvitationActionFailure failure) {
+    final message = switch (failure.code) {
+      InvitationActionFailureCode.accessDenied =>
+        'You no longer have permission to manage representatives.',
+      InvitationActionFailureCode.unavailable =>
+        'Member management is temporarily unavailable.',
+      _ => 'This access change is no longer available.',
     };
     ScaffoldMessenger.of(
       context,

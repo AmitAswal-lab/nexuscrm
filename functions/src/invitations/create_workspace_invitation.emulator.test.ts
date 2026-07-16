@@ -335,6 +335,146 @@ test('revocation never changes a linked membership once it is active', async () 
   );
 });
 
+test('accepts only the matching invited representative atomically', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  const service = makeService(new RecordingSender(), new RecordingLinkFactory());
+  const created = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'accept@example.com',
+  });
+  const invitation = await onlyInvitation();
+  const invitedUserId = String(invitation.data()?.invitedUserId);
+  const store = new FirestoreInvitationStore(firestore);
+
+  await assert.rejects(
+    store.acceptInvitation({
+      workspaceId,
+      invitationId: created.invitationId,
+      userId: 'another-user',
+      at: now,
+    }),
+    (error: unknown) =>
+      error instanceof InvitationError && error.code === 'failed-precondition',
+  );
+
+  assert.equal(
+    await store.acceptInvitation({
+      workspaceId,
+      invitationId: created.invitationId,
+      userId: invitedUserId,
+      at: now,
+    }),
+    'accepted',
+  );
+  assert.equal((await onlyInvitation()).data()?.status, 'accepted');
+  assert.equal((await onlyInvitation()).data()?.acceptedByUserId, invitedUserId);
+  assert.equal(
+    (
+      await firestore
+        .collection('workspaces')
+        .doc(workspaceId)
+        .collection('members')
+        .doc(invitedUserId)
+        .get()
+    ).data()?.status,
+    'active',
+  );
+});
+
+test('marks an expired invitation without activating its membership', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  const service = makeService(new RecordingSender(), new RecordingLinkFactory());
+  const created = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'expired@example.com',
+  });
+  const invitation = await onlyInvitation();
+  const invitedUserId = String(invitation.data()?.invitedUserId);
+
+  assert.equal(
+    await new FirestoreInvitationStore(firestore).acceptInvitation({
+      workspaceId,
+      invitationId: created.invitationId,
+      userId: invitedUserId,
+      at: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+    }),
+    'expired',
+  );
+  assert.equal((await onlyInvitation()).data()?.status, 'expired');
+  assert.equal(
+    (
+      await firestore
+        .collection('workspaces')
+        .doc(workspaceId)
+        .collection('members')
+        .doc(invitedUserId)
+        .get()
+    ).data()?.status,
+    'invited',
+  );
+});
+
+test('allows an active admin to suspend, reactivate, and revoke a sales representative', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  await seedMembership('sales-user', 'sales_rep', 'active');
+  const store = new FirestoreInvitationStore(firestore);
+
+  for (const [action, expected] of [
+    ['suspend', 'suspended'],
+    ['reactivate', 'active'],
+    ['revoke', 'revoked'],
+  ] as const) {
+    await store.updateSalesRepresentativeStatus({
+      workspaceId,
+      actingUserId: adminUserId,
+      userId: 'sales-user',
+      action,
+      at: now,
+    });
+    const data = (
+      await firestore
+        .collection('workspaces')
+        .doc(workspaceId)
+        .collection('members')
+        .doc('sales-user')
+        .get()
+    ).data();
+    assert.equal(data?.status, expected);
+    assert.equal(data?.statusChangedByUserId, adminUserId);
+  }
+});
+
+test('refuses membership management by non-admins or against administrators', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  await seedMembership('sales-user', 'sales_rep', 'active');
+  const store = new FirestoreInvitationStore(firestore);
+
+  await assert.rejects(
+    store.updateSalesRepresentativeStatus({
+      workspaceId,
+      actingUserId: 'sales-user',
+      userId: 'sales-user',
+      action: 'suspend',
+      at: now,
+    }),
+    (error: unknown) =>
+      error instanceof InvitationError && error.code === 'permission-denied',
+  );
+  await assert.rejects(
+    store.updateSalesRepresentativeStatus({
+      workspaceId,
+      actingUserId: adminUserId,
+      userId: adminUserId,
+      action: 'suspend',
+      at: now,
+    }),
+    (error: unknown) =>
+      error instanceof InvitationError && error.code === 'failed-precondition',
+  );
+});
+
 test('removes a just-created Auth user when atomic Firestore creation fails', async () => {
   const failingStore: InvitationStore = {
     requireActiveAdmin: async () => {},
@@ -350,6 +490,8 @@ test('removes a just-created Auth user when atomic Firestore creation fails', as
     markDeliveryFailed: async () => {},
     markExpired: async () => {},
     revokePendingInvitation: async () => {},
+    acceptInvitation: async () => 'accepted',
+    updateSalesRepresentativeStatus: async () => {},
   };
   const service = new CreateWorkspaceInvitationService({
     auth,

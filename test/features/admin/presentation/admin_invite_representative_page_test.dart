@@ -95,4 +95,10 @@ final class _InvitationRepository implements InvitationRepository {
     resendCalls++;
     return _results[createCalls + resendCalls - 1];
   }
+
+  @override
+  Future<void> acceptInvitation({
+    required String workspaceId,
+    required String invitationId,
+  }) async {}
 }

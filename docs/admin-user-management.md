@@ -15,9 +15,12 @@ Backend-owned membership records retain `invitationId`, `createdAt`,
 | suspended | active, revoked |
 | revoked | none |
 
-Only trusted backend code will perform these transitions. `active` is the only
-state that grants workspace access, so suspension and revocation take effect on
-the next Firestore authorization check and membership session update.
+Only trusted backend code performs these transitions. An active administrator
+can suspend, reactivate, or revoke only sales representatives; they cannot
+change an administrator, themselves, an invited membership, or an already
+revoked membership. `active` is the only state that grants workspace access, so
+suspension and revocation take effect on the next Firestore authorization check
+and membership session update.
 
 ## Invitation lifecycle
 
@@ -37,8 +40,8 @@ for the same normalized workspace email and make acceptance single-use.
 Administrators can read workspace membership and invitation management data.
 Sales representatives cannot read invitations. All client writes to membership
 and invitation documents are denied, including activation, role changes,
-status changes, and audit fields. Future invitation delivery and acceptance
-will be implemented with backend-trusted code, not Cloud Firestore clients.
+status changes, and audit fields. Invitation delivery and acceptance use
+backend-trusted code, not Cloud Firestore clients.
 
 The `invitations` index supports administrator status/newest-first queries.
 
@@ -98,9 +101,29 @@ old invitation sharing their email address. Invitation expiry, delivery state,
 and all audit fields remain backend-owned because Firestore client writes are
 denied.
 
-No onboarding, invitation acceptance, password completion, membership
-activation, secrets, provider configuration, billing change, or deployment is
-included in this checkpoint.
+## Representative onboarding (local implementation)
+
+The representative receives Firebase's hosted password-setup link through the
+invitation email. After setting a password and signing in, their invited
+membership directs them to **Activate your workspace**. The app sends only the
+workspace and invitation IDs to `acceptWorkspaceInvitation`; the callable
+derives the representative UID from Firebase Authentication.
+
+Inside one Firestore transaction, the backend verifies that the invitation is
+pending, unexpired, belongs to that exact UID, and matches the still-invited
+sales membership and email lock. It then records acceptance audit fields,
+marks the invitation and lock accepted, and activates that membership. Another
+user cannot accept the invitation. An expired invitation is marked expired but
+does not activate the membership.
+
+`updateSalesRepresentativeStatus` is a separate no-secret callable for an
+active administrator. It rechecks the acting admin and target representative
+inside its transaction, applies only a permitted server-defined action, and
+writes the status audit fields. Neither callable accepts a client-supplied role
+or acting-user ID.
+
+No billing change, sender configuration, email-provider secret, deployment, or
+live delivery validation is included in this checkpoint.
 
 ### Deployment prerequisites
 
