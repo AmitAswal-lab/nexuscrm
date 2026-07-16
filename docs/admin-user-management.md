@@ -1,4 +1,4 @@
-# Admin user management foundation
+# Admin user management
 
 ## Membership lifecycle
 
@@ -81,9 +81,9 @@ An invitation is valid for seven days. Firebase password-reset action-code
 expiry is managed by Firebase rather than by the Function; a failed email
 request can be safely retried with the same invocation without creating
 another Auth user, membership, or invitation. Firebase's default action-link
-domain and handler are used for the MVP, without a `continueUrl`. Password
-completion, invitation acceptance, and membership activation remain deferred
-to representative onboarding.
+domain and handler are used for the MVP, without a `continueUrl`. The local
+acceptance and activation path is implemented below; end-to-end representative
+onboarding remains a separate, live-environment milestone.
 
 ## Invitation management workflow (local implementation)
 
@@ -131,8 +131,12 @@ inside its transaction, applies only a permitted server-defined action, and
 writes the status audit fields. Neither callable accepts a client-supplied role
 or acting-user ID.
 
-No billing change, custom sender configuration, email-provider secret,
-deployment, or live email validation is included in this checkpoint.
+This is local implementation and emulator coverage only. Representative
+onboarding is not complete until the deployed Function, Firebase-hosted
+password setup, acceptance, activation, and first sales-representative session
+are verified together in the development project. No billing change,
+custom-sender configuration, email-provider secret, deployment, or live email
+validation is included in this checkpoint.
 
 ### Deployment prerequisites
 
@@ -141,17 +145,19 @@ Do not deploy this Function until all of the following are complete for
 
 1. Upgrade the development project to Blaze and add a Cloud Billing budget
    alert with agreed recipients and thresholds.
-2. Configure the non-secret `INVITATION_AUTH_WEB_API_KEY` Function parameter
-   from this Firebase project's existing public client configuration. Firebase's
-   documented Auth email endpoint requires that project identifier; it is not a
-   Resend credential and must not be treated as one.
-3. In Firebase Authentication, verify Email/Password sign-in is enabled and
-   review the standard password-reset template and default hosted action
-   handler.
+2. Create a dedicated non-secret API key for `nexuscrm-dev-amitaswal`, restrict
+   it to the Identity Toolkit API, and configure it only as the
+   `INVITATION_AUTH_WEB_API_KEY` Function parameter. It is not a Resend
+   credential and must not be provided by the Flutter app or callable input.
+3. Confirm Identity Toolkit quota usage is appropriate for development use. In
+   Firebase Authentication, verify Email/Password sign-in is enabled and review
+   the standard password-reset template and default hosted action handler.
 4. Run `npm run test:functions`, `npm run test:firestore-rules`,
-   `flutter analyze`, and `flutter test`, then manually review the email
-   request and default hosted password-reset flow using a development-only
-   recipient.
+   `flutter analyze`, and `flutter test`.
+5. After separate approval, deploy the Functions and manually test one
+   development-only recipient through the Firebase-hosted password-reset,
+   invitation-acceptance, and representative-activation flow. An accepted
+   email request still must not be described as confirmed inbox delivery.
 
 ### Dependency advisory
 

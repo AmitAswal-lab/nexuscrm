@@ -262,9 +262,7 @@ abstract final class FirestoreTaskMapper {
 
   static String _normalizedDate(String value, String field) {
     final normalized = value.trim();
-    final match = RegExp(
-      r'^(\d{4})-(\d{2})-(\d{2})$',
-    ).firstMatch(normalized);
+    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(normalized);
 
     if (match == null) {
       throw FormatException('Invalid task date: $field.');

@@ -45,7 +45,7 @@ enterprise reporting.
 | 4. Lead and client management | Complete | Teams maintain customer records and ownership |
 | 5. Tasks and follow-ups | Complete | Representatives organize actionable work |
 | 6. Dialer and post-call notes | Complete | Representatives launch calls, log outcomes, and create follow-ups |
-| 7. Admin user management and invitations | Planned | Administrators securely manage and invite representatives |
+| 7. Admin user management and invitations | Complete locally | Administrators securely manage and invite representatives; deployment remains pending |
 | 8. Sales-representative onboarding | Planned | Invited representatives establish accounts and enter the workspace |
 | 9. Admin activity and basic reporting | Planned | Administrators review team activity and lightweight summaries |
 | 10. Final polish, testing, and release | Planned | Cross-platform quality and portfolio release readiness |
@@ -163,10 +163,13 @@ provider abstraction, invite-management UI, safe resend/revoke controls, and
 separate pending-invitation directory are in place. The final local code
 checkpoint adds representative invitation acceptance/activation and
 administrator suspend, reactivate, and revoke controls for sales
-representatives. Manual UI/UX review remains pending.
+representatives. Local manual UI/UX reviews are complete.
 
-Billing, Firebase Auth email-parameter configuration, deployment, and manual
-email-request review remain pending.
+Before deployment, the development project still needs a Blaze upgrade, billing
+alerts, a dedicated Identity Toolkit-restricted API key configured as the
+Function parameter, quota review, and one real development-only email and
+onboarding test. Firebase accepting the email request must not be described as
+confirmed delivery.
 
 Planned scope:
 
@@ -178,8 +181,8 @@ Planned scope:
 - Email delivery using Firebase-hosted password setup/reset for Version 1
 - Updated Firestore rules, indexes, tests, and documentation
 
-The backend implementation may require upgrading the Firebase project from the
-Spark plan. Any billing change must be reviewed before implementation.
+Deploying the backend requires upgrading the Firebase development project from
+the Spark plan. Any billing change must be reviewed before deployment.
 
 Not included:
 
@@ -202,8 +205,10 @@ Goal: allow an invited representative to establish their own credentials and
 enter the correct workspace.
 
 The local acceptance and activation implementation is complete as part of the
-admin-management branch. Production deployment and live verification remain
-pending.
+admin-management branch. The production-facing onboarding milestone remains
+pending until the Functions are deployed and one representative completes the
+Firebase-hosted password setup, acceptance, activation, and first sign-in flow
+in the development project.
 
 Delivered scope:
 
@@ -212,6 +217,9 @@ Delivered scope:
 - Secure association between Firebase UID, invitation, and membership
 - Transactional membership activation
 - Expired, revoked, invalid, and already-used invitation states
+
+Remaining validation:
+
 - First real sales-representative sign-in verification
 - Android and iOS onboarding checks
 

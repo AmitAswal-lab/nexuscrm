@@ -32,8 +32,10 @@ The application currently supports:
 - Native contact dialing, append-only call notes, optional follow-up creation,
   and chronological contact activity timelines
 - Administrator team directory with separate pending invitations
-- Local-only invitation creation, resend, and revoke workflows backed by
-  trusted callable Functions
+- Local invitation creation, resend, revoke, acceptance, and activation flows
+  backed by trusted callable Functions
+- Administrator sales-representative suspend, reactivate, and revoke controls
+  with immediate Firestore access enforcement
 
 Production invitation delivery and live onboarding verification remain pending:
 the Functions have not been deployed, and no billing or deployment
