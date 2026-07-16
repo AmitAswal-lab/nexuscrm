@@ -25,8 +25,10 @@ Firestore model remains compatible with multiple workspaces, but workspace
 selection and switching are not implemented. More than one active membership
 is treated as a configuration error.
 
-Sales-representative invitations, Cloud Functions, email delivery, password
-setup links, and administrator user-management screens are deferred.
+The local invitation backend, administrator invitation-management screens, and
+representative activation flow are implemented. Functions deployment, dedicated
+Firebase Auth API-key configuration, and live invitation/onboarding
+verification remain pending.
 
 ## Session flow
 
@@ -99,8 +101,9 @@ Firestore rules use default-deny access:
 - Client profile and membership writes are denied.
 - Workspace and all unspecified data remain denied.
 
-Trusted backend logic will own membership writes when invitations are
-implemented.
+Trusted backend logic owns membership and invitation writes. Firestore clients
+cannot activate, suspend, revoke, or otherwise alter membership or invitation
+documents.
 
 The membership lookup uses:
 
@@ -144,17 +147,21 @@ self-membership collection-group queries, cross-user denial, and denied client
 writes.
 
 The development administrator flow has been verified on iOS for sign-in,
-session restoration, role routing, sign-out, and reauthentication. A real
-sales-representative onboarding test is deferred until the invitation feature;
-sales routing is currently covered by automated tests.
+session restoration, role routing, sign-out, and reauthentication. Local
+administrator invitation-management and representative lifecycle review has
+also passed. A real sales-representative onboarding test remains pending until
+the Functions are deployed and a Firebase-hosted password setup email can be
+tested; sales routing is currently covered by automated tests.
 
-## Planned onboarding
+## Remaining representative onboarding
 
-The administrator will invite a sales representative by email. Backend-trusted
-logic will create and update invitation and membership records. The
-representative will set their own password through Firebase's hosted password
-setup/reset flow. Administrators will never create, receive, or view another
-user's password.
+The local backend already creates and updates invitation and membership records,
+and only the matching invited Firebase user can accept and activate the
+membership. The remaining milestone is the live, end-to-end flow: an
+administrator invites a representative by email, the representative sets their
+own password through Firebase's hosted password setup/reset flow, accepts the
+invitation, and reaches the sales dashboard. Administrators never create,
+receive, or view another user's password.
 
 Branded deep links, workspace selection, workspace switching, and custom-claim
 workspace roles remain out of scope for Version 1.

@@ -31,9 +31,17 @@ The application currently supports:
   and sales-dashboard metrics
 - Native contact dialing, append-only call notes, optional follow-up creation,
   and chronological contact activity timelines
+- Administrator team directory with separate pending invitations
+- Local invitation creation, resend, revoke, acceptance, and activation flows
+  backed by trusted callable Functions
+- Administrator sales-representative suspend, reactivate, and revoke controls
+  with immediate Firestore access enforcement
 
-Sales-representative invitation and onboarding are intentionally deferred to a
-later feature.
+Production invitation delivery and live onboarding verification remain pending:
+the Functions have not been deployed, and no billing or deployment
+configuration is committed to this repository. The MVP uses Firebase
+Authentication's standard password-reset email and hosted action handler; the
+app records only whether Firebase accepted an email request, not inbox delivery.
 
 See the [project roadmap](docs/roadmap.md) for completed milestones, the
 recommended MVP delivery order, and deferred work.

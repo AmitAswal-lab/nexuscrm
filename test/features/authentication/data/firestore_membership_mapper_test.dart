@@ -18,26 +18,42 @@ final class _MockCollectionReference extends Mock
 
 void main() {
   group('FirestoreMembershipMapper', () {
-    for (final testCase in <(String, String, WorkspaceRole, MembershipStatus)>[
-      ('admin', 'invited', WorkspaceRole.admin, MembershipStatus.invited),
-      ('admin', 'active', WorkspaceRole.admin, MembershipStatus.active),
-      (
-        'sales_rep',
-        'suspended',
-        WorkspaceRole.salesRep,
-        MembershipStatus.suspended,
-      ),
-      (
-        'sales_rep',
-        'revoked',
-        WorkspaceRole.salesRep,
-        MembershipStatus.revoked,
-      ),
-    ]) {
+    for (final testCase
+        in <(String, String, WorkspaceRole, MembershipStatus, String?)>[
+          (
+            'admin',
+            'active',
+            WorkspaceRole.admin,
+            MembershipStatus.active,
+            null,
+          ),
+          (
+            'sales_rep',
+            'invited',
+            WorkspaceRole.salesRep,
+            MembershipStatus.invited,
+            'invite-one',
+          ),
+          (
+            'sales_rep',
+            'suspended',
+            WorkspaceRole.salesRep,
+            MembershipStatus.suspended,
+            null,
+          ),
+          (
+            'sales_rep',
+            'revoked',
+            WorkspaceRole.salesRep,
+            MembershipStatus.revoked,
+            null,
+          ),
+        ]) {
       test('maps ${testCase.$1}/${testCase.$2}', () {
         final document = _membershipDocument(
           role: testCase.$1,
           status: testCase.$2,
+          invitationId: testCase.$5,
         );
 
         expect(
@@ -47,6 +63,7 @@ void main() {
             userId: 'user-one',
             role: testCase.$3,
             status: testCase.$4,
+            invitationId: testCase.$5,
           ),
         );
       });
@@ -65,6 +82,15 @@ void main() {
 
       expect(
         () => FirestoreMembershipMapper.fromDocument(document),
+        throwsFormatException,
+      );
+    });
+
+    test('rejects an invited membership without an invitation ID', () {
+      expect(
+        () => FirestoreMembershipMapper.fromDocument(
+          _membershipDocument(role: 'sales_rep', status: 'invited'),
+        ),
         throwsFormatException,
       );
     });
@@ -118,6 +144,7 @@ void main() {
 _MockDocumentSnapshot _membershipDocument({
   required String role,
   required String status,
+  String? invitationId,
   Map<String, dynamic>? dataOverride,
 }) {
   final document = _MockDocumentSnapshot();
@@ -133,6 +160,7 @@ _MockDocumentSnapshot _membershipDocument({
           'userId': 'user-one',
           'role': role,
           'status': status,
+          'invitationId': ?invitationId,
         },
   );
   when(() => document.id).thenReturn('user-one');

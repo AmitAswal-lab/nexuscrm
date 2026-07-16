@@ -12,6 +12,8 @@ abstract final class AppRoutes {
   static const adminTasks = '$admin/tasks';
   static const adminNewTask = '$adminTasks/new';
   static const adminMore = '$admin/more';
+  static const adminTeam = '$adminMore/team';
+  static const adminInviteRepresentative = '$adminTeam/invite';
   static const sales = '/sales';
   static const salesHome = '$sales/home';
   static const salesLeads = '$sales/leads';
