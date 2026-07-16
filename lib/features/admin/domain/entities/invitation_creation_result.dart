@@ -1,19 +1,21 @@
 import 'package:equatable/equatable.dart';
 
-enum InvitationEmailDeliveryStatus { sent, failed }
+/// Firebase only confirms whether it accepted the password-reset email request.
+/// It does not confirm inbox delivery or that the recipient opened the email.
+enum InvitationEmailRequestResult { accepted, failed }
 
 final class InvitationCreationResult extends Equatable {
   const InvitationCreationResult({
     required this.invitationId,
     required this.email,
     required this.expiresAt,
-    required this.deliveryStatus,
+    required this.emailRequestStatus,
   });
 
   final String invitationId;
   final String email;
   final DateTime expiresAt;
-  final InvitationEmailDeliveryStatus deliveryStatus;
+  final InvitationEmailRequestResult emailRequestStatus;
 
   factory InvitationCreationResult.fromCallableData(Object? value) {
     if (value is! Map<Object?, Object?>) {
@@ -23,7 +25,7 @@ final class InvitationCreationResult extends Equatable {
     final invitationId = _requiredString(value, 'invitationId');
     final email = _requiredString(value, 'email');
     final status = _requiredString(value, 'status');
-    final deliveryStatus = _requiredString(value, 'deliveryStatus');
+    final emailRequestStatus = _requiredString(value, 'emailRequestStatus');
     final expiresAtMillis = value['expiresAtMillis'];
 
     if (status != 'pending' || expiresAtMillis is! int) {
@@ -34,9 +36,9 @@ final class InvitationCreationResult extends Equatable {
       invitationId: invitationId,
       email: email,
       expiresAt: DateTime.fromMillisecondsSinceEpoch(expiresAtMillis),
-      deliveryStatus: switch (deliveryStatus) {
-        'sent' => InvitationEmailDeliveryStatus.sent,
-        'failed' => InvitationEmailDeliveryStatus.failed,
+      emailRequestStatus: switch (emailRequestStatus) {
+        'accepted' => InvitationEmailRequestResult.accepted,
+        'failed' => InvitationEmailRequestResult.failed,
         _ => throw const FormatException('Invalid invitation response.'),
       },
     );
@@ -51,5 +53,10 @@ final class InvitationCreationResult extends Equatable {
   }
 
   @override
-  List<Object> get props => [invitationId, email, expiresAt, deliveryStatus];
+  List<Object> get props => [
+    invitationId,
+    email,
+    expiresAt,
+    emailRequestStatus,
+  ];
 }

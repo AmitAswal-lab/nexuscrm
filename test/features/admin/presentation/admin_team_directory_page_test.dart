@@ -67,7 +67,7 @@ void main() {
     expect(find.byTooltip('Manage representative'), findsOneWidget);
     expect(find.text('Pending Person'), findsNothing);
     expect(find.text('pending@example.com'), findsOneWidget);
-    expect(find.textContaining('Email delivery failed'), findsOneWidget);
+    expect(find.textContaining('Email request failed'), findsOneWidget);
     expect(find.text('admin-id'), findsNothing);
     expect(find.text('rep-id'), findsNothing);
   });
@@ -107,9 +107,9 @@ final _invitation = WorkspaceInvitation(
   createdAt: DateTime(2026, 7, 13),
   updatedAt: DateTime(2026, 7, 13),
   expiresAt: DateTime(2026, 7, 20),
-  lastSentAt: null,
-  deliveryStatus: InvitationDeliveryStatus.failed,
-  resendCount: 0,
+  lastEmailRequestAt: null,
+  emailRequestStatus: InvitationEmailRequestStatus.failed,
+  resendRequestCount: 0,
   acceptedAt: null,
   acceptedByUserId: null,
   revokedAt: null,

@@ -165,8 +165,8 @@ checkpoint adds representative invitation acceptance/activation and
 administrator suspend, reactivate, and revoke controls for sales
 representatives. Manual UI/UX review remains pending.
 
-Billing, sender and secret configuration, deployment, and manual email-delivery
-review remain pending.
+Billing, Firebase Auth email-parameter configuration, deployment, and manual
+email-request review remain pending.
 
 Planned scope:
 

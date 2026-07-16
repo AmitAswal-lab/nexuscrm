@@ -50,11 +50,15 @@ final class FirestoreInvitationDirectoryRepository
       createdAt: _timestamp(data, 'createdAt'),
       updatedAt: _timestamp(data, 'updatedAt'),
       expiresAt: _timestamp(data, 'expiresAt'),
-      lastSentAt: data['lastSentAt'] is Timestamp
-          ? (data['lastSentAt'] as Timestamp).toDate()
+      lastEmailRequestAt: data['lastEmailRequestAt'] is Timestamp
+          ? (data['lastEmailRequestAt'] as Timestamp).toDate()
           : null,
-      deliveryStatus: _deliveryStatus(_string(data, 'deliveryStatus')),
-      resendCount: data['resendCount'] is int ? data['resendCount'] as int : 0,
+      emailRequestStatus: _emailRequestStatus(
+        _string(data, 'emailRequestStatus'),
+      ),
+      resendRequestCount: data['resendRequestCount'] is int
+          ? data['resendRequestCount'] as int
+          : 0,
       acceptedAt: _nullableTimestamp(data, 'acceptedAt'),
       acceptedByUserId: _nullableString(data, 'acceptedByUserId'),
       revokedAt: _nullableTimestamp(data, 'revokedAt'),
@@ -92,12 +96,12 @@ final class FirestoreInvitationDirectoryRepository
     _ => throw const FormatException('Invalid invitation data.'),
   };
 
-  static InvitationDeliveryStatus _deliveryStatus(String value) =>
+  static InvitationEmailRequestStatus _emailRequestStatus(String value) =>
       switch (value) {
-        'pending' => InvitationDeliveryStatus.pending,
-        'sending' => InvitationDeliveryStatus.sending,
-        'sent' => InvitationDeliveryStatus.sent,
-        'failed' => InvitationDeliveryStatus.failed,
+        'pending' => InvitationEmailRequestStatus.pending,
+        'requesting' => InvitationEmailRequestStatus.requesting,
+        'accepted' => InvitationEmailRequestStatus.accepted,
+        'failed' => InvitationEmailRequestStatus.failed,
         _ => throw const FormatException('Invalid invitation data.'),
       };
 }

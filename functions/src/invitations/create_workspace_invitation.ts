@@ -1,10 +1,10 @@
 import { randomBytes, createHash } from 'node:crypto';
 
-import type { ActionCodeSettings, Auth } from 'firebase-admin/auth';
+import type { Auth } from 'firebase-admin/auth';
 
 import type { InvitationEmailSender } from '../email/invitation_email_sender.js';
 import {
-  type InvitationDeliveryStatus,
+  type InvitationEmailRequestStatus,
   type InvitationRecord,
   type InvitationStore,
 } from './firestore_invitation_store.js';
@@ -23,11 +23,7 @@ export interface CreateWorkspaceInvitationResult {
   readonly email: string;
   readonly status: 'pending';
   readonly expiresAtMillis: number;
-  readonly deliveryStatus: 'sent' | 'failed';
-}
-
-export interface PasswordSetupLinkFactory {
-  create(email: string, settings: ActionCodeSettings): Promise<string>;
+  readonly emailRequestStatus: 'accepted' | 'failed';
 }
 
 export class CreateWorkspaceInvitationService {
@@ -35,30 +31,22 @@ export class CreateWorkspaceInvitationService {
     auth,
     invitationStore,
     emailSender,
-    passwordSetupLinkFactory,
-    passwordSetupContinueUrl,
     now = () => new Date(),
   }: {
     auth: Auth;
     invitationStore: InvitationStore;
     emailSender: InvitationEmailSender;
-    passwordSetupLinkFactory: PasswordSetupLinkFactory;
-    passwordSetupContinueUrl: string;
     now?: () => Date;
   }) {
     this.#auth = auth;
     this.#store = invitationStore;
     this.#emailSender = emailSender;
-    this.#passwordSetupLinkFactory = passwordSetupLinkFactory;
-    this.#passwordSetupSettings = passwordSetupSettings(passwordSetupContinueUrl);
     this.#now = now;
   }
 
   readonly #auth: Auth;
   readonly #store: InvitationStore;
   readonly #emailSender: InvitationEmailSender;
-  readonly #passwordSetupLinkFactory: PasswordSetupLinkFactory;
-  readonly #passwordSetupSettings: ActionCodeSettings;
   readonly #now: () => Date;
 
   async create(
@@ -85,8 +73,8 @@ export class CreateWorkspaceInvitationService {
         );
       }
 
-      if (existingInvitation.deliveryStatus === 'failed') {
-        return this.#deliver(existingInvitation, false);
+      if (existingInvitation.emailRequestStatus === 'failed') {
+        return this.#requestEmail(existingInvitation, false);
       }
 
       throw new InvitationError(
@@ -116,7 +104,7 @@ export class CreateWorkspaceInvitationService {
       throw error;
     }
 
-    return this.#deliver(invitation, false);
+    return this.#requestEmail(invitation, false);
   }
 
   async resend({
@@ -145,7 +133,7 @@ export class CreateWorkspaceInvitationService {
       throw new InvitationError('failed-precondition', 'This invitation has expired.');
     }
 
-    return this.#deliver(invitation, true);
+    return this.#requestEmail(invitation, true);
   }
 
   async revoke({
@@ -170,22 +158,22 @@ export class CreateWorkspaceInvitationService {
     });
   }
 
-  async #deliver(
+  async #requestEmail(
     invitation: InvitationRecord,
     isResend: boolean,
   ): Promise<CreateWorkspaceInvitationResult> {
     const attemptedAt = this.#now();
-    const deliveryAttempt = await this.#store.reserveDeliveryAttempt(
+    const emailRequestAttempt = await this.#store.reserveEmailRequestAttempt(
       invitation,
       attemptedAt,
     );
-    if (deliveryAttempt === 'in-progress') {
+    if (emailRequestAttempt === 'in-progress') {
       throw new InvitationError(
         'already-exists',
-        'This invitation is already being delivered.',
+        'This invitation email request is already in progress.',
       );
     }
-    if (deliveryAttempt === 'rate-limited') {
+    if (emailRequestAttempt === 'rate-limited') {
       throw new InvitationError(
         'resource-exhausted',
         'Please wait before sending another invitation email.',
@@ -193,18 +181,15 @@ export class CreateWorkspaceInvitationService {
     }
 
     try {
-      const passwordSetupLink = await this.#passwordSetupLinkFactory.create(
-        invitation.email,
-        this.#passwordSetupSettings,
+      await this.#emailSender.requestPasswordSetup(invitation.email);
+      await this.#store.markEmailRequestAccepted(
+        invitation,
+        this.#now(),
+        isResend,
       );
-      await this.#emailSender.send({
-        to: invitation.email,
-        passwordSetupLink,
-      });
-      await this.#store.markDeliverySent(invitation, this.#now(), isResend);
-      return resultFor(invitation, 'sent');
+      return resultFor(invitation, 'accepted');
     } catch (_) {
-      await this.#store.markDeliveryFailed(invitation, this.#now());
+      await this.#store.markEmailRequestFailed(invitation, this.#now());
       return resultFor(invitation, 'failed');
     }
   }
@@ -264,27 +249,6 @@ export function normalizeEmail(value: string): string {
   return email;
 }
 
-export function passwordSetupSettings(continueUrl: string): ActionCodeSettings {
-  let parsed: URL;
-  try {
-    parsed = new URL(continueUrl);
-  } catch (_) {
-    throw new InvitationError(
-      'failed-precondition',
-      'The password setup redirect is not configured.',
-    );
-  }
-
-  if (parsed.protocol !== 'https:' || parsed.hostname === 'localhost') {
-    throw new InvitationError(
-      'failed-precondition',
-      'The password setup redirect is not configured.',
-    );
-  }
-
-  return {url: parsed.toString(), handleCodeInApp: false};
-}
-
 function requiredWorkspaceId(value: string): string {
   const workspaceId = value.trim();
   if (workspaceId.length === 0 || workspaceId.includes('/')) {
@@ -315,14 +279,14 @@ function hashEmail(email: string): string {
 
 function resultFor(
   invitation: InvitationRecord,
-  deliveryStatus: Extract<InvitationDeliveryStatus, 'sent' | 'failed'>,
+  emailRequestStatus: Extract<InvitationEmailRequestStatus, 'accepted' | 'failed'>,
 ): CreateWorkspaceInvitationResult {
   return {
     invitationId: invitation.id,
     email: invitation.email,
     status: 'pending',
     expiresAtMillis: invitation.expiresAt.getTime(),
-    deliveryStatus,
+    emailRequestStatus,
   };
 }
 

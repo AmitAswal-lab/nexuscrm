@@ -2,9 +2,9 @@ import { getAuth } from 'firebase-admin/auth';
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
-import { defineSecret, defineString } from 'firebase-functions/params';
+import { defineString } from 'firebase-functions/params';
 
-import { ResendInvitationEmailSender } from './email/resend_invitation_email_sender.js';
+import { FirebaseAuthInvitationEmailSender } from './email/firebase_auth_invitation_email_sender.js';
 import { CreateWorkspaceInvitationService } from './invitations/create_workspace_invitation.js';
 import {
   FirestoreInvitationStore,
@@ -14,11 +14,10 @@ import { InvitationError } from './invitations/invitation_error.js';
 
 if (getApps().length === 0) initializeApp();
 
-const resendApiKey = defineSecret('RESEND_API_KEY');
-const invitationFromEmail = defineString('INVITATION_FROM_EMAIL');
-const passwordSetupContinueUrl = defineString(
-  'INVITATION_PASSWORD_SETUP_CONTINUE_URL',
-);
+// Firebase's web API key identifies this Firebase Auth project to its
+// documented password-reset endpoint. It is public application configuration,
+// not an email-provider credential or a secret.
+const invitationAuthWebApiKey = defineString('INVITATION_AUTH_WEB_API_KEY');
 const callableOptions = {
   region: 'us-central1' as const,
   memory: '256MiB' as const,
@@ -26,7 +25,6 @@ const callableOptions = {
   minInstances: 0,
   maxInstances: 2,
   concurrency: 5,
-  secrets: [resendApiKey],
 };
 const accessCallableOptions = {
   region: 'us-central1' as const,
@@ -152,14 +150,9 @@ function invitationService() {
   return new CreateWorkspaceInvitationService({
     auth: getAuth(),
     invitationStore: new FirestoreInvitationStore(getFirestore()),
-    emailSender: new ResendInvitationEmailSender({
-      apiKey: resendApiKey.value(),
-      from: invitationFromEmail.value(),
+    emailSender: new FirebaseAuthInvitationEmailSender({
+      apiKey: invitationAuthWebApiKey.value(),
     }),
-    passwordSetupLinkFactory: {
-      create: (email, settings) => getAuth().generatePasswordResetLink(email, settings),
-    },
-    passwordSetupContinueUrl: passwordSetupContinueUrl.value(),
   });
 }
 

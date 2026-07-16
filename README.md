@@ -36,8 +36,10 @@ The application currently supports:
   trusted callable Functions
 
 Production invitation delivery and live onboarding verification remain pending:
-the Functions have not been deployed, and no sender credentials, billing, or
-email-provider configuration is committed to this repository.
+the Functions have not been deployed, and no billing or deployment
+configuration is committed to this repository. The MVP uses Firebase
+Authentication's standard password-reset email and hosted action handler; the
+app records only whether Firebase accepted an email request, not inbox delivery.
 
 See the [project roadmap](docs/roadmap.md) for completed milestones, the
 recommended MVP delivery order, and deferred work.

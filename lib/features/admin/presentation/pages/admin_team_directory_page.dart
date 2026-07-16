@@ -178,14 +178,14 @@ class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
 
   Widget _invitationCard(BuildContext context, WorkspaceInvitation invitation) {
     final busy = _busyInvitationId == invitation.id;
-    final deliveryText = switch (invitation.deliveryStatus) {
-      InvitationDeliveryStatus.pending ||
-      InvitationDeliveryStatus.sending => 'Preparing email',
-      InvitationDeliveryStatus.sent => 'Email sent',
-      InvitationDeliveryStatus.failed => 'Email delivery failed',
+    final emailRequestText = switch (invitation.emailRequestStatus) {
+      InvitationEmailRequestStatus.pending ||
+      InvitationEmailRequestStatus.requesting => 'Requesting setup email',
+      InvitationEmailRequestStatus.accepted => 'Email request accepted',
+      InvitationEmailRequestStatus.failed => 'Email request failed',
     };
     final resendLabel =
-        invitation.deliveryStatus == InvitationDeliveryStatus.failed
+        invitation.emailRequestStatus == InvitationEmailRequestStatus.failed
         ? 'Retry email'
         : 'Resend';
 
@@ -201,7 +201,7 @@ class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            Text('$deliveryText • Expires ${_date(invitation.expiresAt)}'),
+            Text('$emailRequestText • Expires ${_date(invitation.expiresAt)}'),
             const SizedBox(height: 8),
             Row(
               children: [
@@ -243,9 +243,9 @@ class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            result.deliveryStatus.name == 'sent'
-                ? 'Invitation email sent.'
-                : 'Invitation is saved, but email delivery failed.',
+            result.emailRequestStatus.name == 'accepted'
+                ? 'Firebase accepted the password-setup email request.'
+                : 'Invitation is saved, but Firebase did not accept the email request.',
           ),
         ),
       );

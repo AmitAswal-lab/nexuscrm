@@ -107,7 +107,8 @@ class _AdminInviteRepresentativePageState
 
   Widget _resultState(BuildContext context) {
     final result = _result!;
-    final sent = result.deliveryStatus == InvitationEmailDeliveryStatus.sent;
+    final accepted =
+        result.emailRequestStatus == InvitationEmailRequestResult.accepted;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -115,22 +116,22 @@ class _AdminInviteRepresentativePageState
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Icon(
-              sent ? Icons.mark_email_read_outlined : Icons.error_outline,
+              accepted ? Icons.mark_email_read_outlined : Icons.error_outline,
               size: 40,
-              color: sent
+              color: accepted
                   ? Theme.of(context).colorScheme.primary
                   : Theme.of(context).colorScheme.error,
             ),
             const SizedBox(height: 12),
             Text(
-              sent ? 'Invitation sent' : 'Email delivery failed',
+              accepted ? 'Email request accepted' : 'Email request failed',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
             Text(
-              sent
-                  ? 'A password-setup email was sent to ${result.email}.'
-                  : 'The invitation was saved, but the setup email could not be sent.',
+              accepted
+                  ? 'Firebase accepted a password-setup email request for ${result.email}. Delivery cannot be confirmed here.'
+                  : 'The invitation was saved, but Firebase did not accept the password-setup email request.',
             ),
             if (_failure != null) ...[
               const SizedBox(height: 12),
@@ -140,7 +141,7 @@ class _AdminInviteRepresentativePageState
               ),
             ],
             const SizedBox(height: 20),
-            if (!sent)
+            if (!accepted)
               FilledButton(
                 onPressed: _submitting ? null : _retry,
                 child: _submitting
@@ -151,7 +152,7 @@ class _AdminInviteRepresentativePageState
                       )
                     : const Text('Retry email'),
               ),
-            if (!sent) const SizedBox(height: 8),
+            if (!accepted) const SizedBox(height: 8),
             OutlinedButton(
               onPressed: _submitting ? null : context.pop,
               child: const Text('Done'),

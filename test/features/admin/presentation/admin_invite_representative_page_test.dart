@@ -16,7 +16,7 @@ void main() {
     expect(repository.createCalls, 0);
   });
 
-  testWidgets('shows a saved delivery failure and supports retrying it', (
+  testWidgets('shows a saved email-request failure and supports retrying it', (
     tester,
   ) async {
     final repository = _InvitationRepository(
@@ -25,13 +25,13 @@ void main() {
           invitationId: 'invite-one',
           email: 'rep@example.com',
           expiresAt: DateTime(2026, 7, 20),
-          deliveryStatus: InvitationEmailDeliveryStatus.failed,
+          emailRequestStatus: InvitationEmailRequestResult.failed,
         ),
         InvitationCreationResult(
           invitationId: 'invite-one',
           email: 'rep@example.com',
           expiresAt: DateTime(2026, 7, 20),
-          deliveryStatus: InvitationEmailDeliveryStatus.sent,
+          emailRequestStatus: InvitationEmailRequestResult.accepted,
         ),
       ],
     );
@@ -41,14 +41,14 @@ void main() {
     await tester.tap(find.text('Send invitation'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Email delivery failed'), findsOneWidget);
+    expect(find.text('Email request failed'), findsOneWidget);
     expect(find.text('Retry email'), findsOneWidget);
 
     await tester.tap(find.text('Retry email'));
     await tester.pumpAndSettle();
 
     expect(repository.resendCalls, 1);
-    expect(find.text('Invitation sent'), findsOneWidget);
+    expect(find.text('Email request accepted'), findsOneWidget);
   });
 }
 

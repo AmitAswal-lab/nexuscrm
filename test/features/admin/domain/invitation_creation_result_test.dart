@@ -8,12 +8,12 @@ void main() {
       'email': 'rep@example.com',
       'status': 'pending',
       'expiresAtMillis': 1784548800000,
-      'deliveryStatus': 'sent',
+      'emailRequestStatus': 'accepted',
     });
 
     expect(result.invitationId, 'invitation-one');
     expect(result.email, 'rep@example.com');
-    expect(result.deliveryStatus, InvitationEmailDeliveryStatus.sent);
+    expect(result.emailRequestStatus, InvitationEmailRequestResult.accepted);
   });
 
   test('rejects responses containing an unsupported invitation state', () {
@@ -23,7 +23,7 @@ void main() {
         'email': 'rep@example.com',
         'status': 'active',
         'expiresAtMillis': 1784548800000,
-        'deliveryStatus': 'sent',
+        'emailRequestStatus': 'accepted',
       }),
       throwsFormatException,
     );

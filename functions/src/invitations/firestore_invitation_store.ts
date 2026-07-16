@@ -4,8 +4,12 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { InvitationError } from './invitation_error.js';
 
 export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
-export type InvitationDeliveryStatus = 'pending' | 'sending' | 'sent' | 'failed';
-export type DeliveryAttemptReservation =
+export type InvitationEmailRequestStatus =
+  | 'pending'
+  | 'requesting'
+  | 'accepted'
+  | 'failed';
+export type EmailRequestAttemptReservation =
   | 'reserved'
   | 'in-progress'
   | 'rate-limited';
@@ -20,7 +24,7 @@ export interface InvitationRecord {
   readonly invitedUserId: string;
   readonly expiresAt: Date;
   readonly status: InvitationStatus;
-  readonly deliveryStatus: InvitationDeliveryStatus;
+  readonly emailRequestStatus: InvitationEmailRequestStatus;
 }
 
 export interface NewInvitationRecord {
@@ -41,16 +45,16 @@ export interface InvitationStore {
   ): Promise<InvitationRecord | null>;
   createInvitation(record: NewInvitationRecord): Promise<InvitationRecord>;
   findInvitation(workspaceId: string, invitationId: string): Promise<InvitationRecord>;
-  reserveDeliveryAttempt(
+  reserveEmailRequestAttempt(
     invitation: InvitationRecord,
     at: Date,
-  ): Promise<DeliveryAttemptReservation>;
-  markDeliverySent(
+  ): Promise<EmailRequestAttemptReservation>;
+  markEmailRequestAccepted(
     invitation: InvitationRecord,
     at: Date,
     isResend: boolean,
   ): Promise<void>;
-  markDeliveryFailed(invitation: InvitationRecord, at: Date): Promise<void>;
+  markEmailRequestFailed(invitation: InvitationRecord, at: Date): Promise<void>;
   markExpired(invitation: InvitationRecord, at: Date): Promise<void>;
   revokePendingInvitation({
     workspaceId,
@@ -173,15 +177,16 @@ export class FirestoreInvitationStore implements InvitationStore {
         emailHash: record.emailHash,
         role: 'sales_rep',
         status: 'pending',
-        deliveryStatus: 'pending',
-        deliveryAttempts: 0,
+        emailRequestStatus: 'pending',
+        emailRequestAttempts: 0,
         invitedUserId: record.invitedUserId,
         invitedByUserId: record.invitedByUserId,
         createdAt: Timestamp.fromDate(record.createdAt),
         updatedAt: Timestamp.fromDate(record.createdAt),
         expiresAt: Timestamp.fromDate(record.expiresAt),
-        lastSentAt: null,
-        resendCount: 0,
+        lastEmailRequestAt: null,
+        lastEmailRequestAcceptedAt: null,
+        resendRequestCount: 0,
         acceptedAt: null,
         acceptedByUserId: null,
         revokedAt: null,
@@ -217,14 +222,14 @@ export class FirestoreInvitationStore implements InvitationStore {
       invitedUserId: record.invitedUserId,
       expiresAt: record.expiresAt,
       status: 'pending',
-      deliveryStatus: 'pending',
+      emailRequestStatus: 'pending',
     };
   }
 
-  async reserveDeliveryAttempt(
+  async reserveEmailRequestAttempt(
     invitation: InvitationRecord,
     at: Date,
-  ): Promise<DeliveryAttemptReservation> {
+  ): Promise<EmailRequestAttemptReservation> {
     const reference = this.#invitation(invitation.workspaceId, invitation.id);
 
     return this.firestore.runTransaction(async (transaction) => {
@@ -234,11 +239,11 @@ export class FirestoreInvitationStore implements InvitationStore {
         throw new InvitationError('failed-precondition', 'Invitation is unavailable.');
       }
 
-      if (data.deliveryStatus === 'sending') {
+      if (data.emailRequestStatus === 'requesting') {
         return 'in-progress';
       }
 
-      const lastAttempt = data.lastDeliveryAttemptAt;
+      const lastAttempt = data.lastEmailRequestAt;
       if (
         lastAttempt instanceof Timestamp &&
         at.getTime() - lastAttempt.toMillis() < 60 * 1000
@@ -247,31 +252,34 @@ export class FirestoreInvitationStore implements InvitationStore {
       }
 
       transaction.update(reference, {
-        deliveryStatus: 'sending',
-        deliveryAttempts: FieldValue.increment(1),
-        lastDeliveryAttemptAt: Timestamp.fromDate(at),
+        emailRequestStatus: 'requesting',
+        emailRequestAttempts: FieldValue.increment(1),
+        lastEmailRequestAt: Timestamp.fromDate(at),
         updatedAt: Timestamp.fromDate(at),
       });
       return 'reserved';
     });
   }
 
-  async markDeliverySent(
+  async markEmailRequestAccepted(
     invitation: InvitationRecord,
     at: Date,
     isResend: boolean,
   ): Promise<void> {
     await this.#invitation(invitation.workspaceId, invitation.id).update({
-      deliveryStatus: 'sent',
-      lastSentAt: Timestamp.fromDate(at),
+      emailRequestStatus: 'accepted',
+      lastEmailRequestAcceptedAt: Timestamp.fromDate(at),
       updatedAt: Timestamp.fromDate(at),
-      ...(isResend ? { resendCount: FieldValue.increment(1) } : {}),
+      ...(isResend ? { resendRequestCount: FieldValue.increment(1) } : {}),
     });
   }
 
-  async markDeliveryFailed(invitation: InvitationRecord, at: Date): Promise<void> {
+  async markEmailRequestFailed(
+    invitation: InvitationRecord,
+    at: Date,
+  ): Promise<void> {
     await this.#invitation(invitation.workspaceId, invitation.id).update({
-      deliveryStatus: 'failed',
+      emailRequestStatus: 'failed',
       updatedAt: Timestamp.fromDate(at),
     });
   }
@@ -568,7 +576,9 @@ export class FirestoreInvitationStore implements InvitationStore {
       typeof data.emailHash !== 'string' ||
       typeof data.invitedUserId !== 'string' ||
       !(data.expiresAt instanceof Timestamp) ||
-      !['pending', 'sending', 'sent', 'failed'].includes(data.deliveryStatus)
+      !['pending', 'requesting', 'accepted', 'failed'].includes(
+        data.emailRequestStatus,
+      )
     ) {
       throw new InvitationError('internal', 'Invitation state is unavailable.');
     }
@@ -581,7 +591,8 @@ export class FirestoreInvitationStore implements InvitationStore {
       invitedUserId: data.invitedUserId,
       expiresAt: data.expiresAt.toDate(),
       status: data.status as InvitationStatus,
-      deliveryStatus: data.deliveryStatus as InvitationDeliveryStatus,
+      emailRequestStatus:
+        data.emailRequestStatus as InvitationEmailRequestStatus,
     };
   }
 }
