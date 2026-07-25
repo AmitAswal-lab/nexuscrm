@@ -109,14 +109,24 @@ remain denied by Firestore rules.
   single-use replay rejection, refusal to activate a revoked invitation, and
   the permitted membership status transitions.
 
+## Live verification
+
+Verified against `nexuscrm-dev-amitaswal` on 2026-07-25. An administrator
+invited a development-only recipient from the iOS simulator, Firebase delivered
+the password-setup email, and the representative set their own password, signed
+in on an Android device, reached the activation screen, activated the
+workspace, and landed on the sales dashboard. The administrator's team
+directory then listed the account as an active sales representative.
+
+Two things are worth recording from that run. Firebase accepting an email
+request is still not evidence of inbox delivery: the first attempt reported an
+accepted request and delivered nothing, because the configured API key belonged
+to a different Firebase project and email enumeration protection returns
+success for an unknown address. Deployment now verifies the key's project
+first, as described in [Admin user management](admin-user-management.md).
+
 ## Remaining work
 
-Onboarding is not complete until the Functions are deployed and one
-development-only representative completes password setup, sign-in, activation,
-and first dashboard load in `nexuscrm-dev-amitaswal`, on both Android and iOS.
-The deployment prerequisites, including the Blaze upgrade, billing alerts, and
-the Identity Toolkit-restricted API key, are listed in
-[Admin user management](admin-user-management.md).
-
-Firebase accepting an email request is not evidence of inbox delivery and must
-not be described as such.
+- Representative activation has been exercised on Android only.
+- Onboarding does not capture a display name, so the dashboard greeting falls
+  back to the representative's full email address.

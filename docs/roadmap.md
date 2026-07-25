@@ -45,8 +45,8 @@ enterprise reporting.
 | 4. Lead and client management | Complete | Teams maintain customer records and ownership |
 | 5. Tasks and follow-ups | Complete | Representatives organize actionable work |
 | 6. Dialer and post-call notes | Complete | Representatives launch calls, log outcomes, and create follow-ups |
-| 7. Admin user management and invitations | Complete locally | Administrators securely manage and invite representatives; deployment remains pending |
-| 8. Sales-representative onboarding | Complete locally | Invited representatives establish accounts and enter the workspace; live verification remains pending |
+| 7. Admin user management and invitations | Complete | Administrators securely manage and invite representatives, deployed and verified live |
+| 8. Sales-representative onboarding | Complete | Invited representatives establish accounts and enter the workspace, verified live on Android |
 | 9. Admin activity and basic reporting | Planned | Administrators review team activity and lightweight summaries |
 | 10. Final polish, testing, and release | Planned | Cross-platform quality and portfolio release readiness |
 
@@ -165,11 +165,18 @@ checkpoint adds representative invitation acceptance/activation and
 administrator suspend, reactivate, and revoke controls for sales
 representatives. Local manual UI/UX reviews are complete.
 
-Before deployment, the development project still needs a Blaze upgrade, billing
-alerts, a dedicated Identity Toolkit-restricted API key configured as the
-Function parameter, quota review, and one real development-only email and
-onboarding test. Firebase accepting the email request must not be described as
-confirmed delivery.
+The Functions, Firestore rules, and indexes were deployed to
+`nexuscrm-dev-amitaswal` on 2026-07-25 after the Blaze upgrade and budget
+alert. An administrator invited a real development-only recipient, Firebase
+delivered the password-setup email, and the invitation moved from pending to an
+active representative in the team directory. An Artifact Registry cleanup
+policy limits deployment image retention to one day.
+
+The first deployment used an API key created under a different Firebase
+project. Because email enumeration protection returns success without sending
+for an unknown address, the invitation reported an accepted email request while
+no message was ever sent. The deployment prerequisites now require verifying
+that the configured key resolves to the intended project.
 
 Planned scope:
 
@@ -204,13 +211,17 @@ Definition of done:
 Goal: allow an invited representative to establish their own credentials and
 enter the correct workspace.
 
-The local implementation is complete. Backend acceptance and activation landed
-with the admin-management branch; the representative-facing activation
-experience, its routing guarantees, and its documentation landed on the
-onboarding branch. The production-facing milestone remains pending until the
-Functions are deployed and one representative completes the Firebase-hosted
-password setup, acceptance, activation, and first sign-in flow in the
-development project.
+Backend acceptance and activation landed with the admin-management branch; the
+representative-facing activation experience, its routing guarantees, and its
+documentation landed on the onboarding branch.
+
+The milestone was verified live on 2026-07-25. An administrator invited a
+representative from the iOS simulator, the representative received Firebase's
+password-setup email, set their own password, signed in on an Android device,
+reached the activation screen because their membership was still invited,
+activated the workspace, and landed on the sales dashboard. The administrator's
+team directory then showed the same account as an active sales representative
+rather than a pending invitation.
 
 Delivered scope:
 
@@ -227,17 +238,24 @@ Delivered scope:
 - Activation, routing, session, and emulator coverage for the acceptance and
   membership-transition paths
 
-Remaining validation:
-
-- First real sales-representative sign-in verification
-- Android and iOS onboarding checks
-
-Definition of done:
+Definition of done, all met:
 
 - An invited representative sets their own password.
 - Exactly one active workspace membership is established.
 - The representative signs in and reaches the sales dashboard.
 - Invalid or revoked invitations cannot grant workspace access.
+
+The first three were verified live. The fourth is covered by emulator tests for
+replay, expiry, revocation, and wrong-account acceptance rather than by a live
+attempt, because provoking those states against the development project would
+consume real invitations without adding confidence.
+
+Follow-up work, carried into a later milestone:
+
+- Representative activation was exercised on Android only. The iOS simulator
+  covered the administrator invitation path.
+- Onboarding never captures a display name, so the dashboard greeting falls
+  back to the representative's full email address permanently.
 
 ### 9. Admin activity and basic reporting
 

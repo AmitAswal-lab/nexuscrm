@@ -10,8 +10,7 @@ follow-ups.
 The project foundation, authentication foundation, navigation shell, sales
 dashboard, lead/client management, tasks and follow-ups, and dialer and
 post-call notes milestones are complete. Admin user management and
-sales-representative onboarding are complete locally and await deployment and
-live verification.
+sales-representative onboarding are complete, deployed, and verified live.
 
 The application currently supports:
 
@@ -42,11 +41,12 @@ The application currently supports:
 - Invited-representative workspace activation with explicit in-flight, success,
   retry, and sign-out recovery states
 
-Production invitation delivery and live onboarding verification remain pending:
-the Functions have not been deployed, and no billing or deployment
-configuration is committed to this repository. The MVP uses Firebase
-Authentication's standard password-reset email and hosted action handler; the
-app records only whether Firebase accepted an email request, not inbox delivery.
+The Functions, Firestore rules, and indexes are deployed to the development
+project, and invitation delivery and representative onboarding were verified
+live on 2026-07-25. No billing or deployment credentials are committed to this
+repository. The MVP uses Firebase Authentication's standard password-reset
+email and hosted action handler; the app records only whether Firebase accepted
+an email request, not inbox delivery.
 
 See the [project roadmap](docs/roadmap.md) for completed milestones, the
 recommended MVP delivery order, and deferred work.
