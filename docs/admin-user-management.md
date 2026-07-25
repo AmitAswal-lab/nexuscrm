@@ -149,6 +149,18 @@ Do not deploy this Function until all of the following are complete for
    it to the Identity Toolkit API, and configure it only as the
    `INVITATION_AUTH_WEB_API_KEY` Function parameter. It is not a Resend
    credential and must not be provided by the Flutter app or callable input.
+   Confirm the key belongs to the intended project before deploying, because a
+   key created under a different project fails silently rather than loudly:
+
+   ```sh
+   curl -s "https://identitytoolkit.googleapis.com/v1/projects?key=$KEY"
+   ```
+
+   The response must report the `nexuscrm-dev-amitaswal` project number and
+   authorized domains. A key from another project still returns HTTP 200 with
+   the requested address echoed back, because email enumeration protection
+   deliberately hides whether an account exists, so no email is sent and no
+   error is recorded anywhere.
 3. Confirm Identity Toolkit quota usage is appropriate for development use. In
    Firebase Authentication, verify Email/Password sign-in is enabled and review
    the standard password-reset template and default hosted action handler.
