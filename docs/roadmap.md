@@ -46,7 +46,7 @@ enterprise reporting.
 | 5. Tasks and follow-ups | Complete | Representatives organize actionable work |
 | 6. Dialer and post-call notes | Complete | Representatives launch calls, log outcomes, and create follow-ups |
 | 7. Admin user management and invitations | Complete locally | Administrators securely manage and invite representatives; deployment remains pending |
-| 8. Sales-representative onboarding | Planned | Invited representatives establish accounts and enter the workspace |
+| 8. Sales-representative onboarding | Complete locally | Invited representatives establish accounts and enter the workspace; live verification remains pending |
 | 9. Admin activity and basic reporting | Planned | Administrators review team activity and lightweight summaries |
 | 10. Final polish, testing, and release | Planned | Cross-platform quality and portfolio release readiness |
 
@@ -204,11 +204,13 @@ Definition of done:
 Goal: allow an invited representative to establish their own credentials and
 enter the correct workspace.
 
-The local acceptance and activation implementation is complete as part of the
-admin-management branch. The production-facing onboarding milestone remains
-pending until the Functions are deployed and one representative completes the
-Firebase-hosted password setup, acceptance, activation, and first sign-in flow
-in the development project.
+The local implementation is complete. Backend acceptance and activation landed
+with the admin-management branch; the representative-facing activation
+experience, its routing guarantees, and its documentation landed on the
+onboarding branch. The production-facing milestone remains pending until the
+Functions are deployed and one representative completes the Firebase-hosted
+password setup, acceptance, activation, and first sign-in flow in the
+development project.
 
 Delivered scope:
 
@@ -217,6 +219,13 @@ Delivered scope:
 - Secure association between Firebase UID, invitation, and membership
 - Transactional membership activation
 - Expired, revoked, invalid, and already-used invitation states
+- Activation screen with explicit ready, in-flight, activated, recoverable,
+  and terminal states
+- Retry limited to transient availability failures, with sign-out recovery for
+  every other outcome
+- Session-driven redirect into the sales workspace after activation
+- Activation, routing, session, and emulator coverage for the acceptance and
+  membership-transition paths
 
 Remaining validation:
 
