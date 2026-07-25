@@ -410,6 +410,74 @@ test('marks an expired invitation without activating its membership', async () =
   );
 });
 
+test('accepts an invitation only once and leaves the activated membership intact', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  const service = makeService(new RecordingSender());
+  const created = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'replay@example.com',
+  });
+  const invitedUserId = String((await onlyInvitation()).data()?.invitedUserId);
+  const store = new FirestoreInvitationStore(firestore);
+
+  assert.equal(
+    await store.acceptInvitation({
+      workspaceId,
+      invitationId: created.invitationId,
+      userId: invitedUserId,
+      at: now,
+    }),
+    'accepted',
+  );
+
+  await assert.rejects(
+    store.acceptInvitation({
+      workspaceId,
+      invitationId: created.invitationId,
+      userId: invitedUserId,
+      at: new Date(now.getTime() + 1000),
+    }),
+    (error: unknown) =>
+      error instanceof InvitationError && error.code === 'failed-precondition',
+  );
+
+  const invitation = (await onlyInvitation()).data();
+  assert.equal(invitation?.status, 'accepted');
+  assert.equal(invitation?.acceptedAt.toMillis(), now.getTime());
+  assert.equal(await memberStatus(invitedUserId), 'active');
+});
+
+test('refuses to activate a revoked invitation', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  const service = makeService(new RecordingSender());
+  const created = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'revoked-accept@example.com',
+  });
+  const invitedUserId = String((await onlyInvitation()).data()?.invitedUserId);
+  await service.revoke({
+    actingUserId: adminUserId,
+    workspaceId,
+    invitationId: created.invitationId,
+  });
+
+  await assert.rejects(
+    new FirestoreInvitationStore(firestore).acceptInvitation({
+      workspaceId,
+      invitationId: created.invitationId,
+      userId: invitedUserId,
+      at: now,
+    }),
+    (error: unknown) =>
+      error instanceof InvitationError && error.code === 'failed-precondition',
+  );
+
+  assert.equal((await onlyInvitation()).data()?.status, 'revoked');
+  assert.equal(await memberStatus(invitedUserId), 'revoked');
+});
+
 test('allows an active admin to suspend, reactivate, and revoke a sales representative', async () => {
   await seedMembership(adminUserId, 'admin', 'active');
   await seedMembership('sales-user', 'sales_rep', 'active');
@@ -467,6 +535,48 @@ test('refuses membership management by non-admins or against administrators', as
     (error: unknown) =>
       error instanceof InvitationError && error.code === 'failed-precondition',
   );
+});
+
+test('refuses status changes that skip the membership lifecycle', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  await seedMembership('sales-user', 'sales_rep', 'active');
+  const store = new FirestoreInvitationStore(firestore);
+
+  await assert.rejects(
+    store.updateSalesRepresentativeStatus({
+      workspaceId,
+      actingUserId: adminUserId,
+      userId: 'sales-user',
+      action: 'reactivate',
+      at: now,
+    }),
+    (error: unknown) =>
+      error instanceof InvitationError && error.code === 'failed-precondition',
+  );
+  assert.equal(await memberStatus('sales-user'), 'active');
+
+  await store.updateSalesRepresentativeStatus({
+    workspaceId,
+    actingUserId: adminUserId,
+    userId: 'sales-user',
+    action: 'revoke',
+    at: now,
+  });
+
+  for (const action of ['suspend', 'reactivate', 'revoke'] as const) {
+    await assert.rejects(
+      store.updateSalesRepresentativeStatus({
+        workspaceId,
+        actingUserId: adminUserId,
+        userId: 'sales-user',
+        action,
+        at: now,
+      }),
+      (error: unknown) =>
+        error instanceof InvitationError && error.code === 'failed-precondition',
+    );
+  }
+  assert.equal(await memberStatus('sales-user'), 'revoked');
 });
 
 test('removes a just-created Auth user when atomic Firestore creation fails', async () => {
@@ -535,6 +645,16 @@ async function onlyInvitation() {
     .get();
   assert.equal(invitations.size, 1);
   return invitations.docs[0]!;
+}
+
+async function memberStatus(userId: string) {
+  const member = await firestore
+    .collection('workspaces')
+    .doc(workspaceId)
+    .collection('members')
+    .doc(userId)
+    .get();
+  return member.data()?.status;
 }
 
 async function assertUserMissing(email: string) {

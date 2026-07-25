@@ -63,6 +63,34 @@ void main() {
     ],
   );
 
+  blocTest<SessionBloc, SessionState>(
+    'moves a signed-in invited representative into their sales workspace after activation',
+    build: buildBloc,
+    act: (bloc) async {
+      bloc.add(const SessionStarted());
+      await _nextEventLoop();
+      authenticationRepository.emit(_salesUser);
+      await _nextEventLoop();
+      membershipRepository.emit(_salesUser.id, <WorkspaceMembership>[
+        _invitedSalesMembership,
+      ]);
+      await _nextEventLoop();
+      membershipRepository.emit(_salesUser.id, <WorkspaceMembership>[
+        _activeSalesMembership,
+      ]);
+    },
+    expect: () => const <SessionState>[
+      SessionResolvingAccess(_salesUser),
+      SessionInvitationPending(
+        user: _salesUser,
+        membership: _invitedSalesMembership,
+      ),
+      SessionAuthenticated(
+        AuthSession(user: _salesUser, membership: _activeSalesMembership),
+      ),
+    ],
+  );
+
   for (final testCase in <(MembershipStatus, SessionState)>[
     (
       MembershipStatus.invited,
@@ -274,6 +302,22 @@ const _activeAdminMembership = WorkspaceMembership(
   userId: 'admin-user',
   role: WorkspaceRole.admin,
   status: MembershipStatus.active,
+);
+
+const _invitedSalesMembership = WorkspaceMembership(
+  workspaceId: 'workspace-one',
+  userId: 'sales-user',
+  role: WorkspaceRole.salesRep,
+  status: MembershipStatus.invited,
+  invitationId: 'invitation-one',
+);
+
+const _activeSalesMembership = WorkspaceMembership(
+  workspaceId: 'workspace-one',
+  userId: 'sales-user',
+  role: WorkspaceRole.salesRep,
+  status: MembershipStatus.active,
+  invitationId: 'invitation-one',
 );
 
 WorkspaceMembership _membership({
