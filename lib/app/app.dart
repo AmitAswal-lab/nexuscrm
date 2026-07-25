@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:nexuscrm/app/router/app_router.dart';
 import 'package:nexuscrm/app/theme/app_theme.dart';
 import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/invitation_repository.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/authentication_repository.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/membership_repository.dart';
 import 'package:nexuscrm/features/authentication/presentation/bloc/session/session_bloc.dart';
@@ -20,6 +21,7 @@ class NexusCrmApp extends StatefulWidget {
     required this.salesAssigneeRepository,
     required this.taskRepository,
     required this.activityRepository,
+    this.invitationRepository,
     super.key,
   });
 
@@ -29,6 +31,7 @@ class NexusCrmApp extends StatefulWidget {
   final SalesAssigneeRepository salesAssigneeRepository;
   final TaskRepository taskRepository;
   final ActivityRepository activityRepository;
+  final InvitationRepository? invitationRepository;
 
   @override
   State<NexusCrmApp> createState() => _NexusCrmAppState();
@@ -45,7 +48,10 @@ class _NexusCrmAppState extends State<NexusCrmApp> {
       authenticationRepository: widget.authenticationRepository,
       membershipRepository: widget.membershipRepository,
     )..add(const SessionStarted());
-    _appRouter = AppRouter(_sessionBloc);
+    _appRouter = AppRouter(
+      _sessionBloc,
+      invitationRepository: widget.invitationRepository,
+    );
   }
 
   @override

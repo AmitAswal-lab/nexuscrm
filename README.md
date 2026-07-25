@@ -8,7 +8,10 @@ follow-ups.
 ## Project status
 
 The project foundation, authentication foundation, navigation shell, sales
-dashboard, and lead/client management milestones are complete.
+dashboard, lead/client management, tasks and follow-ups, and dialer and
+post-call notes milestones are complete. Admin user management and
+sales-representative onboarding are complete locally and await deployment and
+live verification.
 
 The application currently supports:
 
@@ -36,6 +39,8 @@ The application currently supports:
   backed by trusted callable Functions
 - Administrator sales-representative suspend, reactivate, and revoke controls
   with immediate Firestore access enforcement
+- Invited-representative workspace activation with explicit in-flight, success,
+  retry, and sign-out recovery states
 
 Production invitation delivery and live onboarding verification remain pending:
 the Functions have not been deployed, and no billing or deployment
@@ -104,6 +109,11 @@ See [Lead and client management](docs/lead-management.md) for the contact
 model, permissions, routes, lifecycle, and Firestore schema.
 See [Dialer, call notes, and follow-ups](docs/dialer-post-call-notes.md) for
 the call workflow, activity model, security rules, and contact timeline.
+See [Admin user management](docs/admin-user-management.md) for the membership
+and invitation lifecycles, trusted callables, and deployment prerequisites.
+See [Sales-representative onboarding](docs/sales-representative-onboarding.md)
+for the activation route, screen states, failure handling, and the live
+verification that remains.
 
 ## Quality checks
 

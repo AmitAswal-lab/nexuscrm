@@ -5,11 +5,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexuscrm/app/app.dart';
 import 'package:nexuscrm/app/router/app_routes.dart';
+import 'package:nexuscrm/features/admin/domain/entities/invitation_creation_result.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/invitation_repository.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_home_placeholder.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/auth_user.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/authentication_repository.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/membership_repository.dart';
+import 'package:nexuscrm/features/authentication/presentation/pages/invitation_pending_page.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
 
 import '../../helpers/empty_contact_repository.dart';
@@ -129,6 +132,65 @@ void main() {
     );
   });
 
+  testWidgets('routes an invited representative to workspace activation', (
+    tester,
+  ) async {
+    _usePhoneSize(tester);
+    await _pumpAuthenticatedApp(
+      tester,
+      membership: _invitedSalesMembership,
+      invitationRepository: const _NoopInvitationRepository(),
+    );
+
+    final router = GoRouter.of(
+      tester.element(find.byType(InvitationPendingPage)),
+    );
+    expect(find.text('Activate your workspace'), findsOneWidget);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.invitationPending,
+    );
+
+    router.go(AppRoutes.salesHome);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(InvitationPendingPage), findsOneWidget);
+    expect(
+      router.routerDelegate.currentConfiguration.uri.path,
+      AppRoutes.invitationPending,
+    );
+  });
+
+  for (final testCase in <(MembershipStatus, String)>[
+    (MembershipStatus.suspended, 'Your workspace membership is suspended.'),
+    (MembershipStatus.revoked, 'Your workspace access has been revoked.'),
+  ]) {
+    testWidgets(
+      'keeps a ${testCase.$1.name} representative out of the sales workspace',
+      (tester) async {
+        _usePhoneSize(tester);
+        await _pumpAuthenticatedApp(
+          tester,
+          membership: _salesMembershipWithStatus(testCase.$1),
+        );
+
+        expect(find.text('Access unavailable'), findsOneWidget);
+        expect(find.text(testCase.$2), findsOneWidget);
+
+        final router = GoRouter.of(
+          tester.element(find.text('Access unavailable')),
+        )..go(AppRoutes.salesHome);
+        await tester.pumpAndSettle();
+
+        expect(find.text(testCase.$2), findsOneWidget);
+        expect(
+          router.routerDelegate.currentConfiguration.uri.path,
+          AppRoutes.accessDenied,
+        );
+      },
+    );
+  }
+
   testWidgets('wide authenticated layout uses a navigation rail', (
     tester,
   ) async {
@@ -230,6 +292,7 @@ void main() {
 Future<void> _pumpAuthenticatedApp(
   WidgetTester tester, {
   required WorkspaceMembership membership,
+  InvitationRepository? invitationRepository,
 }) async {
   await tester.pumpWidget(
     NexusCrmApp(
@@ -241,6 +304,7 @@ Future<void> _pumpAuthenticatedApp(
       salesAssigneeRepository: const EmptySalesAssigneeRepository(),
       taskRepository: const EmptyTaskRepository(),
       activityRepository: const EmptyActivityRepository(),
+      invitationRepository: invitationRepository,
     ),
   );
   await tester.pumpAndSettle();
@@ -288,6 +352,22 @@ const _salesMembership = WorkspaceMembership(
   role: WorkspaceRole.salesRep,
   status: MembershipStatus.active,
 );
+
+const _invitedSalesMembership = WorkspaceMembership(
+  workspaceId: 'workspace-one',
+  userId: 'user-one',
+  role: WorkspaceRole.salesRep,
+  status: MembershipStatus.invited,
+  invitationId: 'invitation-one',
+);
+
+WorkspaceMembership _salesMembershipWithStatus(MembershipStatus status) =>
+    WorkspaceMembership(
+      workspaceId: 'workspace-one',
+      userId: 'user-one',
+      role: WorkspaceRole.salesRep,
+      status: status,
+    );
 
 final class _AuthenticatedRepository implements AuthenticationRepository {
   const _AuthenticatedRepository();
@@ -342,4 +422,32 @@ final class _MembershipRepository implements MembershipRepository {
   Stream<List<WorkspaceMembership>> watchMemberships({required String userId}) {
     return Stream.value(memberships);
   }
+}
+
+final class _NoopInvitationRepository implements InvitationRepository {
+  const _NoopInvitationRepository();
+
+  @override
+  Future<void> acceptInvitation({
+    required String workspaceId,
+    required String invitationId,
+  }) async {}
+
+  @override
+  Future<InvitationCreationResult> createInvitation({
+    required String workspaceId,
+    required String email,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<InvitationCreationResult> resendInvitation({
+    required String workspaceId,
+    required String invitationId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> revokeInvitation({
+    required String workspaceId,
+    required String invitationId,
+  }) => throw UnimplementedError();
 }
