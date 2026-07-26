@@ -33,7 +33,7 @@ class AdminTeamDirectoryPage extends StatefulWidget {
 
 class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
   String? _busyInvitationId;
-  String? _busyMemberId;
+  final Map<String, MembershipStatus> _requestedMemberStatus = {};
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -106,11 +106,12 @@ class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
   }
 
   Widget _memberTile(TeamMember member) {
+    final requestedStatus = _requestedMemberStatus[member.userId];
+    final busy = requestedStatus != null && requestedStatus != member.status;
     final canManage =
         member.role == WorkspaceRole.salesRep &&
         (member.status == MembershipStatus.active ||
             member.status == MembershipStatus.suspended);
-    final busy = _busyMemberId == member.userId;
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -121,7 +122,8 @@ class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
       ),
       title: Text(member.displayName ?? member.email ?? 'Team member'),
       subtitle: Text(
-        '${member.role == WorkspaceRole.admin ? 'Administrator' : 'Sales representative'} • ${_membershipStatus(member.status)}',
+        '${member.role == WorkspaceRole.admin ? 'Administrator' : 'Sales representative'} • '
+        '${busy ? _pendingStatus(requestedStatus) : _membershipStatus(member.status)}',
       ),
       trailing: busy
           ? const SizedBox(
@@ -331,7 +333,12 @@ class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
     );
     if (confirmed != true || !mounted) return;
 
-    setState(() => _busyMemberId = member.userId);
+    if (_requestedMemberStatus.containsKey(member.userId) &&
+        _requestedMemberStatus[member.userId] != member.status) {
+      return;
+    }
+
+    setState(() => _requestedMemberStatus[member.userId] = status);
     try {
       await widget.membershipManagementRepository
           .updateSalesRepresentativeStatus(
@@ -344,9 +351,10 @@ class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
         context,
       ).showSnackBar(SnackBar(content: Text(completedMessage)));
     } on InvitationActionFailure catch (failure) {
-      if (mounted) _showMembershipFailure(failure);
-    } finally {
-      if (mounted) setState(() => _busyMemberId = null);
+      if (mounted) {
+        setState(() => _requestedMemberStatus.remove(member.userId));
+        _showMembershipFailure(failure);
+      }
     }
   }
 
@@ -384,6 +392,13 @@ class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
     MembershipStatus.active => 'Active',
     MembershipStatus.suspended => 'Suspended',
     MembershipStatus.revoked => 'Revoked',
+  };
+
+  static String _pendingStatus(MembershipStatus status) => switch (status) {
+    MembershipStatus.active => 'Reactivating…',
+    MembershipStatus.suspended => 'Suspending…',
+    MembershipStatus.revoked => 'Revoking…',
+    MembershipStatus.invited => 'Updating…',
   };
 
   static String _date(DateTime value) =>
