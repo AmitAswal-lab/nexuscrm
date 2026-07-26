@@ -197,6 +197,7 @@ class _ContactEditPageState extends State<ContactEditPage> {
                     ContactEditAssigneeStatus.ready =>
                       DropdownButtonFormField<String>(
                         initialValue: _ownerId,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Assigned sales representative',
                           border: OutlineInputBorder(),
@@ -218,7 +219,7 @@ class _ContactEditPageState extends State<ContactEditPage> {
                             (assignee) => DropdownMenuItem(
                               value: assignee.userId,
                               child: Text(
-                                '${assignee.displayName} (${assignee.email})',
+                                assignee.directoryLabel,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),

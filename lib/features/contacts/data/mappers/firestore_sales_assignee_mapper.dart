@@ -25,12 +25,20 @@ abstract final class FirestoreSalesAssigneeMapper {
       throw const FormatException('Invalid active sales membership.');
     }
 
+    final email = _requiredString(data, 'email');
+
     return SalesAssignee(
       userId: userId,
       workspaceId: workspaceId,
-      displayName: _requiredString(data, 'displayName'),
-      email: _requiredString(data, 'email'),
+      displayName: _optionalString(data, 'displayName') ?? email,
+      email: email,
     );
+  }
+
+  static String? _optionalString(Map<String, dynamic> data, String field) {
+    final value = data[field];
+
+    return value is String && value.trim().isNotEmpty ? value.trim() : null;
   }
 
   static String _requiredString(Map<String, dynamic> data, String field) {

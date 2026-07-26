@@ -110,6 +110,7 @@ export const acceptWorkspaceInvitation = onCall(
         workspaceId: documentIdField(data, 'workspaceId'),
         invitationId: documentIdField(data, 'invitationId'),
         userId: request.auth.uid,
+        displayName: displayNameField(data),
         at: new Date(),
       });
       if (outcome === 'expired') {
@@ -167,6 +168,14 @@ function stringField(data: Record<string, unknown>, field: string): string {
   const value = data[field];
   if (typeof value !== 'string') {
     throw new InvitationError('invalid-argument', `Invalid ${field}.`);
+  }
+  return value;
+}
+
+function displayNameField(data: Record<string, unknown>): string {
+  const value = stringField(data, 'displayName').trim().replace(/\s+/g, ' ');
+  if (value.length === 0 || value.length > 80) {
+    throw new InvitationError('invalid-argument', 'Invalid displayName.');
   }
   return value;
 }

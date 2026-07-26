@@ -158,13 +158,41 @@ void main() {
       expect(repository.acceptCallCount, 0);
     },
   );
+
+  testWidgets('cannot activate without a name and sends it trimmed', (
+    tester,
+  ) async {
+    final repository = _InvitationRepository();
+    await _pumpPage(tester, repository, name: null);
+
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNull,
+    );
+
+    await tester.enterText(find.byType(TextField), '   ');
+    await tester.pump();
+    expect(
+      tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+      isNull,
+    );
+
+    await tester.enterText(find.byType(TextField), '  Priya Sharma  ');
+    await tester.pump();
+    await tester.tap(find.text('Activate workspace'));
+    await tester.pumpAndSettle();
+
+    expect(repository.acceptCallCount, 1);
+    expect(repository.acceptedDisplayName, 'Priya Sharma');
+  });
 }
 
 Future<void> _pumpPage(
   WidgetTester tester,
   _InvitationRepository repository, {
   SessionBloc? sessionBloc,
-}) {
+  String? name = 'Priya Sharma',
+}) async {
   final page = InvitationPendingPage(
     membership: const WorkspaceMembership(
       workspaceId: 'workspace-one',
@@ -176,13 +204,18 @@ Future<void> _pumpPage(
     invitationRepository: repository,
   );
 
-  return tester.pumpWidget(
+  await tester.pumpWidget(
     MaterialApp(
       home: sessionBloc == null
           ? page
           : BlocProvider.value(value: sessionBloc, child: page),
     ),
   );
+
+  if (name != null) {
+    await tester.enterText(find.byType(TextField), name);
+    await tester.pump();
+  }
 }
 
 final class _InvitationRepository implements InvitationRepository {
@@ -192,15 +225,18 @@ final class _InvitationRepository implements InvitationRepository {
   final Completer<void>? completion;
   String? acceptedWorkspaceId;
   String? acceptedInvitationId;
+  String? acceptedDisplayName;
   int acceptCallCount = 0;
 
   @override
   Future<void> acceptInvitation({
     required String workspaceId,
     required String invitationId,
+    required String displayName,
   }) async {
     acceptedWorkspaceId = workspaceId;
     acceptedInvitationId = invitationId;
+    acceptedDisplayName = displayName;
     final outcome = acceptCallCount < outcomes.length
         ? outcomes[acceptCallCount]
         : null;

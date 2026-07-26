@@ -346,6 +346,7 @@ test('accepts only the matching invited representative atomically', async () => 
       workspaceId,
       invitationId: created.invitationId,
       userId: 'another-user',
+      displayName: 'Sales Rep',
       at: now,
     }),
     (error: unknown) =>
@@ -357,23 +358,24 @@ test('accepts only the matching invited representative atomically', async () => 
       workspaceId,
       invitationId: created.invitationId,
       userId: invitedUserId,
+      displayName: 'Sales Rep',
       at: now,
     }),
     'accepted',
   );
   assert.equal((await onlyInvitation()).data()?.status, 'accepted');
   assert.equal((await onlyInvitation()).data()?.acceptedByUserId, invitedUserId);
-  assert.equal(
-    (
-      await firestore
-        .collection('workspaces')
-        .doc(workspaceId)
-        .collection('members')
-        .doc(invitedUserId)
-        .get()
-    ).data()?.status,
-    'active',
-  );
+
+  const member = (
+    await firestore
+      .collection('workspaces')
+      .doc(workspaceId)
+      .collection('members')
+      .doc(invitedUserId)
+      .get()
+  ).data();
+  assert.equal(member?.status, 'active');
+  assert.equal(member?.displayName, 'Sales Rep');
 });
 
 test('marks an expired invitation without activating its membership', async () => {
@@ -392,6 +394,7 @@ test('marks an expired invitation without activating its membership', async () =
       workspaceId,
       invitationId: created.invitationId,
       userId: invitedUserId,
+      displayName: 'Sales Rep',
       at: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
     }),
     'expired',
@@ -426,6 +429,7 @@ test('accepts an invitation only once and leaves the activated membership intact
       workspaceId,
       invitationId: created.invitationId,
       userId: invitedUserId,
+      displayName: 'Sales Rep',
       at: now,
     }),
     'accepted',
@@ -436,6 +440,7 @@ test('accepts an invitation only once and leaves the activated membership intact
       workspaceId,
       invitationId: created.invitationId,
       userId: invitedUserId,
+      displayName: 'Sales Rep',
       at: new Date(now.getTime() + 1000),
     }),
     (error: unknown) =>
@@ -468,6 +473,7 @@ test('refuses to activate a revoked invitation', async () => {
       workspaceId,
       invitationId: created.invitationId,
       userId: invitedUserId,
+      displayName: 'Sales Rep',
       at: now,
     }),
     (error: unknown) =>

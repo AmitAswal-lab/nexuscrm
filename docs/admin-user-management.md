@@ -125,6 +125,10 @@ marks the invitation and lock accepted, and activates that membership. Another
 user cannot accept the invitation. An expired invitation is marked expired but
 does not activate the membership.
 
+The representative also supplies the display name their team sees. The callable
+validates it, and the same transaction writes it onto the membership, so a
+workspace name is never set by a client write.
+
 `updateSalesRepresentativeStatus` is a separate no-secret callable for an
 active administrator. It rechecks the acting admin and target representative
 inside its transaction, applies only a permitted server-defined action, and

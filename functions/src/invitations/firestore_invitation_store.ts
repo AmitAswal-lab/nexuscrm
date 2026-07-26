@@ -71,11 +71,13 @@ export interface InvitationStore {
     workspaceId,
     invitationId,
     userId,
+    displayName,
     at,
   }: {
     workspaceId: string;
     invitationId: string;
     userId: string;
+    displayName: string;
     at: Date;
   }): Promise<InvitationAcceptance>;
   updateSalesRepresentativeStatus({
@@ -368,11 +370,13 @@ export class FirestoreInvitationStore implements InvitationStore {
     workspaceId,
     invitationId,
     userId,
+    displayName,
     at,
   }: {
     workspaceId: string;
     invitationId: string;
     userId: string;
+    displayName: string;
     at: Date;
   }): Promise<InvitationAcceptance> {
     const invitation = this.#invitation(workspaceId, invitationId);
@@ -440,6 +444,7 @@ export class FirestoreInvitationStore implements InvitationStore {
       });
       transaction.update(member, {
         status: 'active',
+        displayName,
         updatedAt: Timestamp.fromDate(at),
         updatedByUserId: userId,
         statusChangedAt: Timestamp.fromDate(at),

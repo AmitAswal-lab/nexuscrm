@@ -250,12 +250,20 @@ replay, expiry, revocation, and wrong-account acceptance rather than by a live
 attempt, because provoking those states against the development project would
 consume real invitations without adding confidence.
 
+Live verification also exposed a defect that shipped with the invitation flow.
+The backend created memberships without a `displayName`, while the
+sales-assignee mapper required one, so activating the first invited
+representative left every administrator screen that assigns work stuck loading.
+Representatives now supply their name during activation, readers fall back to
+the email address instead of failing, and one unreadable membership can no
+longer empty or stall a directory.
+
 Follow-up work, carried into a later milestone:
 
 - Representative activation was exercised on Android only. The iOS simulator
   covered the administrator invitation path.
-- Onboarding never captures a display name, so the dashboard greeting falls
-  back to the representative's full email address permanently.
+- Memberships activated before display-name capture existed still show an email
+  address wherever a name is expected.
 
 ### 9. Admin activity and basic reporting
 

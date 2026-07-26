@@ -168,6 +168,7 @@ class _TaskFormPageState extends State<TaskFormPage> {
                 if (widget.canAssign)
                   DropdownButtonFormField<String>(
                     initialValue: _assigneeId,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Assigned sales representative',
                       border: OutlineInputBorder(),
@@ -177,7 +178,7 @@ class _TaskFormPageState extends State<TaskFormPage> {
                           (a) => DropdownMenuItem(
                             value: a.userId,
                             child: Text(
-                              '${a.displayName} (${a.email})',
+                              a.directoryLabel,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),

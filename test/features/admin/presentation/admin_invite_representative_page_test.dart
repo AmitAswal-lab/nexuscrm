@@ -100,5 +100,6 @@ final class _InvitationRepository implements InvitationRepository {
   Future<void> acceptInvitation({
     required String workspaceId,
     required String invitationId,
+    required String displayName,
   }) async {}
 }

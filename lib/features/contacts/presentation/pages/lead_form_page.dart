@@ -191,6 +191,7 @@ class _LeadFormPageState extends State<LeadFormPage> {
                     AssigneeDirectoryStatus.ready =>
                       DropdownButtonFormField<String>(
                         initialValue: _ownerId,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           labelText: 'Assigned sales representative',
                           border: OutlineInputBorder(),
@@ -204,7 +205,7 @@ class _LeadFormPageState extends State<LeadFormPage> {
                             (assignee) => DropdownMenuItem(
                               value: assignee.userId,
                               child: Text(
-                                '${assignee.displayName} (${assignee.email})',
+                                assignee.directoryLabel,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
