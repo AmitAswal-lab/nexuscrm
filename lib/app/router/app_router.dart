@@ -487,6 +487,7 @@ final class AppRouter {
       child: AdminActivityPage(
         workspaceId: session.membership.workspaceId,
         teamRepository: context.read<AdminTeamRepository>(),
+        activityRepository: context.read<ActivityRepository>(),
       ),
     );
   }

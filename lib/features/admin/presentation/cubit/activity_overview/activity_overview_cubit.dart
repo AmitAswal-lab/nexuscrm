@@ -12,10 +12,18 @@ final class ActivityOverviewCubit extends Cubit<ActivityOverviewState> {
   factory ActivityOverviewCubit({
     required ActivityRepository activityRepository,
     required String workspaceId,
-  }) => ActivityOverviewCubit._(activityRepository, workspaceId);
+    WorkspaceActivityType? initialType,
+  }) => ActivityOverviewCubit._(
+    activityRepository,
+    workspaceId,
+    initialType,
+  );
 
-  ActivityOverviewCubit._(this._activityRepository, this._workspaceId)
-    : super(const ActivityOverviewState()) {
+  ActivityOverviewCubit._(
+    this._activityRepository,
+    this._workspaceId,
+    WorkspaceActivityType? initialType,
+  ) : super(ActivityOverviewState(type: initialType)) {
     unawaited(load());
   }
 
