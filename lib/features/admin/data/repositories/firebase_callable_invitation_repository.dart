@@ -48,9 +48,11 @@ final class FirebaseCallableInvitationRepository
   Future<void> acceptInvitation({
     required String workspaceId,
     required String invitationId,
+    required String displayName,
   }) => _callVoid('acceptWorkspaceInvitation', <String, Object>{
     'workspaceId': workspaceId,
     'invitationId': invitationId,
+    'displayName': displayName,
   });
 
   Future<InvitationCreationResult> _callResult(

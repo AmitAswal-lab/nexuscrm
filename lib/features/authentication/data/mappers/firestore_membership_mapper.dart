@@ -29,12 +29,17 @@ abstract final class FirestoreMembershipMapper {
       throw const FormatException('Invited membership requires an invitation.');
     }
 
+    final displayName = data['displayName'];
+
     return WorkspaceMembership(
       workspaceId: workspaceId,
       userId: userId,
       role: _parseRole(_requiredString(data, 'role')),
       status: status,
       invitationId: invitationId is String ? invitationId : null,
+      displayName: displayName is String && displayName.trim().isNotEmpty
+          ? displayName.trim()
+          : null,
     );
   }
 

@@ -1,7 +1,18 @@
-import type { DocumentSnapshot, Firestore } from 'firebase-admin/firestore';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { createHash } from 'node:crypto';
+
+import type {
+  DocumentSnapshot,
+  Firestore,
+  Query,
+  QueryDocumentSnapshot,
+} from 'firebase-admin/firestore';
+import { FieldPath, FieldValue, Timestamp } from 'firebase-admin/firestore';
 
 import { InvitationError } from './invitation_error.js';
+
+function hashEmail(email: string): string {
+  return createHash('sha256').update(email).digest('hex');
+}
 
 export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
 export type InvitationEmailRequestStatus =
@@ -14,6 +25,10 @@ export type EmailRequestAttemptReservation =
   | 'in-progress'
   | 'rate-limited';
 export type InvitationAcceptance = 'accepted' | 'expired';
+export interface ReleasedWork {
+  contacts: number;
+  tasks: number;
+}
 export type SalesRepresentativeAction = 'suspend' | 'reactivate' | 'revoke';
 
 export interface InvitationRecord {
@@ -71,11 +86,13 @@ export interface InvitationStore {
     workspaceId,
     invitationId,
     userId,
+    displayName,
     at,
   }: {
     workspaceId: string;
     invitationId: string;
     userId: string;
+    displayName: string;
     at: Date;
   }): Promise<InvitationAcceptance>;
   updateSalesRepresentativeStatus({
@@ -368,11 +385,13 @@ export class FirestoreInvitationStore implements InvitationStore {
     workspaceId,
     invitationId,
     userId,
+    displayName,
     at,
   }: {
     workspaceId: string;
     invitationId: string;
     userId: string;
+    displayName: string;
     at: Date;
   }): Promise<InvitationAcceptance> {
     const invitation = this.#invitation(workspaceId, invitationId);
@@ -440,6 +459,7 @@ export class FirestoreInvitationStore implements InvitationStore {
       });
       transaction.update(member, {
         status: 'active',
+        displayName,
         updatedAt: Timestamp.fromDate(at),
         updatedByUserId: userId,
         statusChangedAt: Timestamp.fromDate(at),
@@ -530,6 +550,13 @@ export class FirestoreInvitationStore implements InvitationStore {
           break;
       }
 
+      if (nextStatus === 'revoked' && typeof memberData.email === 'string') {
+        const lock = this.#lock(workspaceId, hashEmail(memberData.email));
+        if ((await transaction.get(lock)).exists) {
+          transaction.delete(lock);
+        }
+      }
+
       transaction.update(member, {
         status: nextStatus,
         updatedAt: Timestamp.fromDate(at),
@@ -538,6 +565,75 @@ export class FirestoreInvitationStore implements InvitationStore {
         statusChangedByUserId: actingUserId,
       });
     });
+  }
+
+  async releaseRepresentativeWork({
+    workspaceId,
+    userId,
+    actingUserId,
+    at,
+  }: {
+    workspaceId: string;
+    userId: string;
+    actingUserId: string;
+    at: Date;
+  }): Promise<ReleasedWork> {
+    const workspace = this.firestore.collection('workspaces').doc(workspaceId);
+    const audit = {
+      updatedAt: Timestamp.fromDate(at),
+      updatedByUserId: actingUserId,
+    };
+    let contacts = 0;
+    let tasks = 0;
+
+    await this.#eachPage(
+      workspace.collection('contacts').where('ownerId', '==', userId),
+      async (documents) => {
+        const batch = this.firestore.batch();
+        for (const document of documents) {
+          batch.update(document.ref, {ownerId: null, ...audit});
+          contacts++;
+        }
+        await batch.commit();
+      },
+    );
+
+    await this.#eachPage(
+      workspace.collection('tasks').where('assigneeId', '==', userId),
+      async (documents) => {
+        const open = documents.filter((it) => it.data().status === 'open');
+        if (open.length === 0) return;
+        const batch = this.firestore.batch();
+        for (const document of open) {
+          batch.update(document.ref, {assigneeId: actingUserId, ...audit});
+          tasks++;
+        }
+        await batch.commit();
+      },
+    );
+
+    return {contacts, tasks};
+  }
+
+  async #eachPage(
+    query: Query,
+    handle: (documents: QueryDocumentSnapshot[]) => Promise<void>,
+  ): Promise<void> {
+    const pageSize = 200;
+    let cursor: string | undefined;
+
+    for (let page = 0; page < 200; page++) {
+      let next = query.orderBy(FieldPath.documentId()).limit(pageSize);
+      if (cursor !== undefined) next = next.startAfter(cursor);
+
+      const snapshot = await next.get();
+      if (snapshot.empty) return;
+
+      await handle(snapshot.docs);
+
+      if (snapshot.size < pageSize) return;
+      cursor = snapshot.docs[snapshot.docs.length - 1]!.id;
+    }
   }
 
   #member(workspaceId: string, userId: string) {

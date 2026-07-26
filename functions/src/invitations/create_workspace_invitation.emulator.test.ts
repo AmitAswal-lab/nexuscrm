@@ -346,6 +346,7 @@ test('accepts only the matching invited representative atomically', async () => 
       workspaceId,
       invitationId: created.invitationId,
       userId: 'another-user',
+      displayName: 'Sales Rep',
       at: now,
     }),
     (error: unknown) =>
@@ -357,23 +358,24 @@ test('accepts only the matching invited representative atomically', async () => 
       workspaceId,
       invitationId: created.invitationId,
       userId: invitedUserId,
+      displayName: 'Sales Rep',
       at: now,
     }),
     'accepted',
   );
   assert.equal((await onlyInvitation()).data()?.status, 'accepted');
   assert.equal((await onlyInvitation()).data()?.acceptedByUserId, invitedUserId);
-  assert.equal(
-    (
-      await firestore
-        .collection('workspaces')
-        .doc(workspaceId)
-        .collection('members')
-        .doc(invitedUserId)
-        .get()
-    ).data()?.status,
-    'active',
-  );
+
+  const member = (
+    await firestore
+      .collection('workspaces')
+      .doc(workspaceId)
+      .collection('members')
+      .doc(invitedUserId)
+      .get()
+  ).data();
+  assert.equal(member?.status, 'active');
+  assert.equal(member?.displayName, 'Sales Rep');
 });
 
 test('marks an expired invitation without activating its membership', async () => {
@@ -392,6 +394,7 @@ test('marks an expired invitation without activating its membership', async () =
       workspaceId,
       invitationId: created.invitationId,
       userId: invitedUserId,
+      displayName: 'Sales Rep',
       at: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
     }),
     'expired',
@@ -426,6 +429,7 @@ test('accepts an invitation only once and leaves the activated membership intact
       workspaceId,
       invitationId: created.invitationId,
       userId: invitedUserId,
+      displayName: 'Sales Rep',
       at: now,
     }),
     'accepted',
@@ -436,6 +440,7 @@ test('accepts an invitation only once and leaves the activated membership intact
       workspaceId,
       invitationId: created.invitationId,
       userId: invitedUserId,
+      displayName: 'Sales Rep',
       at: new Date(now.getTime() + 1000),
     }),
     (error: unknown) =>
@@ -468,6 +473,7 @@ test('refuses to activate a revoked invitation', async () => {
       workspaceId,
       invitationId: created.invitationId,
       userId: invitedUserId,
+      displayName: 'Sales Rep',
       at: now,
     }),
     (error: unknown) =>
@@ -577,6 +583,142 @@ test('refuses status changes that skip the membership lifecycle', async () => {
     );
   }
   assert.equal(await memberStatus('sales-user'), 'revoked');
+});
+
+test('releasing work unassigns contacts and moves only open tasks', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  await seedMembership('sales-user', 'sales_rep', 'active');
+  const workspace = firestore.collection('workspaces').doc(workspaceId);
+  await workspace.collection('contacts').doc('contact-one').set({
+    workspaceId,
+    ownerId: 'sales-user',
+    fullName: 'Owned Lead',
+  });
+  await workspace.collection('contacts').doc('contact-two').set({
+    workspaceId,
+    ownerId: 'another-user',
+    fullName: 'Someone Else Lead',
+  });
+  await workspace.collection('tasks').doc('task-open').set({
+    workspaceId,
+    assigneeId: 'sales-user',
+    status: 'open',
+    title: 'Call back',
+  });
+  await workspace.collection('tasks').doc('task-done').set({
+    workspaceId,
+    assigneeId: 'sales-user',
+    status: 'completed',
+    title: 'Already handled',
+  });
+
+  const released = await new FirestoreInvitationStore(
+    firestore,
+  ).releaseRepresentativeWork({
+    workspaceId,
+    userId: 'sales-user',
+    actingUserId: adminUserId,
+    at: now,
+  });
+
+  assert.deepEqual(released, {contacts: 1, tasks: 1});
+
+  const owned = await workspace.collection('contacts').doc('contact-one').get();
+  assert.equal(owned.data()?.ownerId, null);
+  assert.equal(owned.data()?.updatedByUserId, adminUserId);
+
+  const untouched = await workspace
+    .collection('contacts')
+    .doc('contact-two')
+    .get();
+  assert.equal(untouched.data()?.ownerId, 'another-user');
+
+  const openTask = await workspace.collection('tasks').doc('task-open').get();
+  assert.equal(openTask.data()?.assigneeId, adminUserId);
+
+  const doneTask = await workspace.collection('tasks').doc('task-done').get();
+  assert.equal(doneTask.data()?.assigneeId, 'sales-user');
+});
+
+test('revoking releases the email so the address can be invited again', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  const service = makeService(new RecordingSender());
+  const created = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'returning@example.com',
+  });
+  const firstUserId = String((await onlyInvitation()).data()?.invitedUserId);
+  const store = new FirestoreInvitationStore(firestore);
+  await store.acceptInvitation({
+    workspaceId,
+    invitationId: created.invitationId,
+    userId: firstUserId,
+    displayName: 'Sales Rep',
+    at: now,
+  });
+
+  await store.updateSalesRepresentativeStatus({
+    workspaceId,
+    actingUserId: adminUserId,
+    userId: firstUserId,
+    action: 'revoke',
+    at: now,
+  });
+
+  assert.equal(await memberStatus(firstUserId), 'revoked');
+  const locks = await firestore
+    .collection('workspaces')
+    .doc(workspaceId)
+    .collection('invitationLocks')
+    .get();
+  assert.equal(locks.empty, true);
+
+  await auth.deleteUser(firstUserId);
+  const reinvited = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'returning@example.com',
+  });
+
+  assert.notEqual(reinvited.invitationId, created.invitationId);
+  assert.equal(reinvited.status, 'pending');
+  assert.equal(await memberStatus(firstUserId), 'revoked');
+});
+
+test('suspending leaves the email lock in place', async () => {
+  await seedMembership(adminUserId, 'admin', 'active');
+  const service = makeService(new RecordingSender());
+  const created = await service.create({
+    actingUserId: adminUserId,
+    workspaceId,
+    email: 'paused@example.com',
+  });
+  const invitedUserId = String((await onlyInvitation()).data()?.invitedUserId);
+  const store = new FirestoreInvitationStore(firestore);
+  await store.acceptInvitation({
+    workspaceId,
+    invitationId: created.invitationId,
+    userId: invitedUserId,
+    displayName: 'Sales Rep',
+    at: now,
+  });
+
+  await store.updateSalesRepresentativeStatus({
+    workspaceId,
+    actingUserId: adminUserId,
+    userId: invitedUserId,
+    action: 'suspend',
+    at: now,
+  });
+
+  const locks = await firestore
+    .collection('workspaces')
+    .doc(workspaceId)
+    .collection('invitationLocks')
+    .get();
+  assert.equal(locks.size, 1);
+  assert.equal(await memberStatus(invitedUserId), 'suspended');
 });
 
 test('removes a just-created Auth user when atomic Firestore creation fails', async () => {

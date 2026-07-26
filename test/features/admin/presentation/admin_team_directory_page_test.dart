@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexuscrm/features/admin/domain/entities/invitation_creation_result.dart';
@@ -60,16 +62,65 @@ void main() {
       find.ancestor(of: find.byTooltip('Back'), matching: find.byType(Align)),
     );
     expect(backButtonAlignment.alignment, Alignment.centerLeft);
-    expect(find.text('Amina Admin'), findsOneWidget);
-    expect(find.text('Administrator • Active'), findsOneWidget);
+
+    expect(find.text('Administrators'), findsOneWidget);
+    expect(find.text('Active representatives'), findsOneWidget);
+    expect(find.text('Suspended representatives'), findsOneWidget);
+    expect(find.text('Former representatives'), findsOneWidget);
+    expect(find.text('Pending invitations'), findsOneWidget);
+
+    expect(find.text('Amina Admin'), findsNothing);
+    expect(find.text('Sam Representative'), findsNothing);
+    expect(find.text('pending@example.com'), findsNothing);
+
+    await tester.tap(find.text('Suspended representatives'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Sam Representative'), findsOneWidget);
-    expect(find.text('Sales representative • Suspended'), findsOneWidget);
+    expect(find.text('Suspended'), findsOneWidget);
     expect(find.byTooltip('Manage representative'), findsOneWidget);
-    expect(find.text('Pending Person'), findsNothing);
+    expect(find.text('Amina Admin'), findsNothing);
+    expect(find.text('rep-id'), findsNothing);
+  });
+
+  testWidgets('lists an invited member only under pending invitations', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminTeamDirectoryPage(
+            workspaceId: 'workspace-one',
+            teamRepository: _TeamRepository(<TeamMember>[
+              const TeamMember(
+                userId: 'pending-id',
+                displayName: 'Pending Person',
+                email: 'pending@example.com',
+                role: WorkspaceRole.salesRep,
+                status: MembershipStatus.invited,
+              ),
+            ]),
+            invitationDirectoryRepository: _InvitationDirectoryRepository(
+              <WorkspaceInvitation>[_invitation],
+            ),
+            invitationRepository: const _InvitationRepository(),
+            membershipManagementRepository:
+                const _MembershipManagementRepository(),
+            onInvite: () {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Pending invitations'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Pending invitations'));
+    await tester.pumpAndSettle();
+
     expect(find.text('pending@example.com'), findsOneWidget);
     expect(find.textContaining('Email request failed'), findsOneWidget);
-    expect(find.text('admin-id'), findsNothing);
-    expect(find.text('rep-id'), findsNothing);
+    expect(find.text('Pending Person'), findsNothing);
   });
 
   testWidgets('shows a safe error message when loading fails', (tester) async {
@@ -94,6 +145,80 @@ void main() {
     await tester.pump();
 
     expect(find.text('Unable to load team members.'), findsOneWidget);
+  });
+
+  testWidgets('keeps a revoked representative busy until the team stream '
+      'reports the new status', (tester) async {
+    final teamRepository = _ControllableTeamRepository();
+    addTearDown(teamRepository.controller.close);
+    final management = _RecordingMembershipManagementRepository();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminTeamDirectoryPage(
+            workspaceId: 'workspace-one',
+            teamRepository: teamRepository,
+            invitationDirectoryRepository: const _InvitationDirectoryRepository(
+              <WorkspaceInvitation>[],
+            ),
+            invitationRepository: const _InvitationRepository(),
+            membershipManagementRepository: management,
+            onInvite: () {},
+          ),
+        ),
+      ),
+    );
+
+    teamRepository.emit(const <TeamMember>[
+      TeamMember(
+        userId: 'rep-id',
+        displayName: 'Sam Representative',
+        email: 'sam@example.com',
+        role: WorkspaceRole.salesRep,
+        status: MembershipStatus.active,
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Active representatives'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(PopupMenuButton<MembershipStatus>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Revoke access'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('permanent and cannot be undone'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('sign-in account is deleted'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Revoke access'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(management.calls, 1);
+    expect(find.textContaining('Revoking…'), findsOneWidget);
+    expect(find.byType(PopupMenuButton<MembershipStatus>), findsNothing);
+
+    teamRepository.emit(const <TeamMember>[
+      TeamMember(
+        userId: 'rep-id',
+        displayName: 'Sam Representative',
+        email: 'sam@example.com',
+        role: WorkspaceRole.salesRep,
+        status: MembershipStatus.revoked,
+      ),
+    ]);
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.textContaining('Revoking…'), findsNothing);
+    expect(find.text('Sam Representative'), findsNothing);
+    expect(find.text('No active representatives.'), findsOneWidget);
+    expect(management.calls, 1);
   });
 }
 
@@ -153,6 +278,7 @@ final class _InvitationRepository implements InvitationRepository {
   Future<void> acceptInvitation({
     required String workspaceId,
     required String invitationId,
+    required String displayName,
   }) => throw UnimplementedError();
 }
 
@@ -168,6 +294,20 @@ final class _MembershipManagementRepository
   }) => throw UnimplementedError();
 }
 
+final class _RecordingMembershipManagementRepository
+    implements MembershipManagementRepository {
+  int calls = 0;
+
+  @override
+  Future<void> updateSalesRepresentativeStatus({
+    required String workspaceId,
+    required String userId,
+    required MembershipStatus status,
+  }) async {
+    calls++;
+  }
+}
+
 final class _TeamRepository implements AdminTeamRepository {
   _TeamRepository(this.members);
   _TeamRepository.error() : members = null;
@@ -178,5 +318,23 @@ final class _TeamRepository implements AdminTeamRepository {
   Stream<List<TeamMember>> watchTeam({required String workspaceId}) {
     if (members == null) return Stream<List<TeamMember>>.error(Exception());
     return Stream<List<TeamMember>>.value(members!);
+  }
+}
+
+final class _ControllableTeamRepository implements AdminTeamRepository {
+  final StreamController<List<TeamMember>> controller =
+      StreamController<List<TeamMember>>.broadcast();
+  List<TeamMember>? _latest;
+
+  void emit(List<TeamMember> members) {
+    _latest = members;
+    controller.add(members);
+  }
+
+  @override
+  Stream<List<TeamMember>> watchTeam({required String workspaceId}) async* {
+    final latest = _latest;
+    if (latest != null) yield latest;
+    yield* controller.stream;
   }
 }

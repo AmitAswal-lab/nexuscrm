@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexuscrm/app/router/app_routes.dart';
-import 'package:nexuscrm/features/authentication/domain/entities/auth_user.dart';
+import 'package:nexuscrm/features/authentication/domain/entities/auth_session.dart';
 import 'package:nexuscrm/features/authentication/presentation/bloc/session/session_bloc.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/sales/presentation/cubit/sales_dashboard/sales_dashboard_cubit.dart';
@@ -12,15 +12,15 @@ class SalesDashboardPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.select<SessionBloc, AuthUser?>((bloc) {
+    final session = context.select<SessionBloc, AuthSession?>((bloc) {
       return switch (bloc.state) {
-        SessionAuthenticated(:final session) => session.user,
+        SessionAuthenticated(:final session) => session,
         _ => null,
       };
     });
 
     return SalesDashboardView(
-      userLabel: _userLabel(user),
+      userLabel: _userLabel(session),
       dashboardState: context.watch<SalesDashboardCubit>().state,
       onOpenLeads: () => context.go(AppRoutes.salesLeads),
       onOpenTasks: () => context.go(AppRoutes.salesTasks),
@@ -30,14 +30,19 @@ class SalesDashboardPage extends StatelessWidget {
     );
   }
 
-  static String _userLabel(AuthUser? user) {
-    final displayName = user?.displayName?.trim();
+  static String _userLabel(AuthSession? session) {
+    for (final candidate in [
+      session?.membership.displayName,
+      session?.user.displayName,
+    ]) {
+      final trimmed = candidate?.trim();
 
-    if (displayName != null && displayName.isNotEmpty) {
-      return displayName;
+      if (trimmed != null && trimmed.isNotEmpty) {
+        return trimmed;
+      }
     }
 
-    return user?.email ?? 'Sales representative';
+    return session?.user.email ?? 'Sales representative';
   }
 }
 

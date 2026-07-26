@@ -20,17 +20,28 @@ class InvitationPendingPage extends StatefulWidget {
 }
 
 class _InvitationPendingPageState extends State<InvitationPendingPage> {
+  static const _maxDisplayNameLength = 80;
+
+  final TextEditingController _displayNameController = TextEditingController();
   InvitationActionFailure? _failure;
   bool _accepting = false;
   bool _activated = false;
+
+  @override
+  void dispose() {
+    _displayNameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final invitationId = widget.membership.invitationId;
     final canAccept = invitationId != null && invitationId.isNotEmpty;
     final canRetry = _failure?.code == InvitationActionFailureCode.unavailable;
+    final hasName = _displayNameController.text.trim().isNotEmpty;
     final canSubmit =
         canAccept &&
+        hasName &&
         !_accepting &&
         !_activated &&
         (_failure == null || canRetry);
@@ -66,6 +77,24 @@ class _InvitationPendingPageState extends State<InvitationPendingPage> {
                     'Use the same email address that received the password-setup link.',
                     textAlign: TextAlign.center,
                   ),
+                  if (!_activated) ...[
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: _displayNameController,
+                      enabled: canAccept && !_accepting,
+                      textCapitalization: TextCapitalization.words,
+                      textInputAction: TextInputAction.done,
+                      maxLength: _maxDisplayNameLength,
+                      decoration: const InputDecoration(
+                        labelText: 'Your name',
+                        helperText:
+                            'Your team sees this name on leads, tasks, and calls.',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                      onSubmitted: (_) => canSubmit ? _accept() : null,
+                    ),
+                  ],
                   if (_activated) ...[
                     const SizedBox(height: 16),
                     const _ActivationFeedback(
@@ -130,7 +159,10 @@ class _InvitationPendingPageState extends State<InvitationPendingPage> {
 
   Future<void> _accept() async {
     final invitationId = widget.membership.invitationId;
-    if (invitationId == null || invitationId.isEmpty) return;
+    final displayName = _displayNameController.text.trim();
+    if (invitationId == null || invitationId.isEmpty || displayName.isEmpty) {
+      return;
+    }
     setState(() {
       _accepting = true;
       _failure = null;
@@ -139,6 +171,7 @@ class _InvitationPendingPageState extends State<InvitationPendingPage> {
       await widget.invitationRepository.acceptInvitation(
         workspaceId: widget.membership.workspaceId,
         invitationId: invitationId,
+        displayName: displayName,
       );
       if (mounted) setState(() => _activated = true);
     } on InvitationActionFailure catch (failure) {

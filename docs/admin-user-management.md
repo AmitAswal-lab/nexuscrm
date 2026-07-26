@@ -22,6 +22,33 @@ revoked membership. `active` is the only state that grants workspace access, so
 suspension and revocation take effect on the next Firestore authorization check
 and membership session update.
 
+Suspension and revocation are deliberately different actions. Suspension is
+reversible: the representative keeps their account and their assigned records,
+and reactivation restores access. Revocation is permanent, which is why the
+confirmation states plainly that it cannot be undone.
+
+Revoking also ends the person's relationship with the workspace. The backend
+releases their work, deletes their Firebase Authentication account, and removes
+the invitation email lock, so that address can be invited again later. A
+returning representative is onboarded from scratch with a new account, a new
+password, and a new user ID, and the revoked membership is retained as the
+audit record of the original one. Suspension leaves the account, the lock, and
+their assigned work untouched.
+
+Releasing work never deletes workspace records. Leads, clients, tasks, and call
+notes belong to the company, and the audit fields that make each action
+attributable are preserved. Contacts owned by the representative become
+unassigned so an administrator can reassign them, and open tasks move to the
+administrator who revoked the membership. Completed tasks keep their original
+assignee, because reassigning finished work would misrepresent who did it.
+
+Ordering matters. The membership transaction commits first, so access is
+withdrawn before anything is released and a revoked representative cannot act
+on records during the release. Work is then released in bounded, paginated
+batches rather than one transaction, because a busy workspace can exceed the
+write limit of a single Firestore transaction. The Authentication account is
+deleted last, so a failure there cannot leave work unreleased.
+
 ## Invitation lifecycle
 
 Invitations live at `workspaces/{workspaceId}/invitations/{invitationId}` with
@@ -124,6 +151,10 @@ sales membership and email lock. It then records acceptance audit fields,
 marks the invitation and lock accepted, and activates that membership. Another
 user cannot accept the invitation. An expired invitation is marked expired but
 does not activate the membership.
+
+The representative also supplies the display name their team sees. The callable
+validates it, and the same transaction writes it onto the membership, so a
+workspace name is never set by a client write.
 
 `updateSalesRepresentativeStatus` is a separate no-secret callable for an
 active administrator. It rechecks the acting admin and target representative

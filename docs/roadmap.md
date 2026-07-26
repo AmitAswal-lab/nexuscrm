@@ -250,12 +250,20 @@ replay, expiry, revocation, and wrong-account acceptance rather than by a live
 attempt, because provoking those states against the development project would
 consume real invitations without adding confidence.
 
+Live verification also exposed a defect that shipped with the invitation flow.
+The backend created memberships without a `displayName`, while the
+sales-assignee mapper required one, so activating the first invited
+representative left every administrator screen that assigns work stuck loading.
+Representatives now supply their name during activation, readers fall back to
+the email address instead of failing, and one unreadable membership can no
+longer empty or stall a directory.
+
 Follow-up work, carried into a later milestone:
 
 - Representative activation was exercised on Android only. The iOS simulator
   covered the administrator invitation path.
-- Onboarding never captures a display name, so the dashboard greeting falls
-  back to the representative's full email address permanently.
+- Memberships activated before display-name capture existed still show an email
+  address wherever a name is expected.
 
 ### 9. Admin activity and basic reporting
 
@@ -292,6 +300,15 @@ Planned scope:
 - Dependency and lint review
 - README, architecture, setup, and roadmap updates
 - Release build verification
+
+Known gaps to close:
+
+- A task can be created, edited, and completed, but never removed. An
+  administrator who inherits open tasks from a revoked representative has no
+  way to clear ones that no longer matter. Contacts use a soft archive rather
+  than destructive deletion, so tasks should follow the same rule and be
+  archived rather than deleted, with Firestore rules continuing to deny client
+  deletes.
 
 ## Deferred work
 

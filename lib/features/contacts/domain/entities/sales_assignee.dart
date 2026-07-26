@@ -13,6 +13,9 @@ final class SalesAssignee extends Equatable {
   final String displayName;
   final String email;
 
+  String get directoryLabel =>
+      displayName == email ? email : '$displayName ($email)';
+
   @override
   List<Object> get props => [userId, workspaceId, displayName, email];
 }

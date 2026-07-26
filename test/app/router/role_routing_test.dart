@@ -431,6 +431,7 @@ final class _NoopInvitationRepository implements InvitationRepository {
   Future<void> acceptInvitation({
     required String workspaceId,
     required String invitationId,
+    required String displayName,
   }) async {}
 
   @override

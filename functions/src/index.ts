@@ -110,6 +110,7 @@ export const acceptWorkspaceInvitation = onCall(
         workspaceId: documentIdField(data, 'workspaceId'),
         invitationId: documentIdField(data, 'invitationId'),
         userId: request.auth.uid,
+        displayName: displayNameField(data),
         at: new Date(),
       });
       if (outcome === 'expired') {
@@ -131,20 +132,53 @@ export const updateSalesRepresentativeStatus = onCall(
 
     try {
       const data = request.data as Record<string, unknown>;
-      await new FirestoreInvitationStore(getFirestore())
-        .updateSalesRepresentativeStatus({
-          workspaceId: documentIdField(data, 'workspaceId'),
-          actingUserId: request.auth.uid,
-          userId: documentIdField(data, 'userId'),
-          action: salesRepresentativeAction(data),
-          at: new Date(),
-        });
-      return {status: 'updated'};
+      const action = salesRepresentativeAction(data);
+      const userId = documentIdField(data, 'userId');
+      const workspaceId = documentIdField(data, 'workspaceId');
+      const at = new Date();
+      const store = new FirestoreInvitationStore(getFirestore());
+      await store.updateSalesRepresentativeStatus({
+        workspaceId,
+        actingUserId: request.auth.uid,
+        userId,
+        action,
+        at,
+      });
+
+      if (action !== 'revoke') {
+        return {status: 'updated'};
+      }
+
+      const released = await store.releaseRepresentativeWork({
+        workspaceId,
+        userId,
+        actingUserId: request.auth.uid,
+        at,
+      });
+      await deleteRevokedAccount(userId);
+
+      return {status: 'updated', released};
     } catch (error) {
       throw callableError(error);
     }
   },
 );
+
+async function deleteRevokedAccount(userId: string): Promise<void> {
+  try {
+    await getAuth().deleteUser(userId);
+  } catch (error) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'auth/user-not-found'
+    ) {
+      return;
+    }
+    throw error;
+  }
+}
 
 function invitationService() {
   return new CreateWorkspaceInvitationService({
@@ -167,6 +201,14 @@ function stringField(data: Record<string, unknown>, field: string): string {
   const value = data[field];
   if (typeof value !== 'string') {
     throw new InvitationError('invalid-argument', `Invalid ${field}.`);
+  }
+  return value;
+}
+
+function displayNameField(data: Record<string, unknown>): string {
+  const value = stringField(data, 'displayName').trim().replace(/\s+/g, ' ');
+  if (value.length === 0 || value.length > 80) {
+    throw new InvitationError('invalid-argument', 'Invalid displayName.');
   }
   return value;
 }
