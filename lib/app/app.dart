@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:nexuscrm/app/router/app_router.dart';
 import 'package:nexuscrm/app/theme/app_theme.dart';
 import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/admin_team_repository.dart';
 import 'package:nexuscrm/features/admin/domain/repositories/invitation_repository.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/authentication_repository.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/membership_repository.dart';
@@ -21,6 +22,7 @@ class NexusCrmApp extends StatefulWidget {
     required this.salesAssigneeRepository,
     required this.taskRepository,
     required this.activityRepository,
+    required this.adminTeamRepository,
     this.invitationRepository,
     super.key,
   });
@@ -31,6 +33,7 @@ class NexusCrmApp extends StatefulWidget {
   final SalesAssigneeRepository salesAssigneeRepository;
   final TaskRepository taskRepository;
   final ActivityRepository activityRepository;
+  final AdminTeamRepository adminTeamRepository;
   final InvitationRepository? invitationRepository;
 
   @override
@@ -80,6 +83,9 @@ class _NexusCrmAppState extends State<NexusCrmApp> {
         RepositoryProvider<TaskRepository>.value(value: widget.taskRepository),
         RepositoryProvider<ActivityRepository>.value(
           value: widget.activityRepository,
+        ),
+        RepositoryProvider<AdminTeamRepository>.value(
+          value: widget.adminTeamRepository,
         ),
       ],
       child: BlocProvider.value(

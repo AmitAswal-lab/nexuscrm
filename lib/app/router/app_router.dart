@@ -14,6 +14,7 @@ import 'package:nexuscrm/features/admin/data/repositories/firebase_callable_invi
 import 'package:nexuscrm/features/admin/data/repositories/firebase_callable_membership_management_repository.dart';
 import 'package:nexuscrm/features/admin/data/repositories/firestore_admin_team_repository.dart';
 import 'package:nexuscrm/features/admin/data/repositories/firestore_invitation_directory_repository.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/admin_team_repository.dart';
 import 'package:nexuscrm/features/admin/domain/repositories/invitation_repository.dart';
 import 'package:nexuscrm/features/admin/presentation/cubit/activity_overview/activity_overview_cubit.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_activity_page.dart';
@@ -485,7 +486,7 @@ final class AppRouter {
       ),
       child: AdminActivityPage(
         workspaceId: session.membership.workspaceId,
-        assigneeRepository: context.read<SalesAssigneeRepository>(),
+        teamRepository: context.read<AdminTeamRepository>(),
       ),
     );
   }

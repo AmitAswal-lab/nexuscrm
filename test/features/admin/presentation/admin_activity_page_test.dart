@@ -5,10 +5,11 @@ import 'package:nexuscrm/features/activities/domain/entities/call_note.dart';
 import 'package:nexuscrm/features/activities/domain/entities/call_note_input.dart';
 import 'package:nexuscrm/features/activities/domain/entities/workspace_activity.dart';
 import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
+import 'package:nexuscrm/features/admin/domain/entities/team_member.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/admin_team_repository.dart';
 import 'package:nexuscrm/features/admin/presentation/cubit/activity_overview/activity_overview_cubit.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_activity_page.dart';
-import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
-import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
+import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
 
 void main() {
   testWidgets('shows counts and readable activity lines', (tester) async {
@@ -72,7 +73,7 @@ Future<void> _pump(
           ),
           child: const AdminActivityPage(
             workspaceId: 'workspace-one',
-            assigneeRepository: _AssigneeRepository(),
+            teamRepository: _TeamRepository(),
           ),
         ),
       ),
@@ -99,20 +100,20 @@ WorkspaceActivity _activity({
   detail: detail,
 );
 
-final class _AssigneeRepository implements SalesAssigneeRepository {
-  const _AssigneeRepository();
+final class _TeamRepository implements AdminTeamRepository {
+  const _TeamRepository();
 
   @override
-  Stream<List<SalesAssignee>> watchActiveSalesAssignees({
-    required String workspaceId,
-  }) => Stream.value(const <SalesAssignee>[
-    SalesAssignee(
-      userId: 'rep-one',
-      workspaceId: 'workspace-one',
-      displayName: 'Priya Sharma',
-      email: 'priya@example.com',
-    ),
-  ]);
+  Stream<List<TeamMember>> watchTeam({required String workspaceId}) =>
+      Stream.value(const <TeamMember>[
+        TeamMember(
+          userId: 'rep-one',
+          displayName: 'Priya Sharma',
+          email: 'priya@example.com',
+          role: WorkspaceRole.salesRep,
+          status: MembershipStatus.active,
+        ),
+      ]);
 }
 
 final class _ActivityRepository implements ActivityRepository {

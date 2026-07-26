@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/widgets.dart';
 import 'package:nexuscrm/app/app.dart';
 import 'package:nexuscrm/features/activities/data/repositories/firestore_activity_repository.dart';
+import 'package:nexuscrm/features/admin/data/repositories/firestore_admin_team_repository.dart';
 import 'package:nexuscrm/features/authentication/data/repositories/firebase_authentication_repository.dart';
 import 'package:nexuscrm/features/authentication/data/repositories/firestore_membership_repository.dart';
 import 'package:nexuscrm/features/contacts/data/repositories/firestore_contact_repository.dart';
@@ -29,6 +30,9 @@ Future<void> main() async {
       ),
       taskRepository: FirestoreTaskRepository(FirebaseFirestore.instance),
       activityRepository: FirestoreActivityRepository(
+        FirebaseFirestore.instance,
+      ),
+      adminTeamRepository: FirestoreAdminTeamRepository(
         FirebaseFirestore.instance,
       ),
     ),

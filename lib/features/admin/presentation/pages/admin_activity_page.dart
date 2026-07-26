@@ -1,36 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:nexuscrm/features/activities/domain/entities/workspace_activity.dart';
+import 'package:nexuscrm/features/admin/domain/entities/team_member.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/admin_team_repository.dart';
 import 'package:nexuscrm/features/admin/presentation/cubit/activity_overview/activity_overview_cubit.dart';
-import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
-import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
+import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
 
 class AdminActivityPage extends StatelessWidget {
   const AdminActivityPage({
     required this.workspaceId,
-    required this.assigneeRepository,
+    required this.teamRepository,
     super.key,
   });
 
   final String workspaceId;
-  final SalesAssigneeRepository assigneeRepository;
+  final AdminTeamRepository teamRepository;
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<SalesAssignee>>(
-      stream: assigneeRepository.watchActiveSalesAssignees(
-        workspaceId: workspaceId,
-      ),
+    return StreamBuilder<List<TeamMember>>(
+      stream: teamRepository.watchTeam(workspaceId: workspaceId),
       builder: (context, snapshot) {
-        final assignees = snapshot.data ?? const <SalesAssignee>[];
-        final names = {
-          for (final assignee in assignees)
-            assignee.userId: assignee.displayName,
+        final members = (snapshot.data ?? const <TeamMember>[])
+            .where((member) => member.status != MembershipStatus.invited)
+            .toList(growable: false);
+        final names = <String, String>{
+          for (final member in members)
+            member.userId: ?(member.displayName ?? member.email),
         };
 
         return BlocBuilder<ActivityOverviewCubit, ActivityOverviewState>(
           builder: (context, state) =>
-              _AdminActivityView(state: state, assignees: assignees, names: names),
+              _AdminActivityView(state: state, members: members, names: names),
         );
       },
     );
@@ -40,12 +41,12 @@ class AdminActivityPage extends StatelessWidget {
 class _AdminActivityView extends StatelessWidget {
   const _AdminActivityView({
     required this.state,
-    required this.assignees,
+    required this.members,
     required this.names,
   });
 
   final ActivityOverviewState state;
-  final List<SalesAssignee> assignees;
+  final List<TeamMember> members;
   final Map<String, String> names;
 
   @override
@@ -87,16 +88,16 @@ class _AdminActivityView extends StatelessWidget {
                   initialValue: state.actorUserId,
                   isExpanded: true,
                   decoration: const InputDecoration(
-                    labelText: 'Representative',
+                    labelText: 'Team member',
                     border: OutlineInputBorder(),
                   ),
                   items: [
                     const DropdownMenuItem(value: null, child: Text('Everyone')),
-                    for (final assignee in assignees)
+                    for (final member in members)
                       DropdownMenuItem(
-                        value: assignee.userId,
+                        value: member.userId,
                         child: Text(
-                          assignee.displayName,
+                          names[member.userId] ?? member.userId,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),

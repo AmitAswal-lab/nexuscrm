@@ -2,6 +2,8 @@ import 'package:nexuscrm/features/activities/domain/entities/call_note.dart';
 import 'package:nexuscrm/features/activities/domain/entities/call_note_input.dart';
 import 'package:nexuscrm/features/activities/domain/entities/workspace_activity.dart';
 import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
+import 'package:nexuscrm/features/admin/domain/entities/team_member.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/admin_team_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/contact_input.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
@@ -187,4 +189,12 @@ final class EmptyTaskRepository implements TaskRepository {
   }) {
     return Stream.value(const <CrmTask>[]);
   }
+}
+
+final class EmptyAdminTeamRepository implements AdminTeamRepository {
+  const EmptyAdminTeamRepository();
+
+  @override
+  Stream<List<TeamMember>> watchTeam({required String workspaceId}) =>
+      Stream.value(const <TeamMember>[]);
 }
