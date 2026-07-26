@@ -1,5 +1,6 @@
 import 'package:nexuscrm/features/activities/domain/entities/call_note.dart';
 import 'package:nexuscrm/features/activities/domain/entities/call_note_input.dart';
+import 'package:nexuscrm/features/activities/domain/entities/workspace_activity.dart';
 import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/contact_input.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
@@ -14,6 +15,15 @@ import 'package:nexuscrm/features/tasks/domain/value_objects/task_access_scope.d
 
 final class EmptyActivityRepository implements ActivityRepository {
   const EmptyActivityRepository();
+
+  @override
+  Stream<List<WorkspaceActivity>> watchWorkspaceActivity({
+    required String workspaceId,
+    DateTime? since,
+    String? actorUserId,
+    WorkspaceActivityType? type,
+    int limit = 50,
+  }) => const Stream.empty();
 
   @override
   Future<String> createCallNote({

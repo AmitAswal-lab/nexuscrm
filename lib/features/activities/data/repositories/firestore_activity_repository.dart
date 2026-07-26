@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:nexuscrm/features/activities/data/mappers/firestore_activity_failure_mapper.dart';
 import 'package:nexuscrm/features/activities/data/mappers/firestore_call_note_mapper.dart';
+import 'package:nexuscrm/features/activities/data/mappers/firestore_workspace_activity_mapper.dart';
 import 'package:nexuscrm/features/activities/domain/entities/call_note.dart';
 import 'package:nexuscrm/features/activities/domain/entities/call_note_input.dart';
+import 'package:nexuscrm/features/activities/domain/entities/workspace_activity.dart';
 import 'package:nexuscrm/features/activities/domain/failures/activity_failure.dart';
 import 'package:nexuscrm/features/activities/domain/repositories/activity_repository.dart';
 import 'package:nexuscrm/features/tasks/data/mappers/firestore_task_mapper.dart';
@@ -33,6 +35,12 @@ final class FirestoreActivityRepository implements ActivityRepository {
         }
 
         final notes = snapshot.docs
+            .where(
+              (document) => FirestoreWorkspaceActivityMapper.isType(
+                document,
+                FirestoreWorkspaceActivityMapper.callNoteType,
+              ),
+            )
             .map(FirestoreCallNoteMapper.fromDocument)
             .toList(growable: false);
         yield List.unmodifiable(notes);
@@ -41,6 +49,68 @@ final class FirestoreActivityRepository implements ActivityRepository {
       rethrow;
     } on FormatException {
       throw const ActivityFailure(ActivityFailureCode.invalidData);
+    } on FirebaseException catch (error) {
+      throw FirestoreActivityFailureMapper.fromFirebase(error);
+    }
+  }
+
+  @override
+  Stream<List<WorkspaceActivity>> watchWorkspaceActivity({
+    required String workspaceId,
+    DateTime? since,
+    String? actorUserId,
+    WorkspaceActivityType? type,
+    int limit = 50,
+  }) async* {
+    try {
+      Query<Map<String, dynamic>> query = _activities(
+        _requiredIdentifier(workspaceId, 'workspaceId'),
+      );
+
+      if (actorUserId != null) {
+        query = query.where(
+          'actorUserId',
+          isEqualTo: _requiredIdentifier(actorUserId, 'actorUserId'),
+        );
+      }
+
+      if (type != null) {
+        query = query.where(
+          'type',
+          isEqualTo: FirestoreWorkspaceActivityMapper.typeName(type),
+        );
+      }
+
+      if (since != null) {
+        query = query.where(
+          'createdAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(since),
+        );
+      }
+
+      query = query.orderBy('createdAt', descending: true).limit(limit);
+
+      await for (final snapshot in query.snapshots()) {
+        if (snapshot.metadata.hasPendingWrites) {
+          continue;
+        }
+
+        final activities = <WorkspaceActivity>[];
+
+        for (final document in snapshot.docs) {
+          try {
+            activities.add(
+              FirestoreWorkspaceActivityMapper.fromDocument(document),
+            );
+          } on FormatException {
+            continue;
+          }
+        }
+
+        yield List.unmodifiable(activities);
+      }
+    } on ActivityFailure {
+      rethrow;
     } on FirebaseException catch (error) {
       throw FirestoreActivityFailureMapper.fromFirebase(error);
     }
