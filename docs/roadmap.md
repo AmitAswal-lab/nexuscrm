@@ -301,6 +301,15 @@ Planned scope:
 - README, architecture, setup, and roadmap updates
 - Release build verification
 
+Known gaps to close:
+
+- A task can be created, edited, and completed, but never removed. An
+  administrator who inherits open tasks from a revoked representative has no
+  way to clear ones that no longer matter. Contacts use a soft archive rather
+  than destructive deletion, so tasks should follow the same rule and be
+  archived rather than deleted, with Firestore rules continuing to deny client
+  deletes.
+
 ## Deferred work
 
 The following items are intentionally outside the MVP:

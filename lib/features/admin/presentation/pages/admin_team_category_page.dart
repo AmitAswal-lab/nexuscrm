@@ -179,7 +179,9 @@ class _AdminTeamCategoryPageState extends State<AdminTeamCategoryPage> {
     final completedMessage = switch (status) {
       MembershipStatus.suspended => 'Access suspended.',
       MembershipStatus.active => 'Access reactivated.',
-      MembershipStatus.revoked => 'Access revoked.',
+      MembershipStatus.revoked =>
+        'Access revoked. Their contacts are unassigned and their open tasks '
+            'moved to you.',
       MembershipStatus.invited => throw ArgumentError.value(status),
     };
     final label = member.displayName ?? member.email ?? 'this representative';
@@ -192,8 +194,10 @@ class _AdminTeamCategoryPageState extends State<AdminTeamCategoryPage> {
             'tasks they already had.',
       MembershipStatus.revoked =>
         'This is permanent and cannot be undone. $label loses workspace '
-            'access and their sign-in account is deleted. Bringing them back '
-            'later means inviting them again as a new representative.',
+            'access and their sign-in account is deleted. Their leads and '
+            'clients become unassigned, and their open tasks move to you. '
+            'Bringing them back later means inviting them again as a new '
+            'representative.',
       MembershipStatus.invited => throw ArgumentError.value(status),
     };
     final confirmed = await showDialog<bool>(

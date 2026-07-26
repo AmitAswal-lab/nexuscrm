@@ -28,14 +28,26 @@ and reactivation restores access. Revocation is permanent, which is why the
 confirmation states plainly that it cannot be undone.
 
 Revoking also ends the person's relationship with the workspace. The backend
-deletes their Firebase Authentication account and removes the invitation email
-lock, so that address can be invited again later. A returning representative
-is onboarded from scratch with a new account, a new password, and a new user
-ID, and the revoked membership is retained as the audit record of the original
-one. Suspension leaves both the account and the lock untouched.
+releases their work, deletes their Firebase Authentication account, and removes
+the invitation email lock, so that address can be invited again later. A
+returning representative is onboarded from scratch with a new account, a new
+password, and a new user ID, and the revoked membership is retained as the
+audit record of the original one. Suspension leaves the account, the lock, and
+their assigned work untouched.
 
-The account is deleted only after the membership transaction commits, so a
-failure there cannot remove an account whose access is still active.
+Releasing work never deletes workspace records. Leads, clients, tasks, and call
+notes belong to the company, and the audit fields that make each action
+attributable are preserved. Contacts owned by the representative become
+unassigned so an administrator can reassign them, and open tasks move to the
+administrator who revoked the membership. Completed tasks keep their original
+assignee, because reassigning finished work would misrepresent who did it.
+
+Ordering matters. The membership transaction commits first, so access is
+withdrawn before anything is released and a revoked representative cannot act
+on records during the release. Work is then released in bounded, paginated
+batches rather than one transaction, because a busy workspace can exceed the
+write limit of a single Firestore transaction. The Authentication account is
+deleted last, so a failure there cannot leave work unreleased.
 
 ## Invitation lifecycle
 

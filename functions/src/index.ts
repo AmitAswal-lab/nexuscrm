@@ -134,20 +134,30 @@ export const updateSalesRepresentativeStatus = onCall(
       const data = request.data as Record<string, unknown>;
       const action = salesRepresentativeAction(data);
       const userId = documentIdField(data, 'userId');
-      await new FirestoreInvitationStore(getFirestore())
-        .updateSalesRepresentativeStatus({
-          workspaceId: documentIdField(data, 'workspaceId'),
-          actingUserId: request.auth.uid,
-          userId,
-          action,
-          at: new Date(),
-        });
+      const workspaceId = documentIdField(data, 'workspaceId');
+      const at = new Date();
+      const store = new FirestoreInvitationStore(getFirestore());
+      await store.updateSalesRepresentativeStatus({
+        workspaceId,
+        actingUserId: request.auth.uid,
+        userId,
+        action,
+        at,
+      });
 
-      if (action === 'revoke') {
-        await deleteRevokedAccount(userId);
+      if (action !== 'revoke') {
+        return {status: 'updated'};
       }
 
-      return {status: 'updated'};
+      const released = await store.releaseRepresentativeWork({
+        workspaceId,
+        userId,
+        actingUserId: request.auth.uid,
+        at,
+      });
+      await deleteRevokedAccount(userId);
+
+      return {status: 'updated', released};
     } catch (error) {
       throw callableError(error);
     }
