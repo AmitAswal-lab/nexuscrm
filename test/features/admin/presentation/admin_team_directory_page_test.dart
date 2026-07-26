@@ -136,6 +136,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Revoke access'));
     await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('permanent and cannot be undone'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('sign-in account is deleted'), findsOneWidget);
+
     await tester.tap(find.widgetWithText(FilledButton, 'Revoke access'));
     await tester.pump();
     await tester.pump();

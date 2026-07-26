@@ -132,20 +132,43 @@ export const updateSalesRepresentativeStatus = onCall(
 
     try {
       const data = request.data as Record<string, unknown>;
+      const action = salesRepresentativeAction(data);
+      const userId = documentIdField(data, 'userId');
       await new FirestoreInvitationStore(getFirestore())
         .updateSalesRepresentativeStatus({
           workspaceId: documentIdField(data, 'workspaceId'),
           actingUserId: request.auth.uid,
-          userId: documentIdField(data, 'userId'),
-          action: salesRepresentativeAction(data),
+          userId,
+          action,
           at: new Date(),
         });
+
+      if (action === 'revoke') {
+        await deleteRevokedAccount(userId);
+      }
+
       return {status: 'updated'};
     } catch (error) {
       throw callableError(error);
     }
   },
 );
+
+async function deleteRevokedAccount(userId: string): Promise<void> {
+  try {
+    await getAuth().deleteUser(userId);
+  } catch (error) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'auth/user-not-found'
+    ) {
+      return;
+    }
+    throw error;
+  }
+}
 
 function invitationService() {
   return new CreateWorkspaceInvitationService({

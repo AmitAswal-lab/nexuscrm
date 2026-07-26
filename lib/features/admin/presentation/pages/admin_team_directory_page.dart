@@ -314,17 +314,36 @@ class _AdminTeamDirectoryPageState extends State<AdminTeamDirectoryPage> {
       MembershipStatus.invited => throw ArgumentError.value(status),
     };
     final label = member.displayName ?? member.email ?? 'this representative';
+    final explanation = switch (status) {
+      MembershipStatus.suspended =>
+        '$label keeps their account and their assigned leads, clients, and '
+            'tasks, but cannot sign in until you reactivate them.',
+      MembershipStatus.active =>
+        '$label can sign in again and returns to the leads, clients, and '
+            'tasks they already had.',
+      MembershipStatus.revoked =>
+        'This is permanent and cannot be undone. $label loses workspace '
+            'access and their sign-in account is deleted. Bringing them back '
+            'later means inviting them again as a new representative.',
+      MembershipStatus.invited => throw ArgumentError.value(status),
+    };
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('$verb access?'),
-        content: Text('$verb workspace access for $label.'),
+        title: Text('$verb access for $label?'),
+        content: Text(explanation),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),
           FilledButton(
+            style: status == MembershipStatus.revoked
+                ? FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                    foregroundColor: Theme.of(context).colorScheme.onError,
+                  )
+                : null,
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: Text('$verb access'),
           ),

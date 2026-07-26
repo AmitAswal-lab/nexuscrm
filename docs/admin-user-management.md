@@ -22,6 +22,21 @@ revoked membership. `active` is the only state that grants workspace access, so
 suspension and revocation take effect on the next Firestore authorization check
 and membership session update.
 
+Suspension and revocation are deliberately different actions. Suspension is
+reversible: the representative keeps their account and their assigned records,
+and reactivation restores access. Revocation is permanent, which is why the
+confirmation states plainly that it cannot be undone.
+
+Revoking also ends the person's relationship with the workspace. The backend
+deletes their Firebase Authentication account and removes the invitation email
+lock, so that address can be invited again later. A returning representative
+is onboarded from scratch with a new account, a new password, and a new user
+ID, and the revoked membership is retained as the audit record of the original
+one. Suspension leaves both the account and the lock untouched.
+
+The account is deleted only after the membership transaction commits, so a
+failure there cannot remove an account whose access is still active.
+
 ## Invitation lifecycle
 
 Invitations live at `workspaces/{workspaceId}/invitations/{invitationId}` with
