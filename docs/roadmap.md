@@ -270,13 +270,35 @@ Follow-up work, carried into a later milestone:
 Goal: provide lightweight visibility into team work without building a detailed
 analytics product.
 
+Activity is recorded as it happens rather than reconstructed later. The
+`activities` collection already carries a `type` field and append-only rules
+for call notes, so the same collection gains the remaining event types. A
+derived feed was rejected because a contact's `updatedAt` records that
+something changed without recording what changed or who changed it.
+
+Recorded events:
+
+- A lead is created
+- A lead is converted to a client
+- A task is completed
+- A call note is logged, which already exists
+
+Task creation is deliberately not recorded, because planning a week of work
+would bury the events worth reading. Contact archiving is also not recorded.
+
 Planned scope:
 
-- Recent lead, task, and call-note activity
-- Acting representative and timestamp
-- Basic filtering by representative or activity type
-- Lightweight counts useful to an administrator
-- Workspace-scoped access and indexes
+- Workspace activity feed on the administrator home, replacing its placeholder
+- Acting representative and timestamp on every entry
+- Filtering by representative and by activity type
+- Counts of new leads, new clients, calls logged, and tasks completed
+- A period selector covering the last 7 days, 30 days, year, and all time,
+  defaulting to 7 days and shared by the counts and the feed
+- Workspace-scoped access, rules for each new event type, and indexes
+
+Each event is written in the same batch as the change that caused it, so the
+feed cannot drift from the records it describes. Events are append-only and
+carry the acting user, which rules verify against the caller.
 
 Definition of done:
 
@@ -284,6 +306,9 @@ Definition of done:
 - Representatives cannot access administrator-only views.
 - Activity records are created consistently by relevant workflows.
 - Summary queries are simple, indexed, and tested.
+
+The feed begins empty, because work completed before this milestone was never
+recorded. Backfilling historical activity is out of scope.
 
 Detailed analytics and report generation remain deferred.
 
