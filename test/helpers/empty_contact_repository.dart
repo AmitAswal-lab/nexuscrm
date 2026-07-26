@@ -23,7 +23,7 @@ final class EmptyActivityRepository implements ActivityRepository {
     String? actorUserId,
     WorkspaceActivityType? type,
     int limit = 50,
-  }) => const Stream.empty();
+  }) => Stream.value(const <WorkspaceActivity>[]);
 
   @override
   Future<String> createCallNote({

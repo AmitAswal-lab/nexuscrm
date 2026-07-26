@@ -15,7 +15,8 @@ import 'package:nexuscrm/features/admin/data/repositories/firebase_callable_memb
 import 'package:nexuscrm/features/admin/data/repositories/firestore_admin_team_repository.dart';
 import 'package:nexuscrm/features/admin/data/repositories/firestore_invitation_directory_repository.dart';
 import 'package:nexuscrm/features/admin/domain/repositories/invitation_repository.dart';
-import 'package:nexuscrm/features/admin/presentation/pages/admin_home_placeholder.dart';
+import 'package:nexuscrm/features/admin/presentation/cubit/activity_overview/activity_overview_cubit.dart';
+import 'package:nexuscrm/features/admin/presentation/pages/admin_activity_page.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_invite_representative_page.dart';
 import 'package:nexuscrm/features/admin/presentation/pages/admin_team_directory_page.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/auth_session.dart';
@@ -176,7 +177,7 @@ final class AppRouter {
           routes: [
             GoRoute(
               path: AppRoutes.adminHome,
-              builder: (context, state) => const AdminHomePlaceholder(),
+              builder: (context, state) => _adminActivityPage(context),
             ),
           ],
         ),
@@ -470,6 +471,21 @@ final class AppRouter {
         description: description,
         onCreateLead: () => context.go(createLeadRoute),
         onOpenContact: (contactId) => context.go(contactRoute(contactId)),
+      ),
+    );
+  }
+
+  static Widget _adminActivityPage(BuildContext context) {
+    final session = _authenticatedSession(context);
+
+    return BlocProvider(
+      create: (context) => ActivityOverviewCubit(
+        activityRepository: context.read<ActivityRepository>(),
+        workspaceId: session.membership.workspaceId,
+      ),
+      child: AdminActivityPage(
+        workspaceId: session.membership.workspaceId,
+        assigneeRepository: context.read<SalesAssigneeRepository>(),
       ),
     );
   }
