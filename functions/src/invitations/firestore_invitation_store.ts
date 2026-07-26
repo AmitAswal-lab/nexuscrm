@@ -1,7 +1,13 @@
+import { createHash } from 'node:crypto';
+
 import type { DocumentSnapshot, Firestore } from 'firebase-admin/firestore';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 
 import { InvitationError } from './invitation_error.js';
+
+function hashEmail(email: string): string {
+  return createHash('sha256').update(email).digest('hex');
+}
 
 export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
 export type InvitationEmailRequestStatus =
@@ -71,11 +77,13 @@ export interface InvitationStore {
     workspaceId,
     invitationId,
     userId,
+    displayName,
     at,
   }: {
     workspaceId: string;
     invitationId: string;
     userId: string;
+    displayName: string;
     at: Date;
   }): Promise<InvitationAcceptance>;
   updateSalesRepresentativeStatus({
@@ -368,11 +376,13 @@ export class FirestoreInvitationStore implements InvitationStore {
     workspaceId,
     invitationId,
     userId,
+    displayName,
     at,
   }: {
     workspaceId: string;
     invitationId: string;
     userId: string;
+    displayName: string;
     at: Date;
   }): Promise<InvitationAcceptance> {
     const invitation = this.#invitation(workspaceId, invitationId);
@@ -440,6 +450,7 @@ export class FirestoreInvitationStore implements InvitationStore {
       });
       transaction.update(member, {
         status: 'active',
+        displayName,
         updatedAt: Timestamp.fromDate(at),
         updatedByUserId: userId,
         statusChangedAt: Timestamp.fromDate(at),
@@ -528,6 +539,13 @@ export class FirestoreInvitationStore implements InvitationStore {
           }
           nextStatus = 'revoked';
           break;
+      }
+
+      if (nextStatus === 'revoked' && typeof memberData.email === 'string') {
+        const lock = this.#lock(workspaceId, hashEmail(memberData.email));
+        if ((await transaction.get(lock)).exists) {
+          transaction.delete(lock);
+        }
       }
 
       transaction.update(member, {

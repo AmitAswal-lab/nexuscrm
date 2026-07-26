@@ -33,6 +33,26 @@ through 6 are implemented and covered by automated tests.
 session is in any other state, so the activation screen can never render
 without an invited membership behind it.
 
+## Display name
+
+Activation is where a representative supplies the name their team sees. The
+name is required, trimmed, collapsed to single spaces, and limited to eighty
+characters by the callable, which writes it onto the membership inside the same
+transaction that activates it. Client writes to membership documents are
+denied, so this is the only path by which a representative can name themselves.
+
+The name lives on the membership rather than the Firebase Authentication
+profile because the membership stream is already live: the greeting, the team
+directory, and the sales-assignee directory all update the moment activation
+commits. An Authentication profile change would not reach the app until the
+next token refresh.
+
+A membership created before this field existed, or by any other path, has no
+display name. Readers fall back to the email address rather than failing, so a
+directory can never be emptied by one incomplete record.
+
+## Activation behaviour
+
 Activation never navigates by itself. The page reports success and waits; the
 redirect is driven entirely by the session stream once the backend has
 activated the membership. This keeps one source of truth for routing and means
@@ -51,7 +71,7 @@ inject a fake so the whole route can be exercised without Firebase.
 
 | State | What the representative sees |
 |---|---|
-| Ready | An explanation, a reminder to use the invited email address, and **Activate workspace** |
+| Ready | An explanation, a reminder to use the invited email address, a required **Your name** field, and **Activate workspace** |
 | In flight | A spinner with **Activating workspace…**; both activation and sign-out are disabled |
 | Activated | A confirmation that the workspace is opening; the action is removed so it cannot be submitted twice |
 | Recoverable failure | The reason, plus **Try again** |
@@ -128,5 +148,5 @@ first, as described in [Admin user management](admin-user-management.md).
 ## Remaining work
 
 - Representative activation has been exercised on Android only.
-- Onboarding does not capture a display name, so the dashboard greeting falls
-  back to the representative's full email address.
+- Memberships activated before display-name capture existed still show an email
+  address wherever a name is expected.
