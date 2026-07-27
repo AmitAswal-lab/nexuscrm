@@ -33,6 +33,14 @@ service cloud.firestore {
         && hasActiveRole(workspaceId, userId, 'sales_rep');
     }
 
+    function isActiveTaskAssignee(workspaceId, userId) {
+      return userId is string
+        && (
+          hasActiveRole(workspaceId, userId, 'sales_rep')
+          || hasActiveRole(workspaceId, userId, 'admin')
+        );
+    }
+
     function hasValidContactKeys(data) {
       return data.keys().hasOnly([
         'workspaceId',
@@ -195,7 +203,7 @@ service cloud.firestore {
         && data.title.size() > 0
         && data.title.size() <= 120
         && isOptionalShortNotes(data.notes)
-        && isActiveSalesAssignee(workspaceId, data.assigneeId)
+        && isActiveTaskAssignee(workspaceId, data.assigneeId)
         && isTaskDueOn(data.dueOn)
         && hasValidTaskCompletionData(data)
         && data.createdByUserId is string

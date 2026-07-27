@@ -889,6 +889,26 @@ function taskData({
 }
 
 
+test('allows a task assigned to an administrator', async () => {
+  const adminDatabase = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+
+  await assertSucceeds(
+    setDoc(
+      doc(adminDatabase, 'workspaces', 'workspace-one', 'tasks', 'admin-task'),
+      taskData({assigneeId: 'admin-user', useServerTimestamp: true}),
+    ),
+  );
+
+  await assertFails(
+    setDoc(
+      doc(adminDatabase, 'workspaces', 'workspace-one', 'tasks', 'ghost-task'),
+      taskData({assigneeId: 'not-a-member', useServerTimestamp: true}),
+    ),
+  );
+});
+
 test('allows valid activity events for admin and sales roles', async () => {
   const adminDatabase = testEnvironment
     .authenticatedContext('admin-user')
