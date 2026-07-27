@@ -140,6 +140,9 @@ security details.
 Delivered role-scoped task lists, calendar due dates, task lifecycle actions,
 contact links, dashboard metrics, and verified Firestore rules.
 
+See [Task cancellation](task-cancellation.md) for the task state machine, which
+milestone 10 extended with a cancelled status.
+
 ### 6. Dialer and post-call notes
 
 Delivered native dialer launch, append-only call notes, optional atomic
@@ -343,12 +346,42 @@ Planned scope:
 
 Known gaps to close:
 
-- A task can be created, edited, and completed, but never removed. An
-  administrator who inherits open tasks from a revoked representative has no
-  way to clear ones that no longer matter. Contacts use a soft archive rather
-  than destructive deletion, so tasks should follow the same rule and be
-  archived rather than deleted, with Firestore rules continuing to deny client
-  deletes.
+- **Task cancellation. Closed.** A task could be created, edited, and
+  completed, but never removed, so an administrator who inherited open tasks
+  from a revoked representative had no way to clear ones that no longer
+  mattered. This was first specified as a soft archive mirroring contacts, and
+  that framing was wrong. Archiving answers "hide this from my lists"; a task
+  already has a terminal state for work that was done. The real need is a way
+  to record that work will never be done, which is cancellation. A third
+  `TaskStatus` value costs no new field, no backfill, and no index, because
+  every task document already carries `status`, and it makes restore fall out
+  of the existing reopen path rather than needing a second new action. See
+  `docs/task-cancellation.md`.
+
+Carried forward from this milestone's work:
+
+- Reopening a *completed* task that belongs to a revoked representative fails
+  with a permission denial. `hasValidTaskData` requires an active assignee, and
+  `releaseRepresentativeWork` deliberately leaves completed tasks with the
+  person who did them. An administrator can reach this from the workspace task
+  list, and the failure surfaces only as a generic snackbar. Cancelled tasks
+  are now reassigned on revocation for exactly this reason; completed tasks
+  need a decision of their own.
+- Archiving a contact does not cascade to its tasks. The archive confirmation
+  now reports the open-task count so the choice is informed, and those tasks
+  can be cancelled individually. An automatic cascade was rejected: a
+  representative archiving a contact whose follow-up is assigned to an
+  administrator would fail the rules check and abort the whole batch.
+- Contacts can be archived but never restored, which is the same asymmetry that
+  was rejected for tasks. Either add a restore action or state the constraint
+  in the product docs.
+- The Completed and Cancelled task views load every matching document with no
+  limit or date window. Harmless at demo scale; a date filter or page size is
+  the fix if the workspace grows.
+- `functions/package.json` pins `engines.node` to 22. That pin is the Cloud
+  Functions deploy runtime, not the local toolchain, so a local Node 26 is not
+  by itself a mismatch. Confirm which runtimes Cloud Functions offers before
+  changing it.
 
 ## Deferred work
 

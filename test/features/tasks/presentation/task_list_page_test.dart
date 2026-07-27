@@ -56,7 +56,37 @@ void main() {
     expect(find.text('Completed follow-up history'), findsOneWidget);
   });
 
-  testWidgets('renders an honest empty state', (tester) async {
+  testWidgets('keeps cancelled work out of the active views', (tester) async {
+    when(
+      () => taskRepository.watchTasks(
+        workspaceId: any(named: 'workspaceId'),
+        accessScope: any(named: 'accessScope'),
+      ),
+    ).thenAnswer((_) => Stream.value(_tasks));
+
+    await _pumpPage(tester, taskRepository, showAssignee: false);
+
+    expect(find.text('Chase dead lead'), findsNothing);
+
+    await tester.tap(find.text('Overdue'));
+    await tester.pump();
+    expect(find.text('Send recap'), findsOneWidget);
+    expect(find.text('Chase dead lead'), findsNothing);
+
+    await tester.tap(find.text('Completed'));
+    await tester.pump();
+    expect(find.text('Chase dead lead'), findsNothing);
+
+    await tester.tap(find.text('Cancelled'));
+    await tester.pump();
+    expect(find.text('Chase dead lead'), findsOneWidget);
+    expect(find.text('Cancelled · was due 2026-07-08'), findsOneWidget);
+    expect(find.text('Log discovery call'), findsNothing);
+  });
+
+  testWidgets('renders an empty state that points at the next step', (
+    tester,
+  ) async {
     when(
       () => taskRepository.watchTasks(
         workspaceId: any(named: 'workspaceId'),
@@ -68,7 +98,16 @@ void main() {
 
     expect(find.text('No tasks due today.'), findsOneWidget);
     expect(
-      find.text('Task creation will be added in the next workflow checkpoint.'),
+      find.text('Use New task to schedule follow-up work.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Cancelled'));
+    await tester.pump();
+
+    expect(find.text('No cancelled tasks.'), findsOneWidget);
+    expect(
+      find.text('Tasks you cancel will appear here, and can be reopened.'),
       findsOneWidget,
     );
   });
@@ -154,6 +193,12 @@ final _tasks = <CrmTask>[
     completionCount: 1,
     lastCompletedAt: _timestamp,
     lastCompletedByUserId: 'sales-user',
+  ),
+  _task(
+    id: 'cancelled',
+    title: 'Chase dead lead',
+    dueOn: '2026-07-08',
+    status: TaskStatus.cancelled,
   ),
 ];
 

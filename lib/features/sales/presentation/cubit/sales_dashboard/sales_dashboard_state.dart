@@ -19,10 +19,10 @@ final class SalesDashboardState extends Equatable {
 
   String get today => DateTime.now().toIso8601String().substring(0, 10);
   List<CrmTask> get todayTasks => tasks
-      .where((task) => !task.isCompleted && task.dueOn == today)
+      .where((task) => task.isOpen && task.dueOn == today)
       .toList(growable: false);
   List<CrmTask> get overdueTasks => tasks
-      .where((task) => !task.isCompleted && task.dueOn.compareTo(today) < 0)
+      .where((task) => task.isOpen && task.dueOn.compareTo(today) < 0)
       .toList(growable: false);
   int get todayFollowUpCount =>
       todayTasks.where((task) => task.kind == TaskKind.followUp).length;

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
+import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
 import 'package:nexuscrm/features/tasks/presentation/cubit/task_detail/task_detail_cubit.dart';
 
 class TaskDetailPage extends StatelessWidget {
@@ -28,6 +29,9 @@ class TaskDetailPage extends StatelessWidget {
               content: Text('Unable to update this task. Please try again.'),
             ),
           );
+        }
+        if (state.actionStatus == TaskActionStatus.cancelSuccess) {
+          context.pop();
         }
       },
       builder: (context, state) {
@@ -85,7 +89,7 @@ class TaskDetailPage extends StatelessWidget {
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           const SizedBox(height: 12),
-                          Text(task.isCompleted ? 'Completed' : 'Open'),
+                          Text(_statusLabel(task.status)),
                           const SizedBox(height: 8),
                           Text('Due ${task.dueOn}'),
                           const SizedBox(height: 8),
@@ -129,20 +133,33 @@ class TaskDetailPage extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: busy
                         ? null
-                        : (task.isCompleted
-                              ? context.read<TaskDetailCubit>().reopen
-                              : context.read<TaskDetailCubit>().complete),
+                        : (task.isOpen
+                              ? context.read<TaskDetailCubit>().complete
+                              : context.read<TaskDetailCubit>().reopen),
                     icon: Icon(
-                      task.isCompleted ? Icons.replay_outlined : Icons.check,
+                      task.isOpen ? Icons.check : Icons.replay_outlined,
                     ),
                     label: Text(
                       busy
                           ? 'Updating…'
-                          : task.isCompleted
-                          ? 'Reopen task'
-                          : 'Complete task',
+                          : task.isOpen
+                          ? 'Complete task'
+                          : 'Reopen task',
                     ),
                   ),
+                  if (task.isOpen) ...[
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: busy
+                          ? null
+                          : () => _confirmCancel(
+                              context,
+                              context.read<TaskDetailCubit>(),
+                            ),
+                      icon: const Icon(Icons.cancel_outlined),
+                      label: const Text('Cancel task'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -151,4 +168,40 @@ class TaskDetailPage extends StatelessWidget {
       },
     ),
   );
+
+  static String _statusLabel(TaskStatus status) => switch (status) {
+    TaskStatus.open => 'Open',
+    TaskStatus.completed => 'Completed',
+    TaskStatus.cancelled => 'Cancelled',
+  };
+
+  static Future<void> _confirmCancel(
+    BuildContext context,
+    TaskDetailCubit cubit,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancel this task?'),
+        content: const Text(
+          'The task will leave your active lists but its record will be kept. '
+          'You can reopen it later.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep task'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Cancel task'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed ?? false) {
+      await cubit.cancel();
+    }
+  }
 }

@@ -643,6 +643,140 @@ test('allows assigned users to complete and reopen tasks safely', async () => {
   await assertFails(deleteDoc(reference));
 });
 
+test('allows assigned users to cancel an open task and reopen it', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const reference = doc(
+    database,
+    'workspaces',
+    'workspace-one',
+    'tasks',
+    'owned-task',
+  );
+
+  await assertSucceeds(
+    updateDoc(reference, {
+      status: 'cancelled',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+  await assertSucceeds(
+    updateDoc(reference, {
+      status: 'open',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+  await assertFails(deleteDoc(reference));
+});
+
+test('rejects cancellation that rewrites completion history', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const reference = doc(
+    database,
+    'workspaces',
+    'workspace-one',
+    'tasks',
+    'owned-task',
+  );
+
+  await assertFails(
+    updateDoc(reference, {
+      status: 'cancelled',
+      completionCount: 1,
+      lastCompletedAt: serverTimestamp(),
+      lastCompletedByUserId: 'sales-user',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+});
+
+test('rejects cancelling completed work and completing cancelled work', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const reference = doc(
+    database,
+    'workspaces',
+    'workspace-one',
+    'tasks',
+    'owned-task',
+  );
+
+  await assertSucceeds(
+    updateDoc(reference, {
+      status: 'completed',
+      completionCount: 1,
+      lastCompletedAt: serverTimestamp(),
+      lastCompletedByUserId: 'sales-user',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+  await assertFails(
+    updateDoc(reference, {
+      status: 'cancelled',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+
+  await assertSucceeds(
+    updateDoc(reference, {
+      status: 'open',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+  await assertSucceeds(
+    updateDoc(reference, {
+      status: 'cancelled',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+  await assertFails(
+    updateDoc(reference, {
+      status: 'completed',
+      completionCount: 2,
+      lastCompletedAt: serverTimestamp(),
+      lastCompletedByUserId: 'sales-user',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+});
+
+test('rejects creating a task that is already cancelled', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const seed = taskData({
+    actorUserId: 'sales-user',
+    contactId: 'owned-lead',
+    assigneeId: 'sales-user',
+    useServerTimestamp: true,
+  });
+
+  await assertSucceeds(
+    setDoc(
+      doc(database, 'workspaces', 'workspace-one', 'tasks', 'born-open'),
+      seed,
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(database, 'workspaces', 'workspace-one', 'tasks', 'born-cancelled'),
+      { ...seed, status: 'cancelled' },
+    ),
+  );
+});
+
 test('allows admins to read all workspace call notes', async () => {
   const database = testEnvironment
     .authenticatedContext('admin-user')

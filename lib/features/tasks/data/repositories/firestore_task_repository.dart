@@ -185,7 +185,7 @@ final class FirestoreTaskRepository implements TaskRepository {
       await _firestore.runTransaction((transaction) async {
         final task = _existingTask(await transaction.get(reference));
 
-        if (task.isCompleted) {
+        if (!task.isOpen) {
           throw const TaskFailure(TaskFailureCode.conflict);
         }
 
@@ -228,6 +228,33 @@ final class FirestoreTaskRepository implements TaskRepository {
   }
 
   @override
+  Future<void> cancelTask({
+    required String workspaceId,
+    required String taskId,
+    required String actorUserId,
+  }) {
+    return _execute(() async {
+      final reference = _taskReference(
+        workspaceId: workspaceId,
+        taskId: taskId,
+      );
+
+      await _firestore.runTransaction((transaction) async {
+        final task = _existingTask(await transaction.get(reference));
+
+        if (!task.isOpen) {
+          throw const TaskFailure(TaskFailureCode.conflict);
+        }
+
+        transaction.update(
+          reference,
+          FirestoreTaskMapper.cancelTaskData(actorUserId: actorUserId),
+        );
+      });
+    });
+  }
+
+  @override
   Future<void> reopenTask({
     required String workspaceId,
     required String taskId,
@@ -242,7 +269,7 @@ final class FirestoreTaskRepository implements TaskRepository {
       await _firestore.runTransaction((transaction) async {
         final task = _existingTask(await transaction.get(reference));
 
-        if (!task.isCompleted) {
+        if (task.isOpen) {
           throw const TaskFailure(TaskFailureCode.conflict);
         }
 

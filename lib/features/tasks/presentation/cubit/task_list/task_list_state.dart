@@ -2,7 +2,7 @@ part of 'task_list_cubit.dart';
 
 enum TaskListStatus { loading, success, failure }
 
-enum TaskListView { today, upcoming, overdue, completed }
+enum TaskListView { today, upcoming, overdue, completed, cancelled }
 
 final class TaskListState extends Equatable {
   const TaskListState({
@@ -23,22 +23,20 @@ final class TaskListState extends Equatable {
     return switch (view) {
       TaskListView.today =>
         tasks
-            .where((task) => !task.isCompleted && task.dueOn == today)
+            .where((task) => task.isOpen && task.dueOn == today)
             .toList(growable: false),
       TaskListView.upcoming =>
         tasks
-            .where(
-              (task) => !task.isCompleted && task.dueOn.compareTo(today) > 0,
-            )
+            .where((task) => task.isOpen && task.dueOn.compareTo(today) > 0)
             .toList(growable: false),
       TaskListView.overdue =>
         tasks
-            .where(
-              (task) => !task.isCompleted && task.dueOn.compareTo(today) < 0,
-            )
+            .where((task) => task.isOpen && task.dueOn.compareTo(today) < 0)
             .toList(growable: false),
       TaskListView.completed =>
         tasks.where((task) => task.isCompleted).toList(growable: false),
+      TaskListView.cancelled =>
+        tasks.where((task) => task.isCancelled).toList(growable: false),
     };
   }
 

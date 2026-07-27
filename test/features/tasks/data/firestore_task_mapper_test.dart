@@ -100,4 +100,24 @@ void main() {
     expect(reopen.containsKey('completionCount'), isFalse);
     expect(reopen.containsKey('lastCompletedAt'), isFalse);
   });
+
+  test('cancels without touching completion history', () {
+    final data = FirestoreTaskMapper.cancelTaskData(
+      actorUserId: ' sales-user ',
+    );
+
+    expect(data['status'], 'cancelled');
+    expect(data['updatedByUserId'], 'sales-user');
+    expect(data['updatedAt'], isA<FieldValue>());
+    expect(data.containsKey('completionCount'), isFalse);
+    expect(data.containsKey('lastCompletedAt'), isFalse);
+    expect(data.containsKey('lastCompletedByUserId'), isFalse);
+  });
+
+  test('rejects a cancellation without an actor', () {
+    expect(
+      () => FirestoreTaskMapper.cancelTaskData(actorUserId: '  '),
+      throwsFormatException,
+    );
+  });
 }

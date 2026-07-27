@@ -585,7 +585,7 @@ test('refuses status changes that skip the membership lifecycle', async () => {
   assert.equal(await memberStatus('sales-user'), 'revoked');
 });
 
-test('releasing work unassigns contacts and moves only open tasks', async () => {
+test('releasing work unassigns contacts and moves reopenable tasks', async () => {
   await seedMembership(adminUserId, 'admin', 'active');
   await seedMembership('sales-user', 'sales_rep', 'active');
   const workspace = firestore.collection('workspaces').doc(workspaceId);
@@ -611,6 +611,12 @@ test('releasing work unassigns contacts and moves only open tasks', async () => 
     status: 'completed',
     title: 'Already handled',
   });
+  await workspace.collection('tasks').doc('task-cancelled').set({
+    workspaceId,
+    assigneeId: 'sales-user',
+    status: 'cancelled',
+    title: 'Abandoned',
+  });
 
   const released = await new FirestoreInvitationStore(
     firestore,
@@ -621,7 +627,7 @@ test('releasing work unassigns contacts and moves only open tasks', async () => 
     at: now,
   });
 
-  assert.deepEqual(released, {contacts: 1, tasks: 1});
+  assert.deepEqual(released, {contacts: 1, tasks: 2});
 
   const owned = await workspace.collection('contacts').doc('contact-one').get();
   assert.equal(owned.data()?.ownerId, null);
@@ -638,6 +644,12 @@ test('releasing work unassigns contacts and moves only open tasks', async () => 
 
   const doneTask = await workspace.collection('tasks').doc('task-done').get();
   assert.equal(doneTask.data()?.assigneeId, 'sales-user');
+
+  const cancelledTask = await workspace
+    .collection('tasks')
+    .doc('task-cancelled')
+    .get();
+  assert.equal(cancelledTask.data()?.assigneeId, adminUserId);
 });
 
 test('revoking releases the email so the address can be invited again', async () => {
