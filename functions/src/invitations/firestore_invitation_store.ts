@@ -601,10 +601,12 @@ export class FirestoreInvitationStore implements InvitationStore {
     await this.#eachPage(
       workspace.collection('tasks').where('assigneeId', '==', userId),
       async (documents) => {
-        const open = documents.filter((it) => it.data().status === 'open');
-        if (open.length === 0) return;
+        const reassignable = documents.filter((it) =>
+          ['open', 'cancelled'].includes(it.data().status),
+        );
+        if (reassignable.length === 0) return;
         const batch = this.firestore.batch();
-        for (const document of open) {
+        for (const document of reassignable) {
           batch.update(document.ref, {assigneeId: actingUserId, ...audit});
           tasks++;
         }

@@ -147,6 +147,15 @@ final class EmptyTaskRepository implements TaskRepository {
   }
 
   @override
+  Future<void> cancelTask({
+    required String workspaceId,
+    required String taskId,
+    required String actorUserId,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<void> reopenTask({
     required String workspaceId,
     required String taskId,

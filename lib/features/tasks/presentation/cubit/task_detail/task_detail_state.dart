@@ -2,7 +2,7 @@ part of 'task_detail_cubit.dart';
 
 enum TaskDetailStatus { loading, ready, notFound, failure }
 
-enum TaskActionStatus { idle, submitting, success, failure }
+enum TaskActionStatus { idle, submitting, success, cancelSuccess, failure }
 
 final class TaskDetailState extends Equatable {
   const TaskDetailState({

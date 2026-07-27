@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 
 enum TaskKind { task, followUp }
 
-enum TaskStatus { open, completed }
+enum TaskStatus { open, completed, cancelled }
 
 final class CrmTask extends Equatable {
   const CrmTask({
@@ -43,7 +43,11 @@ final class CrmTask extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  bool get isOpen => status == TaskStatus.open;
+
   bool get isCompleted => status == TaskStatus.completed;
+
+  bool get isCancelled => status == TaskStatus.cancelled;
 
   @override
   List<Object?> get props => [

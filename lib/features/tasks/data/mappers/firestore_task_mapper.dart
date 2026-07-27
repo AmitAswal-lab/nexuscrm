@@ -125,6 +125,16 @@ abstract final class FirestoreTaskMapper {
     };
   }
 
+  static Map<String, Object?> cancelTaskData({required String actorUserId}) {
+    final actor = _normalizedIdentifier(actorUserId, 'actorUserId');
+
+    return <String, Object?>{
+      'status': 'cancelled',
+      'updatedByUserId': actor,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+  }
+
   static Map<String, Object?> reopenTaskData({required String actorUserId}) {
     final actor = _normalizedIdentifier(actorUserId, 'actorUserId');
 
@@ -147,6 +157,7 @@ abstract final class FirestoreTaskMapper {
     return switch (value) {
       'open' => TaskStatus.open,
       'completed' => TaskStatus.completed,
+      'cancelled' => TaskStatus.cancelled,
       _ => throw FormatException('Unsupported task status: $value.'),
     };
   }

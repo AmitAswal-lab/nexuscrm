@@ -8,6 +8,7 @@ import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_re
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/task_input.dart';
+import 'package:nexuscrm/features/tasks/domain/failures/task_failure.dart';
 import 'package:nexuscrm/features/tasks/domain/repositories/task_repository.dart';
 import 'package:nexuscrm/features/tasks/presentation/cubit/task_detail/task_detail_cubit.dart';
 import 'package:nexuscrm/features/tasks/presentation/cubit/task_form/task_form_cubit.dart';
@@ -80,6 +81,71 @@ void main() {
         actorUserId: 'user',
       ),
     ).called(1);
+  });
+
+  test('cancels a task and reports a distinct success status', () async {
+    final tasks = _Tasks();
+    when(
+      () => tasks.watchTask(
+        workspaceId: any(named: 'workspaceId'),
+        taskId: any(named: 'taskId'),
+      ),
+    ).thenAnswer((_) => Stream.value(_task));
+    when(
+      () => tasks.cancelTask(
+        workspaceId: any(named: 'workspaceId'),
+        taskId: any(named: 'taskId'),
+        actorUserId: any(named: 'actorUserId'),
+      ),
+    ).thenAnswer((_) async {});
+    final cubit = TaskDetailCubit(
+      taskRepository: tasks,
+      workspaceId: 'workspace',
+      taskId: 'task',
+      actorUserId: 'user',
+    );
+    addTearDown(cubit.close);
+    await Future<void>.delayed(Duration.zero);
+    await cubit.cancel();
+    verify(
+      () => tasks.cancelTask(
+        workspaceId: 'workspace',
+        taskId: 'task',
+        actorUserId: 'user',
+      ),
+    ).called(1);
+    expect(cubit.state.actionStatus, TaskActionStatus.cancelSuccess);
+  });
+
+  test('surfaces a cancellation conflict as an action failure', () async {
+    final tasks = _Tasks();
+    when(
+      () => tasks.watchTask(
+        workspaceId: any(named: 'workspaceId'),
+        taskId: any(named: 'taskId'),
+      ),
+    ).thenAnswer((_) => Stream.value(_task));
+    when(
+      () => tasks.cancelTask(
+        workspaceId: any(named: 'workspaceId'),
+        taskId: any(named: 'taskId'),
+        actorUserId: any(named: 'actorUserId'),
+      ),
+    ).thenThrow(const TaskFailure(TaskFailureCode.conflict));
+    final cubit = TaskDetailCubit(
+      taskRepository: tasks,
+      workspaceId: 'workspace',
+      taskId: 'task',
+      actorUserId: 'user',
+    );
+    addTearDown(cubit.close);
+    await Future<void>.delayed(Duration.zero);
+    await cubit.cancel();
+    expect(cubit.state.actionStatus, TaskActionStatus.failure);
+    expect(
+      cubit.state.actionFailure,
+      const TaskFailure(TaskFailureCode.conflict),
+    );
   });
 
   test('creates a sales task with its fixed assignee', () async {

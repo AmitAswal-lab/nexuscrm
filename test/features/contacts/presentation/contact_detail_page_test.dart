@@ -16,6 +16,8 @@ import 'package:nexuscrm/features/contacts/domain/services/phone_dialer.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_actions/contact_actions_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_detail_page.dart';
+import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
+import 'package:nexuscrm/features/tasks/domain/repositories/task_repository.dart';
 import 'package:nexuscrm/features/tasks/domain/value_objects/task_access_scope.dart';
 
 import '../../../helpers/empty_contact_repository.dart';
@@ -29,6 +31,8 @@ final class _MockSalesAssigneeRepository extends Mock
     implements SalesAssigneeRepository {}
 
 final class _MockPhoneDialer extends Mock implements PhoneDialer {}
+
+final class _MockTaskRepository extends Mock implements TaskRepository {}
 
 final class _UnavailablePhoneDialer implements PhoneDialer {
   const _UnavailablePhoneDialer();
@@ -345,6 +349,55 @@ void main() {
     expect(find.text('Lead converted to a client.'), findsOneWidget);
   });
 
+  testWidgets('warns about open tasks before archiving a contact', (
+    tester,
+  ) async {
+    final taskRepository = _MockTaskRepository();
+    when(
+      () => taskRepository.watchContactTasks(
+        workspaceId: 'workspace-one',
+        contactId: 'lead-one',
+        accessScope: const WorkspaceTaskAccess(),
+      ),
+    ).thenAnswer(
+      (_) => Stream.value(<CrmTask>[
+        _contactTask(id: 'open-one'),
+        _contactTask(id: 'open-two'),
+        _contactTask(id: 'gone', status: TaskStatus.cancelled),
+      ]),
+    );
+    _stubContact(contactRepository, Stream.value(_lead));
+
+    await _pumpDetail(
+      tester,
+      repository: contactRepository,
+      isSalesView: false,
+      taskRepository: taskRepository,
+    );
+
+    final archiveAction = find.text('Archive contact');
+    await tester.ensureVisible(archiveAction);
+    await tester.pump();
+    await tester.tap(archiveAction);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('This contact still has 2 open tasks.'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+    await tester.pumpAndSettle();
+
+    verifyNever(
+      () => contactRepository.archiveContact(
+        workspaceId: any(named: 'workspaceId'),
+        contactId: any(named: 'contactId'),
+        actorUserId: any(named: 'actorUserId'),
+      ),
+    );
+  });
+
   testWidgets('returns to the contact list after archive', (tester) async {
     when(
       () => contactRepository.archiveContact(
@@ -445,6 +498,7 @@ Future<void> _pumpDetail(
   ActivityRepository activityRepository = const EmptyActivityRepository(),
   SalesAssigneeRepository salesAssigneeRepository =
       const EmptySalesAssigneeRepository(),
+  TaskRepository taskRepository = const EmptyTaskRepository(),
 }) async {
   final cubit = ContactDetailCubit(
     contactRepository: repository,
@@ -476,7 +530,7 @@ Future<void> _pumpDetail(
             onViewAllActivity: onViewAllActivity ?? () {},
             workspaceId: 'workspace-one',
             taskAccessScope: const WorkspaceTaskAccess(),
-            taskRepository: const EmptyTaskRepository(),
+            taskRepository: taskRepository,
             activityRepository: activityRepository,
             salesAssigneeRepository: salesAssigneeRepository,
             phoneDialer: phoneDialer,
@@ -490,6 +544,30 @@ Future<void> _pumpDetail(
 }
 
 final _timestamp = DateTime.utc(2026);
+
+CrmTask _contactTask({
+  required String id,
+  TaskStatus status = TaskStatus.open,
+}) {
+  return CrmTask(
+    id: id,
+    workspaceId: 'workspace-one',
+    contactId: 'lead-one',
+    kind: TaskKind.followUp,
+    title: 'Follow up $id',
+    notes: null,
+    assigneeId: 'sales-user',
+    dueOn: '2026-07-11',
+    status: status,
+    completionCount: 0,
+    lastCompletedAt: null,
+    lastCompletedByUserId: null,
+    createdByUserId: 'sales-user',
+    updatedByUserId: 'sales-user',
+    createdAt: _timestamp,
+    updatedAt: _timestamp,
+  );
+}
 
 final _lead = Lead(
   id: 'lead-one',

@@ -38,6 +38,12 @@ abstract interface class TaskRepository {
     required String actorUserId,
   });
 
+  Future<void> cancelTask({
+    required String workspaceId,
+    required String taskId,
+    required String actorUserId,
+  });
+
   Future<void> reopenTask({
     required String workspaceId,
     required String taskId,

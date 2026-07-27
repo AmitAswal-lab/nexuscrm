@@ -37,14 +37,20 @@ final class TaskDetailCubit extends Cubit<TaskDetailState> {
 
   Future<void> reopen() => _runAction(_taskRepository.reopenTask);
 
+  Future<void> cancel() => _runAction(
+    _taskRepository.cancelTask,
+    successStatus: TaskActionStatus.cancelSuccess,
+  );
+
   Future<void> _runAction(
     Future<void> Function({
       required String workspaceId,
       required String taskId,
       required String actorUserId,
     })
-    action,
-  ) async {
+    action, {
+    TaskActionStatus successStatus = TaskActionStatus.success,
+  }) async {
     if (state.actionStatus == TaskActionStatus.submitting) return;
     emit(
       state.copyWith(
@@ -59,7 +65,7 @@ final class TaskDetailCubit extends Cubit<TaskDetailState> {
         actorUserId: _actorUserId,
       );
       if (!isClosed) {
-        emit(state.copyWith(actionStatus: TaskActionStatus.success));
+        emit(state.copyWith(actionStatus: successStatus));
       }
     } on TaskFailure catch (error) {
       if (!isClosed) {

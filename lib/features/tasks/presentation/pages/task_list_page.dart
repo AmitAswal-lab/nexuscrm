@@ -111,6 +111,10 @@ class _TaskFilter extends StatelessWidget {
             value: TaskListView.completed,
             label: Text('Completed'),
           ),
+          ButtonSegment(
+            value: TaskListView.cancelled,
+            label: Text('Cancelled'),
+          ),
         ],
         selected: {selected},
         showSelectedIcon: false,
@@ -220,19 +224,25 @@ class _TaskCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
-                backgroundColor: task.isCompleted
-                    ? theme.colorScheme.secondaryContainer
-                    : theme.colorScheme.primaryContainer,
-                foregroundColor: task.isCompleted
-                    ? theme.colorScheme.onSecondaryContainer
-                    : theme.colorScheme.onPrimaryContainer,
-                child: Icon(
-                  task.isCompleted
-                      ? Icons.check
-                      : isFollowUp
-                      ? Icons.phone_in_talk_outlined
-                      : Icons.task_alt_outlined,
-                ),
+                backgroundColor: switch (task.status) {
+                  TaskStatus.open => theme.colorScheme.primaryContainer,
+                  TaskStatus.completed => theme.colorScheme.secondaryContainer,
+                  TaskStatus.cancelled =>
+                    theme.colorScheme.surfaceContainerHighest,
+                },
+                foregroundColor: switch (task.status) {
+                  TaskStatus.open => theme.colorScheme.onPrimaryContainer,
+                  TaskStatus.completed =>
+                    theme.colorScheme.onSecondaryContainer,
+                  TaskStatus.cancelled => theme.colorScheme.onSurfaceVariant,
+                },
+                child: Icon(switch (task.status) {
+                  TaskStatus.completed => Icons.check,
+                  TaskStatus.cancelled => Icons.cancel_outlined,
+                  TaskStatus.open when isFollowUp =>
+                    Icons.phone_in_talk_outlined,
+                  TaskStatus.open => Icons.task_alt_outlined,
+                }),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -244,8 +254,7 @@ class _TaskCard extends StatelessWidget {
                     Text(
                       _dueLabel(task, today),
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color:
-                            task.dueOn.compareTo(today) < 0 && !task.isCompleted
+                        color: task.dueOn.compareTo(today) < 0 && task.isOpen
                             ? theme.colorScheme.error
                             : theme.colorScheme.onSurfaceVariant,
                       ),
@@ -278,13 +287,12 @@ class _TaskCard extends StatelessWidget {
               const SizedBox(width: 12),
               Chip(
                 visualDensity: VisualDensity.compact,
-                label: Text(
-                  task.isCompleted
-                      ? 'Completed'
-                      : isFollowUp
-                      ? 'Follow-up'
-                      : 'Task',
-                ),
+                label: Text(switch (task.status) {
+                  TaskStatus.completed => 'Completed',
+                  TaskStatus.cancelled => 'Cancelled',
+                  TaskStatus.open when isFollowUp => 'Follow-up',
+                  TaskStatus.open => 'Task',
+                }),
               ),
             ],
           ),
@@ -296,6 +304,10 @@ class _TaskCard extends StatelessWidget {
   static String _dueLabel(CrmTask task, String today) {
     if (task.isCompleted) {
       return 'Completed follow-up history';
+    }
+
+    if (task.isCancelled) {
+      return 'Cancelled · was due ${task.dueOn}';
     }
 
     if (task.dueOn.compareTo(today) < 0) {
@@ -318,6 +330,7 @@ class _EmptyView extends StatelessWidget {
       TaskListView.upcoming => 'No upcoming tasks.',
       TaskListView.overdue => 'No overdue tasks.',
       TaskListView.completed => 'No completed tasks yet.',
+      TaskListView.cancelled => 'No cancelled tasks.',
     };
 
     return Center(
@@ -334,14 +347,22 @@ class _EmptyView extends StatelessWidget {
             const SizedBox(height: 12),
             Text(message, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
-            const Text(
-              'Task creation will be added in the next workflow checkpoint.',
-              textAlign: TextAlign.center,
-            ),
+            Text(_hint(view), textAlign: TextAlign.center),
           ],
         ),
       ),
     );
+  }
+
+  static String _hint(TaskListView view) {
+    return switch (view) {
+      TaskListView.today ||
+      TaskListView.upcoming ||
+      TaskListView.overdue => 'Use New task to schedule follow-up work.',
+      TaskListView.completed => 'Tasks you finish will appear here.',
+      TaskListView.cancelled =>
+        'Tasks you cancel will appear here, and can be reopened.',
+    };
   }
 }
 

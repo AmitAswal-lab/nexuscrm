@@ -227,11 +227,21 @@ class _ContactDetailView extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              _ContactActions(
-                contact: contact,
-                onAddFollowUp: onAddFollowUp,
-                onLogCallNote: onLogCallNote,
-                phoneDialer: phoneDialer,
+              StreamBuilder<List<CrmTask>>(
+                stream: taskRepository.watchContactTasks(
+                  workspaceId: workspaceId,
+                  contactId: contact.id,
+                  accessScope: taskAccessScope,
+                ),
+                builder: (context, snapshot) => _ContactActions(
+                  contact: contact,
+                  onAddFollowUp: onAddFollowUp,
+                  onLogCallNote: onLogCallNote,
+                  phoneDialer: phoneDialer,
+                  openTaskCount: (snapshot.data ?? const <CrmTask>[])
+                      .where((task) => task.isOpen)
+                      .length,
+                ),
               ),
               const SizedBox(height: 16),
               ContactActivityTimeline(
@@ -493,14 +503,14 @@ class _ActivityTile extends StatelessWidget {
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        task!.isCompleted
-            ? Icons.check_circle_outline
-            : Icons.pending_actions_outlined,
-      ),
+      leading: Icon(switch (task!.status) {
+        TaskStatus.open => Icons.pending_actions_outlined,
+        TaskStatus.completed => Icons.check_circle_outline,
+        TaskStatus.cancelled => Icons.cancel_outlined,
+      }),
       title: Text(task.title),
       subtitle: Text(
-        'Follow-up • Due ${task.dueOn} • ${task.isCompleted ? 'Completed' : 'Open'}\nAssigned to ${_nameFor(task.assigneeId)}',
+        'Follow-up • Due ${task.dueOn} • ${_taskStatusLabel(task.status)}\nAssigned to ${_nameFor(task.assigneeId)}',
       ),
       trailing: Text(_formatTimestamp(task.createdAt)),
     );
@@ -513,6 +523,12 @@ class _ActivityTile extends StatelessWidget {
 
     return userNames[userId] ?? 'Administrator';
   }
+
+  static String _taskStatusLabel(TaskStatus status) => switch (status) {
+    TaskStatus.open => 'Open',
+    TaskStatus.completed => 'Completed',
+    TaskStatus.cancelled => 'Cancelled',
+  };
 
   static IconData _outcomeIcon(CallOutcome outcome) => switch (outcome) {
     CallOutcome.connected => Icons.phone_in_talk_outlined,
@@ -542,12 +558,14 @@ class _ContactActions extends StatelessWidget {
     required this.onAddFollowUp,
     required this.onLogCallNote,
     required this.phoneDialer,
+    required this.openTaskCount,
   });
 
   final CrmContact contact;
   final VoidCallback onAddFollowUp;
   final VoidCallback onLogCallNote;
   final PhoneDialer phoneDialer;
+  final int openTaskCount;
 
   @override
   Widget build(BuildContext context) {
@@ -656,9 +674,7 @@ class _ContactActions extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Archive contact?'),
-        content: const Text(
-          'The contact will leave active lists but its record will be kept.',
-        ),
+        content: Text(_archiveMessage(openTaskCount)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -675,6 +691,22 @@ class _ContactActions extends StatelessWidget {
     if (confirmed == true && context.mounted) {
       await context.read<ContactActionsCubit>().archiveContact();
     }
+  }
+
+  static String _archiveMessage(int openTaskCount) {
+    const base =
+        'The contact will leave active lists but its record will be kept.';
+
+    if (openTaskCount == 0) {
+      return base;
+    }
+
+    final tasks = openTaskCount == 1
+        ? '1 open task'
+        : '$openTaskCount open tasks';
+
+    return '$base\n\nThis contact still has $tasks. They will stay on the '
+        'task list. Cancel them first if they are no longer needed.';
   }
 }
 
