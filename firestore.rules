@@ -168,7 +168,7 @@ service cloud.firestore {
         && data.completionCount >= 0
         && (
           (
-            data.status == 'open'
+            data.status in ['open', 'cancelled']
             && (
               (
                 data.completionCount == 0
@@ -290,13 +290,27 @@ service cloud.firestore {
         && request.resource.data.lastCompletedByUserId == request.auth.uid;
     }
 
+    function isTaskCancellation() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status',
+          'updatedByUserId',
+          'updatedAt',
+        ])
+        && resource.data.status == 'open'
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.completionCount == resource.data.completionCount
+        && request.resource.data.lastCompletedAt == resource.data.lastCompletedAt
+        && request.resource.data.lastCompletedByUserId
+          == resource.data.lastCompletedByUserId;
+    }
+
     function isTaskReopen() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'status',
           'updatedByUserId',
           'updatedAt',
         ])
-        && resource.data.status == 'completed'
+        && resource.data.status in ['completed', 'cancelled']
         && request.resource.data.status == 'open'
         && request.resource.data.completionCount == resource.data.completionCount
         && request.resource.data.lastCompletedAt == resource.data.lastCompletedAt
@@ -316,6 +330,7 @@ service cloud.firestore {
         && (
           isTaskContentUpdate()
           || isTaskCompletion()
+          || isTaskCancellation()
           || isTaskReopen()
         );
     }
