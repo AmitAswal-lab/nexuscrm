@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:nexuscrm/features/activities/data/mappers/firestore_workspace_activity_mapper.dart';
 import 'package:nexuscrm/features/contacts/data/mappers/firestore_contact_failure_mapper.dart';
 import 'package:nexuscrm/features/contacts/data/mappers/firestore_contact_mapper.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/contact_input.dart';
@@ -106,7 +107,18 @@ final class FirestoreContactRepository implements ContactRepository {
         input: input,
       );
 
-      await reference.set(data);
+      await (_firestore.batch()
+            ..set(reference, data)
+            ..set(
+              _activities(normalizedWorkspaceId).doc(),
+              FirestoreWorkspaceActivityMapper.leadCreatedData(
+                workspaceId: normalizedWorkspaceId,
+                contactId: reference.id,
+                contactName: input.fullName,
+                actorUserId: actorUserId,
+              ),
+            ))
+          .commit();
       return reference.id;
     });
   }
@@ -194,7 +206,17 @@ final class FirestoreContactRepository implements ContactRepository {
           throw const ContactFailure(ContactFailureCode.conflict);
         }
 
-        transaction.update(reference, data);
+        transaction
+          ..update(reference, data)
+          ..set(
+            _activities(reference.parent.parent!.id).doc(),
+            FirestoreWorkspaceActivityMapper.leadConvertedData(
+              workspaceId: contact.workspaceId,
+              contactId: contact.id,
+              contactName: contact.fullName,
+              actorUserId: actorUserId,
+            ),
+          );
       });
     });
   }
@@ -230,6 +252,13 @@ final class FirestoreContactRepository implements ContactRepository {
         .collection('workspaces')
         .doc(workspaceId)
         .collection('contacts');
+  }
+
+  CollectionReference<Map<String, dynamic>> _activities(String workspaceId) {
+    return _firestore
+        .collection('workspaces')
+        .doc(workspaceId)
+        .collection('activities');
   }
 
   DocumentReference<Map<String, dynamic>> _contactReference({

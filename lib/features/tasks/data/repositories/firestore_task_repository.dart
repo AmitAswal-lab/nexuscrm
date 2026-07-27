@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:nexuscrm/features/activities/data/mappers/firestore_workspace_activity_mapper.dart';
 import 'package:nexuscrm/features/tasks/data/mappers/firestore_task_failure_mapper.dart';
 import 'package:nexuscrm/features/tasks/data/mappers/firestore_task_mapper.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
@@ -188,6 +189,15 @@ final class FirestoreTaskRepository implements TaskRepository {
           throw const TaskFailure(TaskFailureCode.conflict);
         }
 
+        final contact = await transaction.get(
+          _firestore
+              .collection('workspaces')
+              .doc(task.workspaceId)
+              .collection('contacts')
+              .doc(task.contactId),
+        );
+        final contactName = contact.data()?['fullName'];
+
         transaction.update(
           reference,
           FirestoreTaskMapper.completeTaskData(
@@ -195,6 +205,24 @@ final class FirestoreTaskRepository implements TaskRepository {
             completionCount: task.completionCount,
           ),
         );
+
+        if (contactName is String && contactName.trim().isNotEmpty) {
+          transaction.set(
+            _firestore
+                .collection('workspaces')
+                .doc(task.workspaceId)
+                .collection('activities')
+                .doc(),
+            FirestoreWorkspaceActivityMapper.taskCompletedData(
+              workspaceId: task.workspaceId,
+              contactId: task.contactId,
+              contactName: contactName,
+              actorUserId: actorUserId,
+              taskId: task.id,
+              taskTitle: task.title,
+            ),
+          );
+        }
       });
     });
   }

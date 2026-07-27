@@ -47,7 +47,7 @@ enterprise reporting.
 | 6. Dialer and post-call notes | Complete | Representatives launch calls, log outcomes, and create follow-ups |
 | 7. Admin user management and invitations | Complete | Administrators securely manage and invite representatives, deployed and verified live |
 | 8. Sales-representative onboarding | Complete | Invited representatives establish accounts and enter the workspace, verified live on Android |
-| 9. Admin activity and basic reporting | Planned | Administrators review team activity and lightweight summaries |
+| 9. Admin activity and basic reporting | Complete | Administrators review team activity and lightweight summaries |
 | 10. Final polish, testing, and release | Planned | Cross-platform quality and portfolio release readiness |
 
 ## Completed milestones
@@ -270,22 +270,62 @@ Follow-up work, carried into a later milestone:
 Goal: provide lightweight visibility into team work without building a detailed
 analytics product.
 
+Activity is recorded as it happens rather than reconstructed later. The
+`activities` collection already carries a `type` field and append-only rules
+for call notes, so the same collection gains the remaining event types. A
+derived feed was rejected because a contact's `updatedAt` records that
+something changed without recording what changed or who changed it.
+
+Recorded events:
+
+- A lead is created
+- A lead is converted to a client
+- A task is completed
+- A call note is logged, which already exists
+
+Task creation is deliberately not recorded, because planning a week of work
+would bury the events worth reading. Contact archiving is also not recorded.
+
 Planned scope:
 
-- Recent lead, task, and call-note activity
-- Acting representative and timestamp
-- Basic filtering by representative or activity type
-- Lightweight counts useful to an administrator
-- Workspace-scoped access and indexes
+- Workspace activity feed on the administrator home, replacing its placeholder
+- Acting representative and timestamp on every entry
+- Filtering by representative and by activity type
+- Counts of new leads, new clients, calls logged, and tasks completed
+- A period selector covering the last 7 days, 30 days, year, and all time,
+  defaulting to 7 days and shared by the counts and the feed
+- Workspace-scoped access, rules for each new event type, and indexes
 
-Definition of done:
+Each event is written in the same batch as the change that caused it, so the
+feed cannot drift from the records it describes. Events are append-only and
+carry the acting user, which rules verify against the caller.
+
+Definition of done, all met:
 
 - Administrators can review recent workspace activity.
 - Representatives cannot access administrator-only views.
 - Activity records are created consistently by relevant workflows.
 - Summary queries are simple, indexed, and tested.
 
+Rules and indexes were deployed to `nexuscrm-dev-amitaswal` on 2026-07-26, and
+the feed, counts, filters, and period selector were verified live on the iOS
+simulator against activity generated from an Android device.
+
+Two defects surfaced during that verification. Actor names originally resolved
+from the sales-assignee directory, which excludes administrators, so an
+administrator's own work was attributed to a former representative. Separately,
+task rules required an active sales representative as the assignee, which made
+the tasks that revocation moves to an administrator impossible to edit or
+complete; the emulator tests had not caught it because the Admin SDK bypasses
+rules.
+
+The feed begins empty, because work completed before this milestone was never
+recorded. Backfilling historical activity is out of scope.
+
 Detailed analytics and report generation remain deferred.
+
+See [Admin activity and basic reporting](admin-activity.md) for the recorded
+events, write ordering, and access model.
 
 ### 10. Final polish, testing, and release
 
