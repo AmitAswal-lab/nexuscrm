@@ -173,17 +173,25 @@ class _TaskFormPageState extends State<TaskFormPage> {
                       labelText: 'Assigned sales representative',
                       border: OutlineInputBorder(),
                     ),
-                    items: state.assignees
-                        .map(
-                          (a) => DropdownMenuItem(
-                            value: a.userId,
-                            child: Text(
-                              a.directoryLabel,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                    items: [
+                      if (_assigneeId != null &&
+                          !state.assignees.any(
+                            (a) => a.userId == _assigneeId,
+                          ))
+                        DropdownMenuItem(
+                          value: _assigneeId,
+                          child: const Text('Current assignee'),
+                        ),
+                      ...state.assignees.map(
+                        (a) => DropdownMenuItem(
+                          value: a.userId,
+                          child: Text(
+                            a.directoryLabel,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        )
-                        .toList(),
+                        ),
+                      ),
+                    ],
                     onChanged: saving
                         ? null
                         : (v) => setState(() => _assigneeId = v),

@@ -9,8 +9,9 @@ follow-ups.
 
 The project foundation, authentication foundation, navigation shell, sales
 dashboard, lead/client management, tasks and follow-ups, and dialer and
-post-call notes milestones are complete. Admin user management and
-sales-representative onboarding are complete, deployed, and verified live.
+post-call notes milestones are complete. Admin user management,
+sales-representative onboarding, and admin activity reporting are complete,
+deployed, and verified live. Only final polish, testing, and release remain.
 
 The application currently supports:
 
@@ -40,6 +41,8 @@ The application currently supports:
   with immediate Firestore access enforcement
 - Invited-representative workspace activation with explicit in-flight, success,
   retry, and sign-out recovery states
+- Administrator activity overview with per-type counts, a period selector, and
+  a filterable workspace activity feed
 
 The Functions, Firestore rules, and indexes are deployed to the development
 project, and invitation delivery and representative onboarding were verified
@@ -114,6 +117,8 @@ and invitation lifecycles, trusted callables, and deployment prerequisites.
 See [Sales-representative onboarding](docs/sales-representative-onboarding.md)
 for the activation route, screen states, failure handling, and the live
 verification that remains.
+See [Admin activity and basic reporting](docs/admin-activity.md) for the
+recorded events, how they are written, and who can read them.
 
 ## Quality checks
 

@@ -7,7 +7,7 @@ import 'package:nexuscrm/app/app.dart';
 import 'package:nexuscrm/app/router/app_routes.dart';
 import 'package:nexuscrm/features/admin/domain/entities/invitation_creation_result.dart';
 import 'package:nexuscrm/features/admin/domain/repositories/invitation_repository.dart';
-import 'package:nexuscrm/features/admin/presentation/pages/admin_home_placeholder.dart';
+import 'package:nexuscrm/features/admin/presentation/pages/admin_activity_page.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/auth_user.dart';
 import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
 import 'package:nexuscrm/features/authentication/domain/repositories/authentication_repository.dart';
@@ -27,7 +27,7 @@ void main() {
     await _pumpAuthenticatedApp(tester, membership: _adminMembership);
 
     final router = GoRouter.of(
-      tester.element(find.byType(AdminHomePlaceholder)),
+      tester.element(find.byType(AdminActivityPage)),
     );
 
     expect(
@@ -42,7 +42,7 @@ void main() {
       'Tasks',
       'More',
     ]);
-    expect(find.text('Admin workspace'), findsOneWidget);
+    expect(find.text('Team activity'), findsOneWidget);
     expect(find.text('Sign out'), findsNothing);
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'Leads'));
@@ -72,7 +72,7 @@ void main() {
 
     router.go(AppRoutes.admin);
     await tester.pumpAndSettle();
-    expect(find.byType(AdminHomePlaceholder), findsOneWidget);
+    expect(find.byType(AdminActivityPage), findsOneWidget);
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
       AppRoutes.adminHome,
@@ -232,6 +232,7 @@ void main() {
         salesAssigneeRepository: const EmptySalesAssigneeRepository(),
         taskRepository: const EmptyTaskRepository(),
         activityRepository: const EmptyActivityRepository(),
+        adminTeamRepository: const EmptyAdminTeamRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -260,6 +261,7 @@ void main() {
         salesAssigneeRepository: const EmptySalesAssigneeRepository(),
         taskRepository: const EmptyTaskRepository(),
         activityRepository: const EmptyActivityRepository(),
+        adminTeamRepository: const EmptyAdminTeamRepository(),
       ),
     );
     await tester.pumpAndSettle();
@@ -276,11 +278,11 @@ void main() {
     await _pumpAuthenticatedApp(tester, membership: _adminMembership);
 
     final router = GoRouter.of(
-      tester.element(find.byType(AdminHomePlaceholder)),
+      tester.element(find.byType(AdminActivityPage)),
     )..go(AppRoutes.salesTasks);
     await tester.pumpAndSettle();
 
-    expect(find.byType(AdminHomePlaceholder), findsOneWidget);
+    expect(find.byType(AdminActivityPage), findsOneWidget);
     expect(find.byType(SalesDashboardPage), findsNothing);
     expect(
       router.routerDelegate.currentConfiguration.uri.path,
@@ -304,6 +306,7 @@ Future<void> _pumpAuthenticatedApp(
       salesAssigneeRepository: const EmptySalesAssigneeRepository(),
       taskRepository: const EmptyTaskRepository(),
       activityRepository: const EmptyActivityRepository(),
+        adminTeamRepository: const EmptyAdminTeamRepository(),
       invitationRepository: invitationRepository,
     ),
   );

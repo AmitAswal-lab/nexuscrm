@@ -888,6 +888,120 @@ function taskData({
   };
 }
 
+
+test('allows a task assigned to an administrator', async () => {
+  const adminDatabase = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+
+  await assertSucceeds(
+    setDoc(
+      doc(adminDatabase, 'workspaces', 'workspace-one', 'tasks', 'admin-task'),
+      taskData({assigneeId: 'admin-user', useServerTimestamp: true}),
+    ),
+  );
+
+  await assertFails(
+    setDoc(
+      doc(adminDatabase, 'workspaces', 'workspace-one', 'tasks', 'ghost-task'),
+      taskData({assigneeId: 'not-a-member', useServerTimestamp: true}),
+    ),
+  );
+});
+
+test('allows valid activity events for admin and sales roles', async () => {
+  const adminDatabase = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+  const salesDatabase = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+
+  await assertSucceeds(
+    setDoc(
+      doc(adminDatabase, 'workspaces', 'workspace-one', 'activities', 'ev-1'),
+      activityEventData({contactId: 'other-lead', contactName: 'Other Lead'}),
+    ),
+  );
+
+  await assertSucceeds(
+    setDoc(
+      doc(salesDatabase, 'workspaces', 'workspace-one', 'activities', 'ev-2'),
+      activityEventData({type: 'lead_converted', actorUserId: 'sales-user'}),
+    ),
+  );
+
+  await assertSucceeds(
+    setDoc(
+      doc(salesDatabase, 'workspaces', 'workspace-one', 'activities', 'ev-3'),
+      activityEventData({
+        type: 'task_completed',
+        actorUserId: 'sales-user',
+        extra: {taskId: 'task-one', taskTitle: 'Send proposal'},
+      }),
+    ),
+  );
+});
+
+test('rejects forged, malformed, and cross-owner activity events', async () => {
+  const salesDatabase = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+
+  await assertFails(
+    setDoc(
+      doc(salesDatabase, 'workspaces', 'workspace-one', 'activities', 'ev-4'),
+      activityEventData({actorUserId: 'admin-user'}),
+    ),
+  );
+
+  await assertFails(
+    setDoc(
+      doc(salesDatabase, 'workspaces', 'workspace-one', 'activities', 'ev-5'),
+      activityEventData({
+        actorUserId: 'sales-user',
+        contactId: 'other-lead',
+        contactName: 'Other Lead',
+      }),
+    ),
+  );
+
+  await assertFails(
+    setDoc(
+      doc(salesDatabase, 'workspaces', 'workspace-one', 'activities', 'ev-6'),
+      activityEventData({
+        type: 'task_completed',
+        actorUserId: 'sales-user',
+      }),
+    ),
+  );
+
+  await assertFails(
+    setDoc(
+      doc(salesDatabase, 'workspaces', 'workspace-one', 'activities', 'ev-7'),
+      activityEventData({type: 'contact_archived', actorUserId: 'sales-user'}),
+    ),
+  );
+});
+
+function activityEventData({
+  type = 'lead_created',
+  actorUserId = 'admin-user',
+  contactId = 'owned-lead',
+  contactName = 'Owned Lead',
+  extra = {},
+} = {}) {
+  return {
+    workspaceId: 'workspace-one',
+    type,
+    contactId,
+    contactName,
+    actorUserId,
+    createdAt: serverTimestamp(),
+    ...extra,
+  };
+}
+
 function callNoteData({
   actorUserId = 'admin-user',
   contactId = 'owned-lead',

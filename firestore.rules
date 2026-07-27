@@ -33,6 +33,14 @@ service cloud.firestore {
         && hasActiveRole(workspaceId, userId, 'sales_rep');
     }
 
+    function isActiveTaskAssignee(workspaceId, userId) {
+      return userId is string
+        && (
+          hasActiveRole(workspaceId, userId, 'sales_rep')
+          || hasActiveRole(workspaceId, userId, 'admin')
+        );
+    }
+
     function hasValidContactKeys(data) {
       return data.keys().hasOnly([
         'workspaceId',
@@ -195,7 +203,7 @@ service cloud.firestore {
         && data.title.size() > 0
         && data.title.size() <= 120
         && isOptionalShortNotes(data.notes)
-        && isActiveSalesAssignee(workspaceId, data.assigneeId)
+        && isActiveTaskAssignee(workspaceId, data.assigneeId)
         && isTaskDueOn(data.dueOn)
         && hasValidTaskCompletionData(data)
         && data.createdByUserId is string
@@ -317,11 +325,14 @@ service cloud.firestore {
         'workspaceId',
         'type',
         'contactId',
+        'contactName',
         'outcome',
         'note',
         'actorUserId',
         'createdAt',
         'nextTaskId',
+        'taskId',
+        'taskTitle',
       ]);
     }
 
@@ -391,6 +402,51 @@ service cloud.firestore {
             request.resource.data.contactId,
           )
         );
+    }
+
+    function hasValidEventData(data, workspaceId) {
+      return hasValidActivityKeys(data)
+        && data.keys().hasAll([
+          'workspaceId',
+          'type',
+          'contactId',
+          'contactName',
+          'actorUserId',
+          'createdAt',
+        ])
+        && data.workspaceId == workspaceId
+        && data.contactId is string
+        && data.contactId.size() > 0
+        && data.contactName is string
+        && data.contactName.size() > 0
+        && data.contactName.size() <= 200
+        && data.actorUserId is string
+        && data.actorUserId.size() > 0
+        && data.createdAt is timestamp;
+    }
+
+    function hasValidActivityEventCreation(workspaceId) {
+      return hasValidEventData(request.resource.data, workspaceId)
+        && request.resource.data.actorUserId == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && (
+          (
+            request.resource.data.type in ['lead_created', 'lead_converted']
+            && !('taskId' in request.resource.data)
+            && !('taskTitle' in request.resource.data)
+          )
+          || (
+            request.resource.data.type == 'task_completed'
+            && request.resource.data.taskId is string
+            && request.resource.data.taskId.size() > 0
+            && request.resource.data.taskTitle is string
+            && request.resource.data.taskTitle.size() > 0
+            && request.resource.data.taskTitle.size() <= 200
+          )
+        )
+        && !('outcome' in request.resource.data)
+        && !('note' in request.resource.data)
+        && !('nextTaskId' in request.resource.data);
     }
 
     function hasValidCallNoteCreation(workspaceId) {
@@ -548,7 +604,10 @@ service cloud.firestore {
     match /workspaces/{workspaceId}/activities/{activityId} {
       allow read: if canReadActivity(workspaceId);
       allow create: if canCreateActivity(workspaceId)
-        && hasValidCallNoteCreation(workspaceId);
+        && (
+          hasValidCallNoteCreation(workspaceId)
+          || hasValidActivityEventCreation(workspaceId)
+        );
       allow update, delete: if false;
     }
 
