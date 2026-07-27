@@ -47,7 +47,7 @@ enterprise reporting.
 | 6. Dialer and post-call notes | Complete | Representatives launch calls, log outcomes, and create follow-ups |
 | 7. Admin user management and invitations | Complete | Administrators securely manage and invite representatives, deployed and verified live |
 | 8. Sales-representative onboarding | Complete | Invited representatives establish accounts and enter the workspace, verified live on Android |
-| 9. Admin activity and basic reporting | Planned | Administrators review team activity and lightweight summaries |
+| 9. Admin activity and basic reporting | Complete | Administrators review team activity and lightweight summaries |
 | 10. Final polish, testing, and release | Planned | Cross-platform quality and portfolio release readiness |
 
 ## Completed milestones
@@ -300,17 +300,32 @@ Each event is written in the same batch as the change that caused it, so the
 feed cannot drift from the records it describes. Events are append-only and
 carry the acting user, which rules verify against the caller.
 
-Definition of done:
+Definition of done, all met:
 
 - Administrators can review recent workspace activity.
 - Representatives cannot access administrator-only views.
 - Activity records are created consistently by relevant workflows.
 - Summary queries are simple, indexed, and tested.
 
+Rules and indexes were deployed to `nexuscrm-dev-amitaswal` on 2026-07-26, and
+the feed, counts, filters, and period selector were verified live on the iOS
+simulator against activity generated from an Android device.
+
+Two defects surfaced during that verification. Actor names originally resolved
+from the sales-assignee directory, which excludes administrators, so an
+administrator's own work was attributed to a former representative. Separately,
+task rules required an active sales representative as the assignee, which made
+the tasks that revocation moves to an administrator impossible to edit or
+complete; the emulator tests had not caught it because the Admin SDK bypasses
+rules.
+
 The feed begins empty, because work completed before this milestone was never
 recorded. Backfilling historical activity is out of scope.
 
 Detailed analytics and report generation remain deferred.
+
+See [Admin activity and basic reporting](admin-activity.md) for the recorded
+events, write ordering, and access model.
 
 ### 10. Final polish, testing, and release
 
