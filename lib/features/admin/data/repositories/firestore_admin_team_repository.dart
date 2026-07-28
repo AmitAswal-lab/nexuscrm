@@ -8,24 +8,33 @@ final class FirestoreAdminTeamRepository implements AdminTeamRepository {
   final FirebaseFirestore _firestore;
 
   @override
-  Stream<List<TeamMember>> watchTeam({required String workspaceId}) async* {
+  Stream<List<TeamMember>> watchTeam({required String workspaceId}) {
     final id = workspaceId.trim();
-    if (id.isEmpty || id.contains('/')) throw const FormatException();
-    await for (final snapshot
-        in _firestore
-            .collection('workspaces')
-            .doc(id)
-            .collection('members')
-            .snapshots()) {
-      if (snapshot.metadata.hasPendingWrites) continue;
-      final members =
-          snapshot.docs
-              .map(_fromDocument)
-              .where((member) => member.status != MembershipStatus.invited)
-              .toList()
-            ..sort((a, b) => _label(a).compareTo(_label(b)));
-      yield List.unmodifiable(members);
+
+    if (id.isEmpty || id.contains('/')) {
+      return Stream.error(const FormatException());
     }
+
+    return _firestore
+        .collection('workspaces')
+        .doc(id)
+        .collection('members')
+        .snapshots()
+        .where((snapshot) => !snapshot.metadata.hasPendingWrites)
+        .map(_sortedMembers);
+  }
+
+  static List<TeamMember> _sortedMembers(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final members =
+        snapshot.docs
+            .map(_fromDocument)
+            .where((member) => member.status != MembershipStatus.invited)
+            .toList()
+          ..sort((a, b) => _label(a).compareTo(_label(b)));
+
+    return List.unmodifiable(members);
   }
 
   static TeamMember _fromDocument(DocumentSnapshot<Map<String, dynamic>> doc) {

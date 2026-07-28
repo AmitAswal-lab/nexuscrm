@@ -14,41 +14,51 @@ final class FirestoreSalesAssigneeRepository
   @override
   Stream<List<SalesAssignee>> watchActiveSalesAssignees({
     required String workspaceId,
-  }) async* {
+  }) {
     try {
-      final normalizedWorkspaceId = _requiredIdentifier(workspaceId);
-      final snapshots = _firestore
+      return _firestore
           .collection('workspaces')
-          .doc(normalizedWorkspaceId)
+          .doc(_requiredIdentifier(workspaceId))
           .collection('members')
           .where('role', isEqualTo: 'sales_rep')
           .where('status', isEqualTo: 'active')
-          .snapshots();
-
-      await for (final snapshot in snapshots) {
-        if (snapshot.metadata.hasPendingWrites) {
-          continue;
-        }
-
-        final assignees = <SalesAssignee>[];
-
-        for (final document in snapshot.docs) {
-          try {
-            assignees.add(FirestoreSalesAssigneeMapper.fromDocument(document));
-          } on FormatException {
-            continue;
-          }
-        }
-
-        yield List.unmodifiable(assignees..sort(_compareAssignees));
-      }
-    } on ContactFailure {
-      rethrow;
-    } on FormatException {
-      throw const ContactFailure(ContactFailureCode.invalidData);
-    } on FirebaseException catch (error) {
-      throw FirestoreContactFailureMapper.fromFirebase(error);
+          .snapshots()
+          .where((snapshot) => !snapshot.metadata.hasPendingWrites)
+          .map(_sortedAssignees)
+          .handleError((Object error) => throw _assigneeError(error));
+    } on Object catch (error) {
+      return Stream.error(_assigneeError(error));
     }
+  }
+
+  static List<SalesAssignee> _sortedAssignees(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final assignees = <SalesAssignee>[];
+
+    for (final document in snapshot.docs) {
+      try {
+        assignees.add(FirestoreSalesAssigneeMapper.fromDocument(document));
+      } on FormatException {
+        continue;
+      }
+    }
+
+    return List.unmodifiable(assignees..sort(_compareAssignees));
+  }
+
+  static Object _assigneeError(Object error) {
+    if (error is ContactFailure) {
+      return error;
+    }
+
+    if (error is FormatException) {
+      return const ContactFailure(ContactFailureCode.invalidData);
+    }
+
+    return error is FirebaseException
+        ? FirestoreContactFailureMapper.fromFirebase(error)
+        : error;
   }
 
   static String _requiredIdentifier(String value) {
