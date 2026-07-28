@@ -8,6 +8,7 @@ import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
+import 'package:nexuscrm/features/contacts/domain/value_objects/contact_archive_filter.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_list/contact_list_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_list_page.dart';
 
@@ -29,7 +30,7 @@ void main() {
       () => contactRepository.watchContacts(
         workspaceId: any(named: 'workspaceId'),
         accessScope: any(named: 'accessScope'),
-        includeArchived: any(named: 'includeArchived'),
+        archiveFilter: ContactArchiveFilter.active,
       ),
     ).thenAnswer((_) => Stream.value(const <CrmContact>[]));
 
@@ -38,7 +39,7 @@ void main() {
     expect(find.text('Leads & clients'), findsOneWidget);
     expect(find.text('No leads or clients yet.'), findsOneWidget);
     expect(
-      find.text('Lead creation will be added in the next workflow checkpoint.'),
+      find.text('Use New lead to add your first contact.'),
       findsOneWidget,
     );
   });
@@ -51,7 +52,7 @@ void main() {
       () => contactRepository.watchContacts(
         workspaceId: any(named: 'workspaceId'),
         accessScope: any(named: 'accessScope'),
-        includeArchived: any(named: 'includeArchived'),
+        archiveFilter: ContactArchiveFilter.active,
       ),
     ).thenAnswer((_) => Stream.value(<CrmContact>[_lead, _client]));
 
@@ -78,6 +79,30 @@ void main() {
     expect(find.text('Ravi Client'), findsOneWidget);
   });
 
+  testWidgets('opens archived contacts from the overflow menu', (tester) async {
+    var opened = false;
+    when(
+      () => contactRepository.watchContacts(
+        workspaceId: any(named: 'workspaceId'),
+        accessScope: any(named: 'accessScope'),
+        archiveFilter: ContactArchiveFilter.active,
+      ),
+    ).thenAnswer((_) => Stream.value(<CrmContact>[_lead]));
+
+    await _pumpPage(
+      tester,
+      contactRepository,
+      onOpenArchived: () => opened = true,
+    );
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Archived contacts'));
+    await tester.pumpAndSettle();
+
+    expect(opened, isTrue);
+  });
+
   testWidgets('shows a typed failure with an enabled retry action', (
     tester,
   ) async {
@@ -87,7 +112,7 @@ void main() {
       () => contactRepository.watchContacts(
         workspaceId: any(named: 'workspaceId'),
         accessScope: any(named: 'accessScope'),
-        includeArchived: any(named: 'includeArchived'),
+        archiveFilter: ContactArchiveFilter.active,
       ),
     ).thenAnswer((_) => contactsController.stream);
 
@@ -115,6 +140,7 @@ Future<void> _pumpPage(
   WidgetTester tester,
   ContactRepository contactRepository, {
   ValueChanged<String>? onOpenContact,
+  VoidCallback? onOpenArchived,
 }) async {
   final cubit = ContactListCubit(
     contactRepository: contactRepository,
@@ -132,6 +158,7 @@ Future<void> _pumpPage(
           description: 'All active contacts in this workspace.',
           onCreateLead: () {},
           onOpenContact: onOpenContact ?? (_) {},
+          onOpenArchived: onOpenArchived ?? () {},
         ),
       ),
     ),

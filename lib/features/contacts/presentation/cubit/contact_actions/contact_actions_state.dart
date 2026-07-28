@@ -6,6 +6,8 @@ enum ContactActionStatus {
   conversionSuccess,
   archiving,
   archiveSuccess,
+  restoring,
+  restoreSuccess,
   failure,
 }
 
@@ -20,7 +22,8 @@ final class ContactActionsState extends Equatable {
 
   bool get isBusy =>
       status == ContactActionStatus.converting ||
-      status == ContactActionStatus.archiving;
+      status == ContactActionStatus.archiving ||
+      status == ContactActionStatus.restoring;
 
   @override
   List<Object?> get props => [status, failure];

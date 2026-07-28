@@ -7,6 +7,7 @@ import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
+import 'package:nexuscrm/features/contacts/domain/value_objects/contact_archive_filter.dart';
 
 final class FirestoreContactRepository implements ContactRepository {
   FirestoreContactRepository(this._firestore);
@@ -17,16 +18,15 @@ final class FirestoreContactRepository implements ContactRepository {
   Stream<List<CrmContact>> watchContacts({
     required String workspaceId,
     required ContactAccessScope accessScope,
-    bool includeArchived = false,
+    ContactArchiveFilter archiveFilter = ContactArchiveFilter.active,
   }) {
     return _watch(() {
       Query<Map<String, dynamic>> query = _contacts(
         _requiredIdentifier(workspaceId, 'workspaceId'),
+      ).where(
+        'isArchived',
+        isEqualTo: archiveFilter == ContactArchiveFilter.archived,
       );
-
-      if (!includeArchived) {
-        query = query.where('isArchived', isEqualTo: false);
-      }
 
       query = switch (accessScope) {
         WorkspaceContactAccess() => query,
@@ -218,6 +218,32 @@ final class FirestoreContactRepository implements ContactRepository {
         final contact = _existingContact(snapshot);
 
         if (!contact.isArchived) {
+          transaction.update(reference, data);
+        }
+      });
+    });
+  }
+
+  @override
+  Future<void> restoreContact({
+    required String workspaceId,
+    required String contactId,
+    required String actorUserId,
+  }) {
+    return _execute(() async {
+      final reference = _contactReference(
+        workspaceId: workspaceId,
+        contactId: contactId,
+      );
+      final data = FirestoreContactMapper.restoreContactData(
+        actorUserId: actorUserId,
+      );
+
+      await _firestore.runTransaction((transaction) async {
+        final snapshot = await transaction.get(reference);
+        final contact = _existingContact(snapshot);
+
+        if (contact.isArchived) {
           transaction.update(reference, data);
         }
       });

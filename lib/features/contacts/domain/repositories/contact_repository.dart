@@ -1,12 +1,13 @@
 import 'package:nexuscrm/features/contacts/domain/entities/contact_input.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
+import 'package:nexuscrm/features/contacts/domain/value_objects/contact_archive_filter.dart';
 
 abstract interface class ContactRepository {
   Stream<List<CrmContact>> watchContacts({
     required String workspaceId,
     required ContactAccessScope accessScope,
-    bool includeArchived = false,
+    ContactArchiveFilter archiveFilter = ContactArchiveFilter.active,
   });
 
   Stream<CrmContact?> watchContact({
@@ -41,6 +42,12 @@ abstract interface class ContactRepository {
   });
 
   Future<void> archiveContact({
+    required String workspaceId,
+    required String contactId,
+    required String actorUserId,
+  });
+
+  Future<void> restoreContact({
     required String workspaceId,
     required String contactId,
     required String actorUserId,
