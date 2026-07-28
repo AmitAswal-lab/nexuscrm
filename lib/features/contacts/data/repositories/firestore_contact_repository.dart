@@ -18,13 +18,11 @@ final class FirestoreContactRepository implements ContactRepository {
     required String workspaceId,
     required ContactAccessScope accessScope,
     bool includeArchived = false,
-  }) async* {
-    try {
-      final normalizedWorkspaceId = _requiredIdentifier(
-        workspaceId,
-        'workspaceId',
+  }) {
+    return _watch(() {
+      Query<Map<String, dynamic>> query = _contacts(
+        _requiredIdentifier(workspaceId, 'workspaceId'),
       );
-      Query<Map<String, dynamic>> query = _contacts(normalizedWorkspaceId);
 
       if (!includeArchived) {
         query = query.where('isArchived', isEqualTo: false);
@@ -38,55 +36,34 @@ final class FirestoreContactRepository implements ContactRepository {
         ),
       };
 
-      query = query.orderBy('updatedAt', descending: true);
-
-      await for (final snapshot in query.snapshots()) {
-        if (snapshot.metadata.hasPendingWrites) {
-          continue;
-        }
-
-        final contacts =
-            snapshot.docs.map(FirestoreContactMapper.fromDocument).toList()
-              ..sort(_compareContacts);
-
-        yield List.unmodifiable(contacts);
-      }
-    } on ContactFailure {
-      rethrow;
-    } on FormatException {
-      throw const ContactFailure(ContactFailureCode.invalidData);
-    } on FirebaseException catch (error) {
-      throw FirestoreContactFailureMapper.fromFirebase(error);
-    }
+      return query
+          .orderBy('updatedAt', descending: true)
+          .snapshots()
+          .where((snapshot) => !snapshot.metadata.hasPendingWrites)
+          .map(_sortedContacts);
+    });
   }
 
   @override
   Stream<CrmContact?> watchContact({
     required String workspaceId,
     required String contactId,
-  }) async* {
-    try {
+  }) {
+    return _watch(() {
       final reference = _contactReference(
         workspaceId: workspaceId,
         contactId: contactId,
       );
 
-      await for (final snapshot in reference.snapshots()) {
-        if (snapshot.metadata.hasPendingWrites) {
-          continue;
-        }
-
-        yield snapshot.exists
-            ? FirestoreContactMapper.fromDocument(snapshot)
-            : null;
-      }
-    } on ContactFailure {
-      rethrow;
-    } on FormatException {
-      throw const ContactFailure(ContactFailureCode.invalidData);
-    } on FirebaseException catch (error) {
-      throw FirestoreContactFailureMapper.fromFirebase(error);
-    }
+      return reference
+          .snapshots()
+          .where((snapshot) => !snapshot.metadata.hasPendingWrites)
+          .map(
+            (snapshot) => snapshot.exists
+                ? FirestoreContactMapper.fromDocument(snapshot)
+                : null,
+          );
+    });
   }
 
   @override
@@ -292,6 +269,38 @@ final class FirestoreContactRepository implements ContactRepository {
     }
 
     return normalized;
+  }
+
+  static List<CrmContact> _sortedContacts(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final contacts =
+        snapshot.docs.map(FirestoreContactMapper.fromDocument).toList()
+          ..sort(_compareContacts);
+
+    return List.unmodifiable(contacts);
+  }
+
+  static Stream<T> _watch<T>(Stream<T> Function() build) {
+    try {
+      return build().handleError((Object error) => throw _contactError(error));
+    } on Object catch (error) {
+      return Stream.error(_contactError(error));
+    }
+  }
+
+  static Object _contactError(Object error) {
+    if (error is ContactFailure) {
+      return error;
+    }
+
+    if (error is FormatException) {
+      return const ContactFailure(ContactFailureCode.invalidData);
+    }
+
+    return error is FirebaseException
+        ? FirestoreContactFailureMapper.fromFirebase(error)
+        : error;
   }
 
   static int _compareContacts(CrmContact first, CrmContact second) {
