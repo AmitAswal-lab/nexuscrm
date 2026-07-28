@@ -20,38 +20,31 @@ final class FirestoreActivityRepository implements ActivityRepository {
   Stream<List<CallNote>> watchCallNotes({
     required String workspaceId,
     required String contactId,
-  }) async* {
+  }) {
+    final Query<Map<String, dynamic>> query;
+
     try {
-      final query = _activities(_requiredIdentifier(workspaceId, 'workspaceId'))
+      query = _activities(_requiredIdentifier(workspaceId, 'workspaceId'))
           .where(
             'contactId',
             isEqualTo: _requiredIdentifier(contactId, 'contactId'),
           )
           .orderBy('createdAt', descending: true);
-
-      await for (final snapshot in query.snapshots()) {
-        if (snapshot.metadata.hasPendingWrites) {
-          continue;
-        }
-
-        final notes = snapshot.docs
-            .where(
-              (document) => FirestoreWorkspaceActivityMapper.isType(
-                document,
-                FirestoreWorkspaceActivityMapper.callNoteType,
-              ),
-            )
-            .map(FirestoreCallNoteMapper.fromDocument)
-            .toList(growable: false);
-        yield List.unmodifiable(notes);
-      }
-    } on ActivityFailure {
-      rethrow;
+    } on ActivityFailure catch (error) {
+      return Stream.error(error);
     } on FormatException {
-      throw const ActivityFailure(ActivityFailureCode.invalidData);
+      return Stream.error(
+        const ActivityFailure(ActivityFailureCode.invalidData),
+      );
     } on FirebaseException catch (error) {
-      throw FirestoreActivityFailureMapper.fromFirebase(error);
+      return Stream.error(FirestoreActivityFailureMapper.fromFirebase(error));
     }
+
+    return query
+        .snapshots()
+        .where((snapshot) => !snapshot.metadata.hasPendingWrites)
+        .map(_callNotes)
+        .handleError(_throwCallNoteFailure);
   }
 
   @override
@@ -61,11 +54,11 @@ final class FirestoreActivityRepository implements ActivityRepository {
     String? actorUserId,
     WorkspaceActivityType? type,
     int limit = 50,
-  }) async* {
+  }) {
+    Query<Map<String, dynamic>> query;
+
     try {
-      Query<Map<String, dynamic>> query = _activities(
-        _requiredIdentifier(workspaceId, 'workspaceId'),
-      );
+      query = _activities(_requiredIdentifier(workspaceId, 'workspaceId'));
 
       if (actorUserId != null) {
         query = query.where(
@@ -89,31 +82,17 @@ final class FirestoreActivityRepository implements ActivityRepository {
       }
 
       query = query.orderBy('createdAt', descending: true).limit(limit);
-
-      await for (final snapshot in query.snapshots()) {
-        if (snapshot.metadata.hasPendingWrites) {
-          continue;
-        }
-
-        final activities = <WorkspaceActivity>[];
-
-        for (final document in snapshot.docs) {
-          try {
-            activities.add(
-              FirestoreWorkspaceActivityMapper.fromDocument(document),
-            );
-          } on FormatException {
-            continue;
-          }
-        }
-
-        yield List.unmodifiable(activities);
-      }
-    } on ActivityFailure {
-      rethrow;
+    } on ActivityFailure catch (error) {
+      return Stream.error(error);
     } on FirebaseException catch (error) {
-      throw FirestoreActivityFailureMapper.fromFirebase(error);
+      return Stream.error(FirestoreActivityFailureMapper.fromFirebase(error));
     }
+
+    return query
+        .snapshots()
+        .where((snapshot) => !snapshot.metadata.hasPendingWrites)
+        .map(_workspaceActivities)
+        .handleError(_throwWorkspaceActivityFailure);
   }
 
   @override
@@ -177,6 +156,66 @@ final class FirestoreActivityRepository implements ActivityRepository {
         .collection('workspaces')
         .doc(workspaceId)
         .collection('tasks');
+  }
+
+  static List<CallNote> _callNotes(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final notes = snapshot.docs
+        .where(
+          (document) => FirestoreWorkspaceActivityMapper.isType(
+            document,
+            FirestoreWorkspaceActivityMapper.callNoteType,
+          ),
+        )
+        .map(FirestoreCallNoteMapper.fromDocument)
+        .toList(growable: false);
+
+    return List.unmodifiable(notes);
+  }
+
+  static List<WorkspaceActivity> _workspaceActivities(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final activities = <WorkspaceActivity>[];
+
+    for (final document in snapshot.docs) {
+      try {
+        activities.add(FirestoreWorkspaceActivityMapper.fromDocument(document));
+      } on FormatException {
+        continue;
+      }
+    }
+
+    return List.unmodifiable(activities);
+  }
+
+  static Never _throwCallNoteFailure(Object error) {
+    if (error is ActivityFailure) {
+      throw error;
+    }
+
+    if (error is FormatException) {
+      throw const ActivityFailure(ActivityFailureCode.invalidData);
+    }
+
+    if (error is FirebaseException) {
+      throw FirestoreActivityFailureMapper.fromFirebase(error);
+    }
+
+    throw error;
+  }
+
+  static Never _throwWorkspaceActivityFailure(Object error) {
+    if (error is ActivityFailure) {
+      throw error;
+    }
+
+    if (error is FirebaseException) {
+      throw FirestoreActivityFailureMapper.fromFirebase(error);
+    }
+
+    throw error;
   }
 
   static String _requiredIdentifier(String value, String field) {
