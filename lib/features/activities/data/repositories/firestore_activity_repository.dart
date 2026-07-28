@@ -21,30 +21,17 @@ final class FirestoreActivityRepository implements ActivityRepository {
     required String workspaceId,
     required String contactId,
   }) {
-    final Query<Map<String, dynamic>> query;
-
-    try {
-      query = _activities(_requiredIdentifier(workspaceId, 'workspaceId'))
+    return _watch(() {
+      return _activities(_requiredIdentifier(workspaceId, 'workspaceId'))
           .where(
             'contactId',
             isEqualTo: _requiredIdentifier(contactId, 'contactId'),
           )
-          .orderBy('createdAt', descending: true);
-    } on ActivityFailure catch (error) {
-      return Stream.error(error);
-    } on FormatException {
-      return Stream.error(
-        const ActivityFailure(ActivityFailureCode.invalidData),
-      );
-    } on FirebaseException catch (error) {
-      return Stream.error(FirestoreActivityFailureMapper.fromFirebase(error));
-    }
-
-    return query
-        .snapshots()
-        .where((snapshot) => !snapshot.metadata.hasPendingWrites)
-        .map(_callNotes)
-        .handleError(_throwCallNoteFailure);
+          .orderBy('createdAt', descending: true)
+          .snapshots()
+          .where((snapshot) => !snapshot.metadata.hasPendingWrites)
+          .map(_callNotes);
+    }, _callNoteError);
   }
 
   @override
@@ -55,10 +42,10 @@ final class FirestoreActivityRepository implements ActivityRepository {
     WorkspaceActivityType? type,
     int limit = 50,
   }) {
-    Query<Map<String, dynamic>> query;
-
-    try {
-      query = _activities(_requiredIdentifier(workspaceId, 'workspaceId'));
+    return _watch(() {
+      Query<Map<String, dynamic>> query = _activities(
+        _requiredIdentifier(workspaceId, 'workspaceId'),
+      );
 
       if (actorUserId != null) {
         query = query.where(
@@ -81,18 +68,13 @@ final class FirestoreActivityRepository implements ActivityRepository {
         );
       }
 
-      query = query.orderBy('createdAt', descending: true).limit(limit);
-    } on ActivityFailure catch (error) {
-      return Stream.error(error);
-    } on FirebaseException catch (error) {
-      return Stream.error(FirestoreActivityFailureMapper.fromFirebase(error));
-    }
-
-    return query
-        .snapshots()
-        .where((snapshot) => !snapshot.metadata.hasPendingWrites)
-        .map(_workspaceActivities)
-        .handleError(_throwWorkspaceActivityFailure);
+      return query
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .snapshots()
+          .where((snapshot) => !snapshot.metadata.hasPendingWrites)
+          .map(_workspaceActivities);
+    }, _activityError);
   }
 
   @override
@@ -190,32 +172,31 @@ final class FirestoreActivityRepository implements ActivityRepository {
     return List.unmodifiable(activities);
   }
 
-  static Never _throwCallNoteFailure(Object error) {
-    if (error is ActivityFailure) {
-      throw error;
+  static Stream<T> _watch<T>(
+    Stream<T> Function() build,
+    Object Function(Object) mapError,
+  ) {
+    try {
+      return build().handleError((Object error) => throw mapError(error));
+    } on Object catch (error) {
+      return Stream.error(mapError(error));
     }
-
-    if (error is FormatException) {
-      throw const ActivityFailure(ActivityFailureCode.invalidData);
-    }
-
-    if (error is FirebaseException) {
-      throw FirestoreActivityFailureMapper.fromFirebase(error);
-    }
-
-    throw error;
   }
 
-  static Never _throwWorkspaceActivityFailure(Object error) {
+  static Object _activityError(Object error) {
     if (error is ActivityFailure) {
-      throw error;
+      return error;
     }
 
-    if (error is FirebaseException) {
-      throw FirestoreActivityFailureMapper.fromFirebase(error);
-    }
+    return error is FirebaseException
+        ? FirestoreActivityFailureMapper.fromFirebase(error)
+        : error;
+  }
 
-    throw error;
+  static Object _callNoteError(Object error) {
+    return error is FormatException
+        ? const ActivityFailure(ActivityFailureCode.invalidData)
+        : _activityError(error);
   }
 
   static String _requiredIdentifier(String value, String field) {

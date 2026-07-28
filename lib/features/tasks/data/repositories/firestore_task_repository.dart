@@ -17,13 +17,11 @@ final class FirestoreTaskRepository implements TaskRepository {
   Stream<List<CrmTask>> watchTasks({
     required String workspaceId,
     required TaskAccessScope accessScope,
-  }) async* {
-    try {
-      final normalizedWorkspaceId = _requiredIdentifier(
-        workspaceId,
-        'workspaceId',
+  }) {
+    return _watch(() {
+      Query<Map<String, dynamic>> query = _tasks(
+        _requiredIdentifier(workspaceId, 'workspaceId'),
       );
-      Query<Map<String, dynamic>> query = _tasks(normalizedWorkspaceId);
 
       query = switch (accessScope) {
         WorkspaceTaskAccess() => query,
@@ -33,55 +31,34 @@ final class FirestoreTaskRepository implements TaskRepository {
         ),
       };
 
-      query = query.orderBy('dueOn');
-
-      await for (final snapshot in query.snapshots()) {
-        if (snapshot.metadata.hasPendingWrites) {
-          continue;
-        }
-
-        final tasks =
-            snapshot.docs.map(FirestoreTaskMapper.fromDocument).toList()
-              ..sort(_compareTasks);
-
-        yield List.unmodifiable(tasks);
-      }
-    } on TaskFailure {
-      rethrow;
-    } on FormatException {
-      throw const TaskFailure(TaskFailureCode.invalidData);
-    } on FirebaseException catch (error) {
-      throw FirestoreTaskFailureMapper.fromFirebase(error);
-    }
+      return query
+          .orderBy('dueOn')
+          .snapshots()
+          .where((snapshot) => !snapshot.metadata.hasPendingWrites)
+          .map(_sortedTasks);
+    });
   }
 
   @override
   Stream<CrmTask?> watchTask({
     required String workspaceId,
     required String taskId,
-  }) async* {
-    try {
+  }) {
+    return _watch(() {
       final reference = _taskReference(
         workspaceId: workspaceId,
         taskId: taskId,
       );
 
-      await for (final snapshot in reference.snapshots()) {
-        if (snapshot.metadata.hasPendingWrites) {
-          continue;
-        }
-
-        yield snapshot.exists
-            ? FirestoreTaskMapper.fromDocument(snapshot)
-            : null;
-      }
-    } on TaskFailure {
-      rethrow;
-    } on FormatException {
-      throw const TaskFailure(TaskFailureCode.invalidData);
-    } on FirebaseException catch (error) {
-      throw FirestoreTaskFailureMapper.fromFirebase(error);
-    }
+      return reference
+          .snapshots()
+          .where((snapshot) => !snapshot.metadata.hasPendingWrites)
+          .map(
+            (snapshot) => snapshot.exists
+                ? FirestoreTaskMapper.fromDocument(snapshot)
+                : null,
+          );
+    });
   }
 
   @override
@@ -89,13 +66,14 @@ final class FirestoreTaskRepository implements TaskRepository {
     required String workspaceId,
     required String contactId,
     required TaskAccessScope accessScope,
-  }) async* {
-    try {
+  }) {
+    return _watch(() {
       Query<Map<String, dynamic>> query =
           _tasks(_requiredIdentifier(workspaceId, 'workspaceId')).where(
             'contactId',
             isEqualTo: _requiredIdentifier(contactId, 'contactId'),
           );
+
       query = switch (accessScope) {
         WorkspaceTaskAccess() => query,
         AssignedTaskAccess(:final assigneeId) => query.where(
@@ -103,21 +81,12 @@ final class FirestoreTaskRepository implements TaskRepository {
           isEqualTo: _requiredIdentifier(assigneeId, 'assigneeId'),
         ),
       };
-      await for (final snapshot in query.snapshots()) {
-        if (!snapshot.metadata.hasPendingWrites) {
-          final tasks =
-              snapshot.docs.map(FirestoreTaskMapper.fromDocument).toList()
-                ..sort(_compareTasks);
-          yield List.unmodifiable(tasks);
-        }
-      }
-    } on TaskFailure {
-      rethrow;
-    } on FormatException {
-      throw const TaskFailure(TaskFailureCode.invalidData);
-    } on FirebaseException catch (error) {
-      throw FirestoreTaskFailureMapper.fromFirebase(error);
-    }
+
+      return query
+          .snapshots()
+          .where((snapshot) => !snapshot.metadata.hasPendingWrites)
+          .map(_sortedTasks);
+    });
   }
 
   @override
@@ -315,6 +284,37 @@ final class FirestoreTaskRepository implements TaskRepository {
     }
 
     return normalized;
+  }
+
+  static List<CrmTask> _sortedTasks(
+    QuerySnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final tasks = snapshot.docs.map(FirestoreTaskMapper.fromDocument).toList()
+      ..sort(_compareTasks);
+
+    return List.unmodifiable(tasks);
+  }
+
+  static Stream<T> _watch<T>(Stream<T> Function() build) {
+    try {
+      return build().handleError((Object error) => throw _taskError(error));
+    } on Object catch (error) {
+      return Stream.error(_taskError(error));
+    }
+  }
+
+  static Object _taskError(Object error) {
+    if (error is TaskFailure) {
+      return error;
+    }
+
+    if (error is FormatException) {
+      return const TaskFailure(TaskFailureCode.invalidData);
+    }
+
+    return error is FirebaseException
+        ? FirestoreTaskFailureMapper.fromFirebase(error)
+        : error;
   }
 
   static int _compareTasks(CrmTask first, CrmTask second) {
