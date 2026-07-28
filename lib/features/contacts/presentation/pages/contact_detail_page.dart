@@ -510,7 +510,9 @@ class _ActivityTile extends StatelessWidget {
       }),
       title: Text(task.title),
       subtitle: Text(
-        'Follow-up • Due ${task.dueOn} • ${_taskStatusLabel(task.status)}\nAssigned to ${_nameFor(task.assigneeId)}',
+        '${_taskKindLabel(task.kind)} • Due ${task.dueOn} • '
+        '${_taskStatusLabel(task.status)}\n'
+        'Assigned to ${_nameFor(task.assigneeId)}',
       ),
       trailing: Text(_formatTimestamp(task.createdAt)),
     );
@@ -523,6 +525,11 @@ class _ActivityTile extends StatelessWidget {
 
     return userNames[userId] ?? 'Administrator';
   }
+
+  static String _taskKindLabel(TaskKind kind) => switch (kind) {
+    TaskKind.task => 'Task',
+    TaskKind.followUp => 'Follow-up',
+  };
 
   static String _taskStatusLabel(TaskStatus status) => switch (status) {
     TaskStatus.open => 'Open',

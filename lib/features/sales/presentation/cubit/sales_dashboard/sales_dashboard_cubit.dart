@@ -45,7 +45,7 @@ final class SalesDashboardCubit extends Cubit<SalesDashboardState> {
   StreamSubscription<List<CrmTask>>? _taskSubscription;
 
   Future<void> load() async {
-    await _subscription?.cancel();
+    unawaited(_subscription?.cancel());
 
     if (isClosed) {
       return;
@@ -99,8 +99,8 @@ final class SalesDashboardCubit extends Cubit<SalesDashboardState> {
 
   @override
   Future<void> close() async {
-    await _subscription?.cancel();
-    await _taskSubscription?.cancel();
+    unawaited(_subscription?.cancel());
+    unawaited(_taskSubscription?.cancel());
     return super.close();
   }
 }
