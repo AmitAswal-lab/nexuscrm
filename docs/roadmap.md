@@ -372,9 +372,13 @@ Carried forward from this milestone's work:
   can be cancelled individually. An automatic cascade was rejected: a
   representative archiving a contact whose follow-up is assigned to an
   administrator would fail the rules check and abort the whole batch.
-- Contacts can be archived but never restored, which is the same asymmetry that
-  was rejected for tasks. Either add a restore action or state the constraint
-  in the product docs.
+- **Contact restore. Closed.** Contacts could be archived but never restored,
+  the same asymmetry that was rejected for tasks. An **Archived contacts**
+  screen now lists them with a Restore action, reachable from the overflow menu
+  on the leads list. Archived contacts stay uneditable until restored, which is
+  deliberately stricter than cancelled tasks: a task is a work item worth
+  correcting in place, an archived contact is a record being kept out of the
+  way. See `docs/lead-management.md`.
 - The Completed and Cancelled task views load every matching document with no
   limit or date window. Harmless at demo scale; a date filter or page size is
   the fix if the workspace grows.

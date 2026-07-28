@@ -72,9 +72,32 @@ the authoritative security boundary.
 3. Conversion atomically changes a lead into a client and records the actor and
    server timestamp.
 4. Archive removes the contact from active queries without deleting its record.
+5. Restore returns an archived contact to the active lists.
 
-Conversion and archive operations use Firestore transactions to validate the
-current document type and prevent stale or conflicting writes.
+Conversion, archive, and restore operations use Firestore transactions to
+validate the current document type and prevent stale or conflicting writes.
+
+## Archive and restore
+
+An archived contact is hidden, not deleted, and archiving is reversible. The
+**Archived contacts** screen, reached from the overflow menu on the leads list,
+lists them with a Restore action. Whoever may archive a contact may restore it:
+an administrator, or the representative who owns it.
+
+An archived contact cannot be edited. Restore it first. The rules enforce this
+by requiring an active contact for a content update and an archived one for a
+restore, so the two transitions cannot be combined into a single write.
+
+Tasks are deliberately not cascaded. Archiving a contact leaves its open tasks
+on the task list, because a representative archiving a contact whose follow-up
+belongs to an administrator could not update that task under the rules, and the
+failure would abort the archive itself. The archive confirmation reports the
+open-task count instead, so the choice is informed. See
+[Task cancellation](task-cancellation.md) for how those tasks are closed.
+
+Archiving and restoring are not recorded as activity events, matching the
+decision in [Admin activity](admin-activity.md) to leave contact archiving out
+of the feed.
 
 ## Routes
 
@@ -114,9 +137,11 @@ and typed failure translation stay in the data layer.
 
 ## Queries and indexes
 
-Active workspace queries filter `isArchived` and order by `updatedAt`.
-Sales queries additionally filter `ownerId`. Composite indexes for those query
-shapes are defined in `firestore.indexes.json`.
+Contact queries always filter `isArchived`, selecting either the active or the
+archived side through `ContactArchiveFilter`. Sales queries additionally filter
+`ownerId`. Composite indexes for those query shapes are defined in
+`firestore.indexes.json`, and the archived screen reuses them because the index
+serves both values of the field.
 
 Reviewed rules and indexes are deployed to the development Firebase project:
 `nexuscrm-dev-amitaswal`.
