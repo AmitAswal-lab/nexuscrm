@@ -6,6 +6,7 @@ import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/failures/contact_failure.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
+import 'package:nexuscrm/features/contacts/domain/value_objects/contact_archive_filter.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_list/contact_list_cubit.dart';
 
 final class _MockContactRepository extends Mock implements ContactRepository {}
@@ -25,7 +26,7 @@ void main() {
       () => contactRepository.watchContacts(
         workspaceId: any(named: 'workspaceId'),
         accessScope: any(named: 'accessScope'),
-        includeArchived: any(named: 'includeArchived'),
+        archiveFilter: ContactArchiveFilter.active,
       ),
     ).thenAnswer((_) => contactsController.stream);
   });

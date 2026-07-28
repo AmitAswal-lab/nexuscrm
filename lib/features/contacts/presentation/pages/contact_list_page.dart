@@ -10,6 +10,7 @@ class ContactListPage extends StatelessWidget {
     required this.description,
     required this.onCreateLead,
     required this.onOpenContact,
+    required this.onOpenArchived,
     super.key,
   });
 
@@ -17,6 +18,7 @@ class ContactListPage extends StatelessWidget {
   final String description;
   final VoidCallback onCreateLead;
   final ValueChanged<String> onOpenContact;
+  final VoidCallback onOpenArchived;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +43,15 @@ class ContactListPage extends StatelessWidget {
                       onPressed: onCreateLead,
                       icon: const Icon(Icons.add),
                       label: const Text('New lead'),
+                    ),
+                    PopupMenuButton<void>(
+                      tooltip: 'More options',
+                      itemBuilder: (context) => [
+                        PopupMenuItem<void>(
+                          onTap: onOpenArchived,
+                          child: const Text('Archived contacts'),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -271,7 +282,7 @@ class _EmptyView extends StatelessWidget {
             Text(message, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),
             const Text(
-              'Lead creation will be added in the next workflow checkpoint.',
+              'Use New lead to add your first contact.',
               textAlign: TextAlign.center,
             ),
           ],

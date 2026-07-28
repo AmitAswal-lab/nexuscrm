@@ -10,6 +10,7 @@ import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
+import 'package:nexuscrm/features/contacts/domain/value_objects/contact_archive_filter.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/task_input.dart';
 import 'package:nexuscrm/features/tasks/domain/repositories/task_repository.dart';
@@ -61,13 +62,22 @@ final class EmptyContactRepository implements ContactRepository {
   Stream<List<CrmContact>> watchContacts({
     required String workspaceId,
     required ContactAccessScope accessScope,
-    bool includeArchived = false,
+    ContactArchiveFilter archiveFilter = ContactArchiveFilter.active,
   }) {
     return Stream.value(const <CrmContact>[]);
   }
 
   @override
   Future<void> archiveContact({
+    required String workspaceId,
+    required String contactId,
+    required String actorUserId,
+  }) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> restoreContact({
     required String workspaceId,
     required String contactId,
     required String actorUserId,

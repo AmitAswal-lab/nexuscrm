@@ -423,6 +423,111 @@ test('allows soft archive but rejects hard deletion', async () => {
   await assertFails(deleteDoc(reference));
 });
 
+test('allows the owner and an admin to restore an archived contact', async () => {
+  const owner = testEnvironment.authenticatedContext('sales-user').firestore();
+  const admin = testEnvironment.authenticatedContext('admin-user').firestore();
+  const asOwner = doc(
+    owner,
+    'workspaces',
+    'workspace-one',
+    'contacts',
+    'owned-lead',
+  );
+  const asAdmin = doc(
+    admin,
+    'workspaces',
+    'workspace-one',
+    'contacts',
+    'owned-lead',
+  );
+
+  await assertSucceeds(
+    updateDoc(asOwner, {
+      isArchived: true,
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+  await assertSucceeds(
+    updateDoc(asOwner, {
+      isArchived: false,
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+
+  await assertSucceeds(
+    updateDoc(asAdmin, {
+      isArchived: true,
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'admin-user',
+    }),
+  );
+  await assertSucceeds(
+    updateDoc(asAdmin, {
+      isArchived: false,
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'admin-user',
+    }),
+  );
+});
+
+test('rejects restoring a contact owned by someone else', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const reference = doc(
+    database,
+    'workspaces',
+    'workspace-one',
+    'contacts',
+    'other-lead',
+  );
+
+  await assertFails(
+    updateDoc(reference, {
+      isArchived: false,
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+});
+
+test('rejects editing a contact while it is archived', async () => {
+  const database = testEnvironment
+    .authenticatedContext('sales-user')
+    .firestore();
+  const reference = doc(
+    database,
+    'workspaces',
+    'workspace-one',
+    'contacts',
+    'owned-lead',
+  );
+
+  await assertSucceeds(
+    updateDoc(reference, {
+      isArchived: true,
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+  await assertFails(
+    updateDoc(reference, {
+      fullName: 'Renamed While Archived',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+  await assertFails(
+    updateDoc(reference, {
+      isArchived: true,
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'sales-user',
+    }),
+  );
+});
+
 test('allows admins to read the active sales-assignee directory', async () => {
   const database = testEnvironment
     .authenticatedContext('admin-user')

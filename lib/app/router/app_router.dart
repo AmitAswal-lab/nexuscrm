@@ -32,11 +32,13 @@ import 'package:nexuscrm/features/authentication/presentation/pages/sign_in_page
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
+import 'package:nexuscrm/features/contacts/presentation/cubit/archived_contacts/archived_contacts_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_actions/contact_actions_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_detail/contact_detail_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_edit/contact_edit_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/contact_list/contact_list_cubit.dart';
 import 'package:nexuscrm/features/contacts/presentation/cubit/lead_form/lead_form_cubit.dart';
+import 'package:nexuscrm/features/contacts/presentation/pages/archived_contacts_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_activity_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_detail_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_edit_page.dart';
@@ -193,12 +195,20 @@ final class AppRouter {
                 description: 'All active contacts in this workspace.',
                 createLeadRoute: AppRoutes.adminNewLead,
                 contactRoute: AppRoutes.adminContact,
+                archivedRoute: AppRoutes.adminArchivedContacts,
               ),
               routes: [
                 GoRoute(
                   path: 'new',
                   builder: (context, state) =>
                       _leadFormPage(context, canAssignOwner: true),
+                ),
+                GoRoute(
+                  path: 'archived',
+                  builder: (context, state) => _archivedContactsPage(
+                    context,
+                    accessScope: const WorkspaceContactAccess(),
+                  ),
                 ),
                 GoRoute(
                   path: ':contactId',
@@ -359,6 +369,7 @@ final class AppRouter {
                   description: 'Contacts currently assigned to you.',
                   createLeadRoute: AppRoutes.salesNewLead,
                   contactRoute: AppRoutes.salesContact,
+                  archivedRoute: AppRoutes.salesArchivedContacts,
                 );
               },
               routes: [
@@ -366,6 +377,17 @@ final class AppRouter {
                   path: 'new',
                   builder: (context, state) =>
                       _leadFormPage(context, canAssignOwner: false),
+                ),
+                GoRoute(
+                  path: 'archived',
+                  builder: (context, state) {
+                    final session = _authenticatedSession(context);
+
+                    return _archivedContactsPage(
+                      context,
+                      accessScope: OwnedContactAccess(session.user.id),
+                    );
+                  },
                 ),
                 GoRoute(
                   path: ':contactId',
@@ -458,6 +480,7 @@ final class AppRouter {
     required String description,
     required String createLeadRoute,
     required String Function(String) contactRoute,
+    required String archivedRoute,
   }) {
     final session = _authenticatedSession(context);
 
@@ -472,7 +495,25 @@ final class AppRouter {
         description: description,
         onCreateLead: () => context.go(createLeadRoute),
         onOpenContact: (contactId) => context.go(contactRoute(contactId)),
+        onOpenArchived: () => context.go(archivedRoute),
       ),
+    );
+  }
+
+  static Widget _archivedContactsPage(
+    BuildContext context, {
+    required ContactAccessScope accessScope,
+  }) {
+    final session = _authenticatedSession(context);
+
+    return BlocProvider(
+      create: (context) => ArchivedContactsCubit(
+        contactRepository: context.read<ContactRepository>(),
+        workspaceId: session.membership.workspaceId,
+        accessScope: accessScope,
+        actorUserId: session.user.id,
+      ),
+      child: const ArchivedContactsPage(),
     );
   }
 

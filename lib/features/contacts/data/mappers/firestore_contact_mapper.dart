@@ -152,6 +152,16 @@ abstract final class FirestoreContactMapper {
     };
   }
 
+  static Map<String, Object?> restoreContactData({
+    required String actorUserId,
+  }) {
+    return <String, Object?>{
+      'isArchived': false,
+      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedByUserId': _normalizedRequired(actorUserId, 'updatedByUserId'),
+    };
+  }
+
   static LeadStage _parseLeadStage(String value) {
     return switch (value) {
       'new' => LeadStage.newLead,

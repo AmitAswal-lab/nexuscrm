@@ -86,6 +86,32 @@ final class ContactActionsCubit extends Cubit<ContactActionsState> {
     }
   }
 
+  Future<void> restoreContact() async {
+    if (state.isBusy) {
+      return;
+    }
+
+    emit(const ContactActionsState(status: ContactActionStatus.restoring));
+
+    try {
+      await _contactRepository.restoreContact(
+        workspaceId: _workspaceId,
+        contactId: _contactId,
+        actorUserId: _actorUserId,
+      );
+
+      if (!isClosed) {
+        emit(
+          const ContactActionsState(status: ContactActionStatus.restoreSuccess),
+        );
+      }
+    } on ContactFailure catch (failure) {
+      _emitFailure(failure);
+    } on Object {
+      _emitFailure(const ContactFailure(ContactFailureCode.unknown));
+    }
+  }
+
   void _emitFailure(ContactFailure failure) {
     if (!isClosed) {
       emit(

@@ -63,7 +63,9 @@ class ContactDetailPage extends StatelessWidget {
             );
           case ContactActionStatus.idle ||
               ContactActionStatus.converting ||
-              ContactActionStatus.archiving:
+              ContactActionStatus.archiving ||
+              ContactActionStatus.restoring ||
+              ContactActionStatus.restoreSuccess:
             break;
         }
       },

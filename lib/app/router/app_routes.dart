@@ -8,6 +8,7 @@ abstract final class AppRoutes {
   static const admin = '/admin';
   static const adminHome = '$admin/home';
   static const adminLeads = '$admin/leads';
+  static const adminArchivedContacts = '$adminLeads/archived';
   static const adminNewLead = '$adminLeads/new';
   static const adminTasks = '$admin/tasks';
   static const adminNewTask = '$adminTasks/new';
@@ -17,6 +18,7 @@ abstract final class AppRoutes {
   static const sales = '/sales';
   static const salesHome = '$sales/home';
   static const salesLeads = '$sales/leads';
+  static const salesArchivedContacts = '$salesLeads/archived';
   static const salesNewLead = '$salesLeads/new';
   static const salesTasks = '$sales/tasks';
   static const salesNewTask = '$salesTasks/new';

@@ -534,7 +534,18 @@ service cloud.firestore {
     }
 
     function isArchiveOnlyUpdate() {
-      return request.resource.data.isArchived == true
+      return resource.data.isArchived == false
+        && request.resource.data.isArchived == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'isArchived',
+          'updatedAt',
+          'updatedByUserId',
+        ]);
+    }
+
+    function isRestoreOnlyUpdate() {
+      return resource.data.isArchived == true
+        && request.resource.data.isArchived == false
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'isArchived',
           'updatedAt',
@@ -543,7 +554,8 @@ service cloud.firestore {
     }
 
     function isContactContentUpdate() {
-      return request.resource.data.isArchived == false
+      return resource.data.isArchived == false
+        && request.resource.data.isArchived == false
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'kind',
           'fullName',
@@ -562,15 +574,18 @@ service cloud.firestore {
     }
 
     function hasValidContactUpdate(workspaceId) {
-      return resource.data.isArchived == false
-        && hasValidContactData(request.resource.data, workspaceId)
+      return hasValidContactData(request.resource.data, workspaceId)
         && request.resource.data.workspaceId == resource.data.workspaceId
         && request.resource.data.createdByUserId
           == resource.data.createdByUserId
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedByUserId == request.auth.uid
         && request.resource.data.updatedAt == request.time
-        && (isArchiveOnlyUpdate() || isContactContentUpdate());
+        && (
+          isArchiveOnlyUpdate()
+          || isRestoreOnlyUpdate()
+          || isContactContentUpdate()
+        );
     }
 
     match /users/{userId} {

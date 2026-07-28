@@ -6,6 +6,7 @@ import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
+import 'package:nexuscrm/features/contacts/domain/value_objects/contact_archive_filter.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/task_input.dart';
 import 'package:nexuscrm/features/tasks/domain/failures/task_failure.dart';
@@ -156,7 +157,7 @@ void main() {
       () => contacts.watchContacts(
         workspaceId: any(named: 'workspaceId'),
         accessScope: any(named: 'accessScope'),
-        includeArchived: any(named: 'includeArchived'),
+        archiveFilter: ContactArchiveFilter.active,
       ),
     ).thenAnswer((_) => Stream.value(<CrmContact>[_lead]));
     when(
