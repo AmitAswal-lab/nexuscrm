@@ -67,7 +67,7 @@ final class LeadFormCubit extends Cubit<LeadFormState> {
       return;
     }
 
-    await _assigneeSubscription?.cancel();
+    unawaited(_assigneeSubscription?.cancel());
 
     if (isClosed) {
       return;
@@ -199,7 +199,7 @@ final class LeadFormCubit extends Cubit<LeadFormState> {
 
   @override
   Future<void> close() async {
-    await _assigneeSubscription?.cancel();
+    unawaited(_assigneeSubscription?.cancel());
     return super.close();
   }
 }

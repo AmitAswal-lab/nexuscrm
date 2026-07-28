@@ -40,7 +40,7 @@ final class TaskListCubit extends Cubit<TaskListState> {
   StreamSubscription<List<CrmTask>>? _subscription;
 
   Future<void> load() async {
-    await _subscription?.cancel();
+    unawaited(_subscription?.cancel());
 
     if (isClosed) {
       return;
@@ -97,7 +97,7 @@ final class TaskListCubit extends Cubit<TaskListState> {
 
   @override
   Future<void> close() async {
-    await _subscription?.cancel();
+    unawaited(_subscription?.cancel());
     return super.close();
   }
 

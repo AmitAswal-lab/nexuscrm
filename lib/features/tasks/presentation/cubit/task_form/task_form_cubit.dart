@@ -131,9 +131,9 @@ final class TaskFormCubit extends Cubit<TaskFormState> {
       error is TaskFailure ? error : const TaskFailure(TaskFailureCode.unknown);
   @override
   Future<void> close() async {
-    await _contacts?.cancel();
-    await _assignees?.cancel();
-    await _task?.cancel();
+    unawaited(_contacts?.cancel());
+    unawaited(_assignees?.cancel());
+    unawaited(_task?.cancel());
     return super.close();
   }
 }

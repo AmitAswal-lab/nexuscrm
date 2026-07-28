@@ -79,7 +79,7 @@ final class CallNoteFormCubit extends Cubit<CallNoteFormState> {
 
   @override
   Future<void> close() async {
-    await _assignees?.cancel();
+    unawaited(_assignees?.cancel());
     return super.close();
   }
 }
