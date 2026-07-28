@@ -33,7 +33,7 @@ final class ContactListCubit extends Cubit<ContactListState> {
   StreamSubscription<List<CrmContact>>? _subscription;
 
   Future<void> load() async {
-    await _subscription?.cancel();
+    unawaited(_subscription?.cancel());
 
     if (isClosed) {
       return;
@@ -89,7 +89,7 @@ final class ContactListCubit extends Cubit<ContactListState> {
 
   @override
   Future<void> close() async {
-    await _subscription?.cancel();
+    unawaited(_subscription?.cancel());
     return super.close();
   }
 }

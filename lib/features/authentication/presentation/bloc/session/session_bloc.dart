@@ -240,8 +240,8 @@ final class SessionBloc extends Bloc<SessionEvent, SessionState> {
 
   @override
   Future<void> close() async {
-    await _authSubscription?.cancel();
-    await _membershipSubscription?.cancel();
+    unawaited(_authSubscription?.cancel());
+    unawaited(_membershipSubscription?.cancel());
     return super.close();
   }
 }

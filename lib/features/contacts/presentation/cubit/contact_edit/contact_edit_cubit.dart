@@ -67,8 +67,8 @@ final class ContactEditCubit extends Cubit<ContactEditState> {
   StreamSubscription<List<SalesAssignee>>? _assigneeSubscription;
 
   Future<void> load() async {
-    await _contactSubscription?.cancel();
-    await _assigneeSubscription?.cancel();
+    unawaited(_contactSubscription?.cancel());
+    unawaited(_assigneeSubscription?.cancel());
 
     if (isClosed) {
       return;
@@ -98,7 +98,7 @@ final class ContactEditCubit extends Cubit<ContactEditState> {
       return;
     }
 
-    await _assigneeSubscription?.cancel();
+    unawaited(_assigneeSubscription?.cancel());
 
     if (isClosed) {
       return;
@@ -283,8 +283,8 @@ final class ContactEditCubit extends Cubit<ContactEditState> {
 
   @override
   Future<void> close() async {
-    await _contactSubscription?.cancel();
-    await _assigneeSubscription?.cancel();
+    unawaited(_contactSubscription?.cancel());
+    unawaited(_assigneeSubscription?.cancel());
     return super.close();
   }
 }

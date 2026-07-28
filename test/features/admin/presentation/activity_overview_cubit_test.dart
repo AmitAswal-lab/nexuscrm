@@ -126,14 +126,21 @@ final class _ActivityRepository implements ActivityRepository {
     String? actorUserId,
     WorkspaceActivityType? type,
     int limit = 50,
-  }) {
+  }) async* {
     sinceValues.add(since);
     actorValues.add(actorUserId);
     typeValues.add(type);
 
-    return failure == null
-        ? Stream.value(activities)
-        : Stream.error(failure!);
+    if (failure != null) {
+      throw failure!;
+    }
+
+    final controller = StreamController<List<WorkspaceActivity>>();
+    controller.add(activities);
+
+    await for (final value in controller.stream) {
+      yield value;
+    }
   }
 
   @override

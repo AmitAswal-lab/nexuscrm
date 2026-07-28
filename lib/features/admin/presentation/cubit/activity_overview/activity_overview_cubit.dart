@@ -33,7 +33,7 @@ final class ActivityOverviewCubit extends Cubit<ActivityOverviewState> {
   StreamSubscription<List<WorkspaceActivity>>? _subscription;
 
   Future<void> load() async {
-    await _subscription?.cancel();
+    unawaited(_subscription?.cancel());
 
     if (isClosed) return;
 
@@ -94,7 +94,7 @@ final class ActivityOverviewCubit extends Cubit<ActivityOverviewState> {
 
   @override
   Future<void> close() async {
-    await _subscription?.cancel();
+    unawaited(_subscription?.cancel());
     return super.close();
   }
 }
