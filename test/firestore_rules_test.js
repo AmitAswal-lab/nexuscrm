@@ -112,6 +112,10 @@ beforeEach(async () => {
       taskData({ contactId: 'other-lead', assigneeId: 'other-sales' }),
     );
     await setDoc(
+      doc(database, 'workspaces', 'workspace-one', 'tasks', 'stranded-task'),
+      taskData({ contactId: 'owned-lead', assigneeId: 'inactive-sales' }),
+    );
+    await setDoc(
       doc(
         database,
         'workspaces',
@@ -878,6 +882,122 @@ test('rejects creating a task that is already cancelled', async () => {
     setDoc(
       doc(database, 'workspaces', 'workspace-one', 'tasks', 'born-cancelled'),
       { ...seed, status: 'cancelled' },
+    ),
+  );
+});
+
+test('lets an admin close or cancel a task left with an inactive member', async () => {
+  const database = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+  const reference = doc(
+    database,
+    'workspaces',
+    'workspace-one',
+    'tasks',
+    'stranded-task',
+  );
+
+  await assertSucceeds(
+    updateDoc(reference, {
+      status: 'cancelled',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'admin-user',
+    }),
+  );
+
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(
+        context.firestore(),
+        'workspaces',
+        'workspace-one',
+        'tasks',
+        'stranded-task',
+      ),
+      taskData({ contactId: 'owned-lead', assigneeId: 'inactive-sales' }),
+    );
+  });
+
+  await assertSucceeds(
+    updateDoc(reference, {
+      status: 'completed',
+      completionCount: 1,
+      lastCompletedAt: serverTimestamp(),
+      lastCompletedByUserId: 'admin-user',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'admin-user',
+    }),
+  );
+});
+
+test('refuses to reopen a task still held by an inactive member', async () => {
+  const database = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+  const reference = doc(
+    database,
+    'workspaces',
+    'workspace-one',
+    'tasks',
+    'stranded-task',
+  );
+
+  await assertSucceeds(
+    updateDoc(reference, {
+      status: 'cancelled',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'admin-user',
+    }),
+  );
+  await assertFails(
+    updateDoc(reference, {
+      status: 'open',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'admin-user',
+    }),
+  );
+
+  await assertSucceeds(
+    updateDoc(reference, {
+      assigneeId: 'sales-user',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'admin-user',
+    }),
+  );
+  await assertSucceeds(
+    updateDoc(reference, {
+      status: 'open',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'admin-user',
+    }),
+  );
+});
+
+test('still refuses to hand any task to an inactive member', async () => {
+  const database = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+
+  await assertFails(
+    updateDoc(
+      doc(database, 'workspaces', 'workspace-one', 'tasks', 'owned-task'),
+      {
+        assigneeId: 'inactive-sales',
+        updatedAt: serverTimestamp(),
+        updatedByUserId: 'admin-user',
+      },
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(database, 'workspaces', 'workspace-one', 'tasks', 'born-stranded'),
+      taskData({
+        actorUserId: 'admin-user',
+        contactId: 'owned-lead',
+        assigneeId: 'inactive-sales',
+        useServerTimestamp: true,
+      }),
     ),
   );
 });
