@@ -340,7 +340,7 @@ Planned scope:
 - Accessibility and form-validation review
 - Loading, offline, error, and empty-state review
 - Firestore rules and index audit
-- Dependency and lint review
+- Dependency and lint review — **done**
 - README, architecture, setup, and roadmap updates
 - Release build verification
 
@@ -382,10 +382,36 @@ Carried forward from this milestone's work:
 - The Completed and Cancelled task views load every matching document with no
   limit or date window. Harmless at demo scale; a date filter or page size is
   the fix if the workspace grows.
-- `functions/package.json` pins `engines.node` to 22. That pin is the Cloud
-  Functions deploy runtime, not the local toolchain, so a local Node 26 is not
-  by itself a mismatch. Confirm which runtimes Cloud Functions offers before
-  changing it.
+- **`engines.node` pinned to 22. Closed, and not a defect.** That pin is the
+  Cloud Functions deploy runtime, not the local toolchain, and a deploy on
+  2026-07-29 confirmed it running as `Node.js 22 (2nd Gen)`. `@types/node` is
+  pinned to the same major so the types describe the runtime that actually
+  serves requests. A local Node 26 only compiles TypeScript and drives the
+  emulator, so the two versions are not in conflict.
+
+Findings from the dependency and lint review, none of them blocking:
+
+- **Two dependency advisories cannot currently be fixed.** `fast-xml-parser`
+  (high) and `uuid` (moderate) both arrive transitively through
+  `firebase-admin`. Upgrading `firebase-admin` from 13 to 14 was measured and
+  makes matters worse — 13 advisories with 6 high, against 10 with 1 high — so
+  it was reverted. Neither is reachable from this codebase: `fast-xml-parser`
+  comes via `@google-cloud/storage`, which the project does not use, and the
+  `uuid` issue only applies when passing a caller-supplied buffer to v3, v5, or
+  v6, which nothing here does. Re-test the upgrade when `firebase-admin` 14
+  settles.
+- **The emulator does not run the production Node version.** Cloud Functions
+  serve on Node 22 while the emulator runs under whatever Node is installed
+  locally, currently 26. The twenty emulator tests therefore exercise a
+  different major version than production. The fix is to run the emulator under
+  Node 22, not to move the deploy target.
+- **The Functions package has no linter.** There is no ESLint configuration and
+  no lint script; the TypeScript compiler is the only static check. Adding one
+  now would surface a backlog immediately before a release, so it is recorded
+  rather than opened.
+- **`typescript` 5 to 7 and `@types/node` 22 to 26 were skipped deliberately.**
+  The first is a major toolchain jump with no benefit to this project; the
+  second would describe a Node version the functions do not run on.
 
 ## Open design questions
 
