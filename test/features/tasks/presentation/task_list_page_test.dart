@@ -4,12 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:nexuscrm/features/admin/domain/entities/team_member.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/admin_team_repository.dart';
+import 'package:nexuscrm/features/authentication/domain/entities/workspace_membership.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
 import 'package:nexuscrm/features/tasks/domain/failures/task_failure.dart';
 import 'package:nexuscrm/features/tasks/domain/repositories/task_repository.dart';
 import 'package:nexuscrm/features/tasks/domain/value_objects/task_access_scope.dart';
 import 'package:nexuscrm/features/tasks/presentation/cubit/task_list/task_list_cubit.dart';
 import 'package:nexuscrm/features/tasks/presentation/pages/task_list_page.dart';
+
+import '../../../helpers/empty_contact_repository.dart';
 
 final class _MockTaskRepository extends Mock implements TaskRepository {}
 
@@ -38,7 +43,7 @@ void main() {
 
     expect(find.text('Call Asha'), findsOneWidget);
     expect(find.text('Follow-up'), findsOneWidget);
-    expect(find.text('Assigned to Sales representative'), findsOneWidget);
+    expect(find.text('Assigned to a former member'), findsOneWidget);
     expect(find.text('Write proposal'), findsNothing);
 
     await tester.tap(find.text('Upcoming'));
@@ -54,6 +59,42 @@ void main() {
     await tester.pump();
     expect(find.text('Log discovery call'), findsOneWidget);
     expect(find.text('Completed follow-up history'), findsOneWidget);
+  });
+
+  testWidgets('names an administrator holding a task', (tester) async {
+    when(
+      () => taskRepository.watchTasks(
+        workspaceId: any(named: 'workspaceId'),
+        accessScope: any(named: 'accessScope'),
+      ),
+    ).thenAnswer(
+      (_) => Stream.value(<CrmTask>[
+        _task(
+          id: 'inherited',
+          title: 'Chase Acme',
+          dueOn: '2026-07-11',
+          assigneeId: 'admin-user',
+        ),
+      ]),
+    );
+
+    await _pumpPage(
+      tester,
+      taskRepository,
+      showAssignee: true,
+      teamRepository: const _Team([
+        TeamMember(
+          userId: 'admin-user',
+          displayName: 'Priya Admin',
+          email: null,
+          role: WorkspaceRole.admin,
+          status: MembershipStatus.active,
+        ),
+      ]),
+    );
+
+    expect(find.text('Assigned to Priya Admin'), findsOneWidget);
+    expect(find.text('Assigned to a former member'), findsNothing);
   });
 
   testWidgets('keeps cancelled work out of the active views', (tester) async {
@@ -146,6 +187,7 @@ Future<void> _pumpPage(
   WidgetTester tester,
   TaskRepository taskRepository, {
   required bool showAssignee,
+  AdminTeamRepository teamRepository = const EmptyAdminTeamRepository(),
 }) async {
   final cubit = TaskListCubit(
     taskRepository: taskRepository,
@@ -166,6 +208,7 @@ Future<void> _pumpPage(
           onCreateTask: () {},
           onOpenTask: (_) {},
           workspaceId: 'workspace-one',
+          teamRepository: teamRepository,
         ),
       ),
     ),
@@ -208,6 +251,7 @@ CrmTask _task({
   required String dueOn,
   TaskKind kind = TaskKind.task,
   TaskStatus status = TaskStatus.open,
+  String assigneeId = 'sales-user',
   int completionCount = 0,
   DateTime? lastCompletedAt,
   String? lastCompletedByUserId,
@@ -219,7 +263,7 @@ CrmTask _task({
     kind: kind,
     title: title,
     notes: null,
-    assigneeId: 'sales-user',
+    assigneeId: assigneeId,
     dueOn: dueOn,
     status: status,
     completionCount: completionCount,
@@ -230,4 +274,14 @@ CrmTask _task({
     createdAt: _timestamp,
     updatedAt: _timestamp,
   );
+}
+
+final class _Team implements AdminTeamRepository {
+  const _Team(this.members);
+
+  final List<TeamMember> members;
+
+  @override
+  Stream<List<TeamMember>> watchTeam({required String workspaceId}) =>
+      Stream.value(members);
 }

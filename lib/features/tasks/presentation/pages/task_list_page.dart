@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
-import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
+import 'package:nexuscrm/features/admin/domain/entities/team_member.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/admin_team_repository.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
 import 'package:nexuscrm/features/tasks/domain/failures/task_failure.dart';
 import 'package:nexuscrm/features/tasks/presentation/cubit/task_list/task_list_cubit.dart';
@@ -14,7 +14,7 @@ class TaskListPage extends StatelessWidget {
     required this.onCreateTask,
     required this.onOpenTask,
     required this.workspaceId,
-    this.assigneeRepository,
+    this.teamRepository,
     super.key,
   });
 
@@ -24,7 +24,7 @@ class TaskListPage extends StatelessWidget {
   final VoidCallback onCreateTask;
   final ValueChanged<String> onOpenTask;
   final String workspaceId;
-  final SalesAssigneeRepository? assigneeRepository;
+  final AdminTeamRepository? teamRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -63,16 +63,15 @@ class TaskListPage extends StatelessWidget {
                 const _TaskFilter(),
                 const SizedBox(height: 16),
                 Expanded(
-                  child: StreamBuilder<List<SalesAssignee>>(
-                    stream: assigneeRepository?.watchActiveSalesAssignees(
-                      workspaceId: workspaceId,
-                    ),
+                  child: StreamBuilder<List<TeamMember>>(
+                    stream: showAssignee
+                        ? teamRepository?.watchTeam(workspaceId: workspaceId)
+                        : null,
                     builder: (context, snapshot) {
-                      final assignees =
-                          snapshot.data ?? const <SalesAssignee>[];
+                      final members = snapshot.data ?? const <TeamMember>[];
                       final Map<String, String> names = {
-                        for (final assignee in assignees)
-                          assignee.userId: assignee.displayName,
+                        for (final member in members) member.userId:
+                          member.label,
                       };
                       return _TaskListBody(
                         showAssignee: showAssignee,
@@ -273,7 +272,7 @@ class _TaskCard extends StatelessWidget {
                     if (showAssignee) ...[
                       const SizedBox(height: 4),
                       Text(
-                        'Assigned to ${assigneeName ?? 'Sales representative'}',
+                        'Assigned to ${assigneeName ?? 'a former member'}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
