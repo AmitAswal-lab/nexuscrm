@@ -23,6 +23,7 @@ class _TaskFormPageState extends State<TaskFormPage> {
       _notes = TextEditingController(),
       _dueOn = TextEditingController();
   String? _contactId, _assigneeId;
+  String _selfAssigneeId = '';
   TaskKind _kind = TaskKind.task;
   bool _didInitialize = false;
   @override
@@ -68,7 +69,9 @@ class _TaskFormPageState extends State<TaskFormPage> {
       return _Message(message: 'Unable to load the task form.');
     }
     final task = state.task;
-    _initialize(task, context.read<TaskFormCubit>().fixedAssigneeId);
+    final cubit = context.read<TaskFormCubit>();
+    _selfAssigneeId = cubit.selfAssigneeId;
+    _initialize(task, cubit.fixedAssigneeId);
     final saving =
         state.submissionStatus == TaskFormSubmissionStatus.submitting;
     return SingleChildScrollView(
@@ -170,17 +173,23 @@ class _TaskFormPageState extends State<TaskFormPage> {
                     initialValue: _assigneeId,
                     isExpanded: true,
                     decoration: const InputDecoration(
-                      labelText: 'Assigned sales representative',
+                      labelText: 'Assigned to',
                       border: OutlineInputBorder(),
                     ),
                     items: [
                       if (_assigneeId != null &&
+                          _assigneeId != _selfAssigneeId &&
                           !state.assignees.any(
                             (a) => a.userId == _assigneeId,
                           ))
                         DropdownMenuItem(
                           value: _assigneeId,
                           child: const Text('Current assignee'),
+                        ),
+                      if (_selfAssigneeId.isNotEmpty)
+                        DropdownMenuItem(
+                          value: _selfAssigneeId,
+                          child: const Text('Me'),
                         ),
                       ...state.assignees.map(
                         (a) => DropdownMenuItem(

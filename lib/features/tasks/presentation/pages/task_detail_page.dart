@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:nexuscrm/features/admin/domain/entities/team_member.dart';
+import 'package:nexuscrm/features/admin/domain/repositories/admin_team_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
-import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
 import 'package:nexuscrm/features/tasks/presentation/cubit/task_detail/task_detail_cubit.dart';
 
@@ -11,13 +12,15 @@ class TaskDetailPage extends StatelessWidget {
     required this.onEdit,
     required this.workspaceId,
     required this.contactRepository,
-    required this.assigneeRepository,
+    required this.teamRepository,
+    required this.isSalesView,
     super.key,
   });
   final VoidCallback onEdit;
   final String workspaceId;
   final ContactRepository contactRepository;
-  final SalesAssigneeRepository assigneeRepository;
+  final AdminTeamRepository teamRepository;
+  final bool isSalesView;
   @override
   Widget build(BuildContext context) => SafeArea(
     child: BlocConsumer<TaskDetailCubit, TaskDetailState>(
@@ -103,24 +106,27 @@ class TaskDetailPage extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          StreamBuilder(
-                            stream: assigneeRepository
-                                .watchActiveSalesAssignees(
-                                  workspaceId: workspaceId,
-                                ),
-                            builder: (context, snapshot) {
-                              final name = (snapshot.data ?? const [])
-                                  .where(
-                                    (assignee) =>
-                                        assignee.userId == task.assigneeId,
-                                  )
-                                  .map((assignee) => assignee.displayName)
-                                  .firstOrNull;
-                              return Text(
-                                'Assigned to ${name ?? 'Sales representative'}',
-                              );
-                            },
-                          ),
+                          if (isSalesView)
+                            const Text('Assigned to you')
+                          else
+                            StreamBuilder<List<TeamMember>>(
+                              stream: teamRepository.watchTeam(
+                                workspaceId: workspaceId,
+                              ),
+                              builder: (context, snapshot) {
+                                final name =
+                                    (snapshot.data ?? const <TeamMember>[])
+                                        .where(
+                                          (member) =>
+                                              member.userId == task.assigneeId,
+                                        )
+                                        .map((member) => member.label)
+                                        .firstOrNull;
+                                return Text(
+                                  'Assigned to ${name ?? 'a former member'}',
+                                );
+                              },
+                            ),
                           if (task.notes != null) ...[
                             const SizedBox(height: 16),
                             Text(task.notes!),

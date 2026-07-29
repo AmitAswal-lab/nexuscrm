@@ -267,6 +267,7 @@ final class AppRouter {
               ),
               routes: _taskRoutes(
                 canAssign: true,
+                isSalesView: false,
                 editRoute: AppRoutes.adminEditTask,
               ),
             ),
@@ -450,6 +451,7 @@ final class AppRouter {
               },
               routes: _taskRoutes(
                 canAssign: false,
+                isSalesView: true,
                 editRoute: AppRoutes.salesEditTask,
               ),
             ),
@@ -571,13 +573,14 @@ final class AppRouter {
         onCreateTask: () => context.go(newRoute),
         onOpenTask: (id) => context.go(taskRoute(id)),
         workspaceId: session.membership.workspaceId,
-        assigneeRepository: context.read<SalesAssigneeRepository>(),
+        teamRepository: context.read<AdminTeamRepository>(),
       ),
     );
   }
 
   static List<RouteBase> _taskRoutes({
     required bool canAssign,
+    required bool isSalesView,
     required String Function(String) editRoute,
   }) => [
     GoRoute(
@@ -594,6 +597,7 @@ final class AppRouter {
         context,
         taskId: state.pathParameters['taskId']!,
         editRoute: editRoute,
+        isSalesView: isSalesView,
       ),
       routes: [
         GoRoute(
@@ -640,6 +644,7 @@ final class AppRouter {
     BuildContext context, {
     required String taskId,
     required String Function(String) editRoute,
+    required bool isSalesView,
   }) {
     final session = _authenticatedSession(context);
     return BlocProvider(
@@ -653,7 +658,8 @@ final class AppRouter {
         onEdit: () => context.go(editRoute(taskId)),
         workspaceId: session.membership.workspaceId,
         contactRepository: context.read<ContactRepository>(),
-        assigneeRepository: context.read<SalesAssigneeRepository>(),
+        teamRepository: context.read<AdminTeamRepository>(),
+        isSalesView: isSalesView,
       ),
     );
   }

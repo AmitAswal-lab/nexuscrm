@@ -41,6 +41,17 @@ service cloud.firestore {
         );
     }
 
+    function isAssignableTaskTarget(workspaceId, userId) {
+      return userId is string
+        && (
+          hasActiveRole(workspaceId, userId, 'sales_rep')
+          || (
+            userId == request.auth.uid
+            && isActiveTaskAssignee(workspaceId, userId)
+          )
+        );
+    }
+
     function hasValidContactKeys(data) {
       return data.keys().hasOnly([
         'workspaceId',
@@ -203,7 +214,8 @@ service cloud.firestore {
         && data.title.size() > 0
         && data.title.size() <= 120
         && isOptionalShortNotes(data.notes)
-        && isActiveTaskAssignee(workspaceId, data.assigneeId)
+        && data.assigneeId is string
+        && data.assigneeId.size() > 0
         && isTaskDueOn(data.dueOn)
         && hasValidTaskCompletionData(data)
         && data.createdByUserId is string
@@ -245,6 +257,7 @@ service cloud.firestore {
 
     function hasValidTaskCreation(workspaceId) {
       return hasValidTaskData(request.resource.data, workspaceId)
+        && isAssignableTaskTarget(workspaceId, request.resource.data.assigneeId)
         && isActiveTaskContact(workspaceId, request.resource.data.contactId)
         && request.resource.data.status == 'open'
         && request.resource.data.completionCount == 0
@@ -318,8 +331,27 @@ service cloud.firestore {
           == resource.data.lastCompletedByUserId;
     }
 
+    function hasUsableTaskAssignee(workspaceId) {
+      return isAssignableTaskTarget(
+          workspaceId,
+          request.resource.data.assigneeId,
+        )
+        || (
+          request.resource.data.assigneeId == resource.data.assigneeId
+          && (
+            isActiveTaskAssignee(
+              workspaceId,
+              request.resource.data.assigneeId,
+            )
+            || isTaskCompletion()
+            || isTaskCancellation()
+          )
+        );
+    }
+
     function hasValidTaskUpdate(workspaceId) {
       return hasValidTaskData(request.resource.data, workspaceId)
+        && hasUsableTaskAssignee(workspaceId)
         && request.resource.data.workspaceId == resource.data.workspaceId
         && request.resource.data.contactId == resource.data.contactId
         && request.resource.data.createdByUserId

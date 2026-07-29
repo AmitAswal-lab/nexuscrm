@@ -84,10 +84,56 @@ so a cancelled task left with a revoked user could never be reopened, which
 would put a hole in the restore path that justifies cancellation in the first
 place.
 
-Completed tasks still stay with the person who completed them, and reopening
-one of those still fails for the same reason. That is a pre-existing defect
-recorded in the roadmap rather than fixed here, because it needs a product
-decision about who a reopened historical task should belong to.
+Completed tasks still stay with the person who completed them, so the record of
+who did the work survives revocation.
+
+## Tasks left with an inactive member
+
+A task whose assignee is no longer active used to be frozen. Every write was
+validated against an active assignee, so an administrator inheriting one could
+neither close it nor clear it.
+
+The assignee check now runs in two places rather than one. Creating a task still
+requires an active assignee. Updating a task requires an active assignee too,
+with a single exception: an administrator may complete or cancel a task while
+leaving its assignee exactly as it is.
+
+Reopening is deliberately excluded. Reopening restores the task to the active
+lists, and an open task held by someone who cannot act on it is the problem this
+exception exists to solve. To reopen one, reassign it to an active member first
+and then reopen it — reassignment already worked, because the check has always
+validated the incoming assignee rather than the stored one.
+
+Handing a task to an inactive member remains impossible in every direction.
+
+## Who can hold a task
+
+A task may be assigned to any active sales representative, or to the
+administrator making the assignment. The assignee picker shows **Me** followed
+by the active representatives.
+
+An administrator cannot assign work to a *different* administrator. Delegation
+runs downward to representatives, or an administrator takes the task
+themselves; passing it sideways between administrators is not a workflow this
+product has, and allowing it would create tasks that nobody is accountable for.
+
+A second administrator can still edit, complete, or cancel a task the first one
+holds. Only *setting* the assignee is restricted, which is why the rules check
+the incoming assignee rather than the stored one, and separately tolerate an
+unchanged assignee.
+
+A representative can only ever be assigned their own work, which was already
+enforced before this change.
+
+The reverse direction is deliberate too: an administrator may take a task
+another administrator holds, but may not push one onto them. You can volunteer
+yourself; you cannot volunteer a peer.
+
+What none of this settles is the handover. Reassignment is silent in every
+direction — nobody is told when work leaves them, and there is no way to pass on
+what has already been done. That is an unresolved design question rather than an
+oversight, recorded under **Open design questions** in the roadmap and to be
+answered before a version 1 release.
 
 ## Archiving a contact
 

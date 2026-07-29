@@ -353,10 +353,7 @@ class _CountTile extends StatelessWidget {
   }
 }
 
-String memberLabel(TeamMember member) =>
-    member.displayName ??
-    member.email ??
-    (member.role == WorkspaceRole.admin ? 'Administrator' : 'Representative');
+String memberLabel(TeamMember member) => member.label;
 
 String countLabel(WorkspaceActivityType type) => switch (type) {
   WorkspaceActivityType.leadCreated => 'New leads',

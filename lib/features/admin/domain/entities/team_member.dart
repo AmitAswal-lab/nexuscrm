@@ -15,6 +15,11 @@ final class TeamMember extends Equatable {
   final WorkspaceRole role;
   final MembershipStatus status;
 
+  String get label =>
+      displayName ??
+      email ??
+      (role == WorkspaceRole.admin ? 'Administrator' : 'Representative');
+
   @override
   List<Object?> get props => [userId, displayName, email, role, status];
 }

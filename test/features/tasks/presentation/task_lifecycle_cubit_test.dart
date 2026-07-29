@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:nexuscrm/features/contacts/domain/entities/crm_contact.dart';
+import 'package:nexuscrm/features/contacts/domain/entities/sales_assignee.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
@@ -147,6 +148,50 @@ void main() {
       cubit.state.actionFailure,
       const TaskFailure(TaskFailureCode.conflict),
     );
+  });
+
+  test('offers the acting administrator as an assignee', () async {
+    final tasks = _Tasks();
+    final contacts = _Contacts();
+    final assignees = _Assignees();
+    when(
+      () => contacts.watchContacts(
+        workspaceId: any(named: 'workspaceId'),
+        accessScope: any(named: 'accessScope'),
+        archiveFilter: ContactArchiveFilter.active,
+      ),
+    ).thenAnswer((_) => Stream.value(<CrmContact>[_lead]));
+    when(
+      () => assignees.watchActiveSalesAssignees(
+        workspaceId: any(named: 'workspaceId'),
+      ),
+    ).thenAnswer((_) => Stream.value(const <SalesAssignee>[]));
+
+    final admin = TaskFormCubit(
+      taskRepository: tasks,
+      contactRepository: contacts,
+      salesAssigneeRepository: assignees,
+      workspaceId: 'workspace',
+      actorUserId: 'admin-user',
+      contactAccessScope: const WorkspaceContactAccess(),
+      canAssign: true,
+    );
+    addTearDown(admin.close);
+
+    final rep = TaskFormCubit(
+      taskRepository: tasks,
+      contactRepository: contacts,
+      salesAssigneeRepository: assignees,
+      workspaceId: 'workspace',
+      actorUserId: 'sales-user',
+      contactAccessScope: const OwnedContactAccess('sales-user'),
+      canAssign: false,
+      fixedAssigneeId: 'sales-user',
+    );
+    addTearDown(rep.close);
+
+    expect(admin.selfAssigneeId, 'admin-user');
+    expect(rep.selfAssigneeId, isEmpty);
   });
 
   test('creates a sales task with its fixed assignee', () async {

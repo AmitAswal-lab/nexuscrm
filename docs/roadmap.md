@@ -360,13 +360,13 @@ Known gaps to close:
 
 Carried forward from this milestone's work:
 
-- Reopening a *completed* task that belongs to a revoked representative fails
-  with a permission denial. `hasValidTaskData` requires an active assignee, and
-  `releaseRepresentativeWork` deliberately leaves completed tasks with the
-  person who did them. An administrator can reach this from the workspace task
-  list, and the failure surfaces only as a generic snackbar. Cancelled tasks
-  are now reassigned on revocation for exactly this reason; completed tasks
-  need a decision of their own.
+- **Tasks stranded with a revoked representative. Closed.** Every write to a
+  task was validated against an active assignee, so a completed task left with a
+  revoked representative could not be touched at all. An administrator may now
+  complete or cancel such a task without changing its assignee. Reopening still
+  requires reassigning it to an active member first, because an open task held
+  by someone who cannot act on it is the problem being solved. See
+  `docs/task-cancellation.md`.
 - Archiving a contact does not cascade to its tasks. The archive confirmation
   now reports the open-task count so the choice is informed, and those tasks
   can be cancelled individually. An automatic cascade was rejected: a
@@ -386,6 +386,42 @@ Carried forward from this milestone's work:
   Functions deploy runtime, not the local toolchain, so a local Node 26 is not
   by itself a mismatch. Confirm which runtimes Cloud Functions offers before
   changing it.
+
+## Open design questions
+
+Unlike deferred work, these are not decisions that have been made and postponed.
+They are decisions that have not been made at all, and they should be resolved
+before a version 1 release.
+
+### Reassignment has no handover
+
+A task can be moved from one person to another silently and unilaterally. The
+permissions allow it deliberately — an administrator has authority over all
+workspace tasks, and any administrator may take a task another administrator
+holds — but the *interaction* around it was never designed.
+
+Nobody is told when work leaves them. A representative who has been calling a
+lead for a week can lose that task without notice, and has no way to pass on
+what they learned or what they had planned. The same happens between
+administrators: one may have a considered approach to a contact, and another can
+take the task away without a word being exchanged. Work already invested becomes
+invisible, and the person picking the task up starts from nothing.
+
+The gap is communication, not permission. Restricting who may reassign would not
+fix it; two people still need to agree on a handover. Directions worth weighing,
+none of them chosen:
+
+- Record reassignment as a workspace activity event, so it is at least visible.
+  Weigh this against the milestone 9 decision to keep the feed short and
+  readable.
+- Require a handover note when reassigning, and show it to the new assignee.
+- Notify the previous assignee rather than letting the task vanish.
+- Make a transfer an offer that the receiving person accepts, instead of a write
+  that lands on them.
+
+This also interacts with revocation, which reassigns a representative's open
+work automatically. That transfer is justified — the person is gone — but it is
+equally silent, and whatever is decided here should cover it.
 
 ## Deferred work
 
