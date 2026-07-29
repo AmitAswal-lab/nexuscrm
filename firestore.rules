@@ -41,6 +41,17 @@ service cloud.firestore {
         );
     }
 
+    function isAssignableTaskTarget(workspaceId, userId) {
+      return userId is string
+        && (
+          hasActiveRole(workspaceId, userId, 'sales_rep')
+          || (
+            userId == request.auth.uid
+            && isActiveTaskAssignee(workspaceId, userId)
+          )
+        );
+    }
+
     function hasValidContactKeys(data) {
       return data.keys().hasOnly([
         'workspaceId',
@@ -246,7 +257,7 @@ service cloud.firestore {
 
     function hasValidTaskCreation(workspaceId) {
       return hasValidTaskData(request.resource.data, workspaceId)
-        && isActiveTaskAssignee(workspaceId, request.resource.data.assigneeId)
+        && isAssignableTaskTarget(workspaceId, request.resource.data.assigneeId)
         && isActiveTaskContact(workspaceId, request.resource.data.contactId)
         && request.resource.data.status == 'open'
         && request.resource.data.completionCount == 0
@@ -321,10 +332,20 @@ service cloud.firestore {
     }
 
     function hasUsableTaskAssignee(workspaceId) {
-      return isActiveTaskAssignee(workspaceId, request.resource.data.assigneeId)
+      return isAssignableTaskTarget(
+          workspaceId,
+          request.resource.data.assigneeId,
+        )
         || (
           request.resource.data.assigneeId == resource.data.assigneeId
-          && (isTaskCompletion() || isTaskCancellation())
+          && (
+            isActiveTaskAssignee(
+              workspaceId,
+              request.resource.data.assigneeId,
+            )
+            || isTaskCompletion()
+            || isTaskCancellation()
+          )
         );
     }
 

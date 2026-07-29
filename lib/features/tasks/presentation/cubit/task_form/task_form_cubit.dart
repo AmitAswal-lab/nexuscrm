@@ -123,6 +123,8 @@ final class TaskFormCubit extends Cubit<TaskFormState> {
   }
 
   String get fixedAssigneeId => _fixedAssigneeId ?? '';
+
+  String get selfAssigneeId => _canAssign ? _actorUserId : '';
   void _emit(TaskFormState value) {
     if (!isClosed) emit(value);
   }

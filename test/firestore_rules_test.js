@@ -70,6 +70,17 @@ beforeEach(async () => {
       },
     );
     await setDoc(
+      doc(database, 'workspaces', 'workspace-one', 'members', 'other-admin'),
+      {
+        userId: 'other-admin',
+        workspaceId: 'workspace-one',
+        role: 'admin',
+        status: 'active',
+        displayName: 'Other Admin',
+        email: 'other-admin@example.com',
+      },
+    );
+    await setDoc(
       doc(database, 'workspaces', 'workspace-one', 'members', 'other-sales'),
       {
         userId: 'other-sales',
@@ -971,6 +982,115 @@ test('refuses to reopen a task still held by an inactive member', async () => {
       updatedAt: serverTimestamp(),
       updatedByUserId: 'admin-user',
     }),
+  );
+});
+
+test('lets an admin take a task but not hand one to another admin', async () => {
+  const database = testEnvironment
+    .authenticatedContext('admin-user')
+    .firestore();
+  const owned = doc(
+    database,
+    'workspaces',
+    'workspace-one',
+    'tasks',
+    'owned-task',
+  );
+
+  await assertSucceeds(
+    updateDoc(owned, {
+      assigneeId: 'admin-user',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'admin-user',
+    }),
+  );
+  await assertFails(
+    updateDoc(owned, {
+      assigneeId: 'other-admin',
+      updatedAt: serverTimestamp(),
+      updatedByUserId: 'admin-user',
+    }),
+  );
+
+  await assertSucceeds(
+    setDoc(
+      doc(database, 'workspaces', 'workspace-one', 'tasks', 'self-assigned'),
+      taskData({
+        actorUserId: 'admin-user',
+        contactId: 'owned-lead',
+        assigneeId: 'admin-user',
+        useServerTimestamp: true,
+      }),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(database, 'workspaces', 'workspace-one', 'tasks', 'handed-over'),
+      taskData({
+        actorUserId: 'admin-user',
+        contactId: 'owned-lead',
+        assigneeId: 'other-admin',
+        useServerTimestamp: true,
+      }),
+    ),
+  );
+});
+
+test('lets a second admin still edit a task the first admin holds', async () => {
+  const first = testEnvironment.authenticatedContext('admin-user').firestore();
+  const second = testEnvironment
+    .authenticatedContext('other-admin')
+    .firestore();
+
+  await assertSucceeds(
+    updateDoc(
+      doc(first, 'workspaces', 'workspace-one', 'tasks', 'owned-task'),
+      {
+        assigneeId: 'admin-user',
+        updatedAt: serverTimestamp(),
+        updatedByUserId: 'admin-user',
+      },
+    ),
+  );
+
+  await assertSucceeds(
+    updateDoc(
+      doc(second, 'workspaces', 'workspace-one', 'tasks', 'owned-task'),
+      {
+        title: 'Renamed by another admin',
+        updatedAt: serverTimestamp(),
+        updatedByUserId: 'other-admin',
+      },
+    ),
+  );
+});
+
+test('lets an admin take over a task another admin holds', async () => {
+  const first = testEnvironment.authenticatedContext('admin-user').firestore();
+  const second = testEnvironment
+    .authenticatedContext('other-admin')
+    .firestore();
+
+  await assertSucceeds(
+    updateDoc(
+      doc(first, 'workspaces', 'workspace-one', 'tasks', 'owned-task'),
+      {
+        assigneeId: 'admin-user',
+        updatedAt: serverTimestamp(),
+        updatedByUserId: 'admin-user',
+      },
+    ),
+  );
+
+  await assertSucceeds(
+    updateDoc(
+      doc(second, 'workspaces', 'workspace-one', 'tasks', 'owned-task'),
+      {
+        assigneeId: 'other-admin',
+        updatedAt: serverTimestamp(),
+        updatedByUserId: 'other-admin',
+      },
+    ),
   );
 });
 
