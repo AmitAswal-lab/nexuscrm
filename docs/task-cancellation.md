@@ -84,10 +84,27 @@ so a cancelled task left with a revoked user could never be reopened, which
 would put a hole in the restore path that justifies cancellation in the first
 place.
 
-Completed tasks still stay with the person who completed them, and reopening
-one of those still fails for the same reason. That is a pre-existing defect
-recorded in the roadmap rather than fixed here, because it needs a product
-decision about who a reopened historical task should belong to.
+Completed tasks still stay with the person who completed them, so the record of
+who did the work survives revocation.
+
+## Tasks left with an inactive member
+
+A task whose assignee is no longer active used to be frozen. Every write was
+validated against an active assignee, so an administrator inheriting one could
+neither close it nor clear it.
+
+The assignee check now runs in two places rather than one. Creating a task still
+requires an active assignee. Updating a task requires an active assignee too,
+with a single exception: an administrator may complete or cancel a task while
+leaving its assignee exactly as it is.
+
+Reopening is deliberately excluded. Reopening restores the task to the active
+lists, and an open task held by someone who cannot act on it is the problem this
+exception exists to solve. To reopen one, reassign it to an active member first
+and then reopen it — reassignment already worked, because the check has always
+validated the incoming assignee rather than the stored one.
+
+Handing a task to an inactive member remains impossible in every direction.
 
 ## Archiving a contact
 

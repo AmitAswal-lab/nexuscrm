@@ -360,13 +360,13 @@ Known gaps to close:
 
 Carried forward from this milestone's work:
 
-- Reopening a *completed* task that belongs to a revoked representative fails
-  with a permission denial. `hasValidTaskData` requires an active assignee, and
-  `releaseRepresentativeWork` deliberately leaves completed tasks with the
-  person who did them. An administrator can reach this from the workspace task
-  list, and the failure surfaces only as a generic snackbar. Cancelled tasks
-  are now reassigned on revocation for exactly this reason; completed tasks
-  need a decision of their own.
+- **Tasks stranded with a revoked representative. Closed.** Every write to a
+  task was validated against an active assignee, so a completed task left with a
+  revoked representative could not be touched at all. An administrator may now
+  complete or cancel such a task without changing its assignee. Reopening still
+  requires reassigning it to an active member first, because an open task held
+  by someone who cannot act on it is the problem being solved. See
+  `docs/task-cancellation.md`.
 - Archiving a contact does not cascade to its tasks. The archive confirmation
   now reports the open-task count so the choice is informed, and those tasks
   can be cancelled individually. An automatic cascade was rejected: a
