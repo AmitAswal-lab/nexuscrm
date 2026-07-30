@@ -1122,6 +1122,106 @@ test('still refuses to hand any task to an inactive member', async () => {
   );
 });
 
+test('lets only admins publish documents and lets reps read them', async () => {
+  const admin = testEnvironment.authenticatedContext('admin-user').firestore();
+  const sales = testEnvironment.authenticatedContext('sales-user').firestore();
+
+  await assertSucceeds(
+    setDoc(
+      doc(admin, 'workspaces', 'workspace-one', 'documents', 'brochure'),
+      documentData({ actorUserId: 'admin-user' }),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(sales, 'workspaces', 'workspace-one', 'documents', 'rogue'),
+      documentData({ actorUserId: 'sales-user' }),
+    ),
+  );
+
+  await assertSucceeds(
+    getDoc(doc(sales, 'workspaces', 'workspace-one', 'documents', 'brochure')),
+  );
+  await assertFails(
+    deleteDoc(
+      doc(admin, 'workspaces', 'workspace-one', 'documents', 'brochure'),
+    ),
+  );
+});
+
+test('lets a rep share only with a contact they own', async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(
+        context.firestore(),
+        'workspaces',
+        'workspace-one',
+        'documents',
+        'brochure',
+      ),
+      documentData({ actorUserId: 'admin-user', useServerTimestamp: false }),
+    );
+  });
+
+  const sales = testEnvironment.authenticatedContext('sales-user').firestore();
+
+  await assertSucceeds(
+    setDoc(
+      doc(sales, 'workspaces', 'workspace-one', 'documentShares', 'owned'),
+      shareData({ actorUserId: 'sales-user', contactId: 'owned-lead' }),
+    ),
+  );
+  await assertFails(
+    setDoc(
+      doc(sales, 'workspaces', 'workspace-one', 'documentShares', 'foreign'),
+      shareData({ actorUserId: 'sales-user', contactId: 'other-lead' }),
+    ),
+  );
+});
+
+test('refuses forged share ownership, weak tokens, and pre-counted opens', async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(
+        context.firestore(),
+        'workspaces',
+        'workspace-one',
+        'documents',
+        'brochure',
+      ),
+      documentData({ actorUserId: 'admin-user', useServerTimestamp: false }),
+    );
+  });
+
+  const sales = testEnvironment.authenticatedContext('sales-user').firestore();
+  const reference = doc(
+    sales,
+    'workspaces',
+    'workspace-one',
+    'documentShares',
+    'invalid',
+  );
+
+  await assertFails(
+    setDoc(
+      reference,
+      shareData({ actorUserId: 'admin-user', contactId: 'owned-lead' }),
+    ),
+  );
+  await assertFails(
+    setDoc(reference, {
+      ...shareData({ actorUserId: 'sales-user', contactId: 'owned-lead' }),
+      token: 'short',
+    }),
+  );
+  await assertFails(
+    setDoc(reference, {
+      ...shareData({ actorUserId: 'sales-user', contactId: 'owned-lead' }),
+      openCount: 5,
+    }),
+  );
+});
+
 test('allows admins to read all workspace call notes', async () => {
   const database = testEnvironment
     .authenticatedContext('admin-user')
@@ -1521,5 +1621,50 @@ function invitationData() {
     acceptedByUserId: null,
     revokedAt: null,
     revokedByUserId: null,
+  };
+}
+
+function documentData({
+  actorUserId = 'admin-user',
+  useServerTimestamp = true,
+} = {}) {
+  const timestamp = useServerTimestamp
+    ? serverTimestamp()
+    : new Date('2026-01-01T00:00:00.000Z');
+
+  return {
+    workspaceId: 'workspace-one',
+    title: 'Product brochure',
+    description: null,
+    storagePath: 'workspaces/workspace-one/documents/brochure',
+    contentType: 'application/pdf',
+    sizeBytes: 2048,
+    isRetired: false,
+    uploadedByUserId: actorUserId,
+    updatedByUserId: actorUserId,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+function shareData({
+  actorUserId = 'sales-user',
+  contactId = 'owned-lead',
+  documentId = 'brochure',
+} = {}) {
+  return {
+    workspaceId: 'workspace-one',
+    documentId,
+    documentTitle: 'Product brochure',
+    contactId,
+    contactName: 'Owned Lead',
+    channel: 'whatsapp',
+    token: 'a'.repeat(43),
+    sharedByUserId: actorUserId,
+    createdAt: serverTimestamp(),
+    expiresAt: new Date('2027-01-01T00:00:00.000Z'),
+    revokedAt: null,
+    openCount: 0,
+    lastOpenedAt: null,
   };
 }

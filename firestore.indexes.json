@@ -119,6 +119,16 @@
   ],
   "fieldOverrides": [
     {
+      "collectionGroup": "documentShares",
+      "fieldPath": "token",
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
       "collectionGroup": "members",
       "fieldPath": "userId",
       "indexes": [

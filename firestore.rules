@@ -620,6 +620,156 @@ service cloud.firestore {
         );
     }
 
+    function isActiveMember(workspaceId) {
+      return isActiveAdmin(workspaceId) || isActiveSalesRep(workspaceId);
+    }
+
+    function hasValidDocumentKeys(data) {
+      return data.keys().hasOnly([
+        'workspaceId',
+        'title',
+        'description',
+        'storagePath',
+        'contentType',
+        'sizeBytes',
+        'isRetired',
+        'uploadedByUserId',
+        'updatedByUserId',
+        'createdAt',
+        'updatedAt',
+      ]);
+    }
+
+    function hasValidDocumentData(data, workspaceId) {
+      return hasValidDocumentKeys(data)
+        && data.workspaceId == workspaceId
+        && data.title is string
+        && data.title.size() > 0
+        && data.title.size() <= 120
+        && isOptionalShortNotes(data.description)
+        && data.storagePath is string
+        && data.storagePath.size() > 0
+        && data.contentType is string
+        && data.contentType.size() > 0
+        && data.sizeBytes is int
+        && data.sizeBytes > 0
+        && data.sizeBytes <= 10 * 1024 * 1024
+        && data.isRetired is bool
+        && data.uploadedByUserId is string
+        && data.updatedByUserId is string
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isDocumentRetirementUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'isRetired',
+          'updatedAt',
+          'updatedByUserId',
+        ])
+        && request.resource.data.isRetired != resource.data.isRetired;
+    }
+
+    function documentPath(workspaceId, documentId) {
+      return /databases/$(database)/documents/workspaces/$(workspaceId)/documents/$(documentId);
+    }
+
+    function isShareableDocument(workspaceId, documentId) {
+      return documentId is string
+        && exists(documentPath(workspaceId, documentId))
+        && get(documentPath(workspaceId, documentId)).data.isRetired == false;
+    }
+
+    function canShareWithContact(workspaceId, contactId) {
+      return isActiveAdmin(workspaceId)
+        ? isActiveTaskContact(workspaceId, contactId)
+        : isSalesOwnedTaskContact(workspaceId, contactId);
+    }
+
+    function hasValidShareKeys(data) {
+      return data.keys().hasOnly([
+        'workspaceId',
+        'documentId',
+        'documentTitle',
+        'contactId',
+        'contactName',
+        'channel',
+        'token',
+        'sharedByUserId',
+        'createdAt',
+        'expiresAt',
+        'revokedAt',
+        'openCount',
+        'lastOpenedAt',
+      ]);
+    }
+
+    function hasValidShareCreation(workspaceId) {
+      return hasValidShareKeys(request.resource.data)
+        && request.resource.data.workspaceId == workspaceId
+        && isShareableDocument(workspaceId, request.resource.data.documentId)
+        && canShareWithContact(workspaceId, request.resource.data.contactId)
+        && request.resource.data.documentTitle is string
+        && request.resource.data.contactName is string
+        && request.resource.data.channel in ['whatsapp', 'email']
+        && request.resource.data.token is string
+        && request.resource.data.token.size() >= 32
+        && request.resource.data.sharedByUserId == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.revokedAt == null
+        && request.resource.data.openCount == 0
+        && request.resource.data.lastOpenedAt == null;
+    }
+
+    function isShareRevocation() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'revokedAt',
+        ])
+        && resource.data.revokedAt == null
+        && request.resource.data.revokedAt == request.time;
+    }
+
+    match /workspaces/{workspaceId}/documents/{documentId} {
+      allow read: if isActiveMember(workspaceId);
+      allow create: if isActiveAdmin(workspaceId)
+        && hasValidDocumentData(request.resource.data, workspaceId)
+        && request.resource.data.isRetired == false
+        && request.resource.data.uploadedByUserId == request.auth.uid
+        && request.resource.data.updatedByUserId == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+      allow update: if isActiveAdmin(workspaceId)
+        && hasValidDocumentData(request.resource.data, workspaceId)
+        && request.resource.data.storagePath == resource.data.storagePath
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.uploadedByUserId
+          == resource.data.uploadedByUserId
+        && request.resource.data.updatedByUserId == request.auth.uid
+        && request.resource.data.updatedAt == request.time
+        && isDocumentRetirementUpdate();
+      allow delete: if false;
+    }
+
+    match /workspaces/{workspaceId}/documentShares/{shareId} {
+      allow read: if isActiveAdmin(workspaceId)
+        || (
+          isActiveSalesRep(workspaceId)
+          && resource.data.sharedByUserId == request.auth.uid
+        );
+      allow create: if isActiveMember(workspaceId)
+        && hasValidShareCreation(workspaceId);
+      allow update: if isShareRevocation()
+        && (
+          isActiveAdmin(workspaceId)
+          || (
+            isActiveSalesRep(workspaceId)
+            && resource.data.sharedByUserId == request.auth.uid
+          )
+        );
+      allow delete: if false;
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn() && request.auth.uid == userId;
       allow write: if false;

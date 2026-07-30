@@ -14,6 +14,9 @@ import { InvitationError } from './invitations/invitation_error.js';
 
 if (getApps().length === 0) initializeApp();
 
+export { publishDocument } from './documents/publish_document.js';
+export { sharedDocument } from './documents/serve_shared_document.js';
+
 // Firebase's web API key identifies this Firebase Auth project to its
 // documented password-reset endpoint. It is public application configuration,
 // not an email-provider credential or a secret.

@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Documents are written and read only by Cloud Functions using the Admin SDK,
+// which does not evaluate these rules. No client may touch the bucket at all.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
