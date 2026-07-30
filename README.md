@@ -119,6 +119,9 @@ for the activation route, screen states, failure handling, and the live
 verification that remains.
 See [Admin activity and basic reporting](docs/admin-activity.md) for the
 recorded events, how they are written, and who can read them.
+See [Document sharing](docs/document-sharing.md) for how documents are
+published, why files are never attached from a device, and how expiring links
+are served and revoked.
 See [Task cancellation](docs/task-cancellation.md) for the task state machine,
 why cancelling replaced archiving, and how revocation and contact archiving
 interact with it.

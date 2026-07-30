@@ -341,6 +341,7 @@ Planned scope:
 - Loading, offline, error, and empty-state review
 - Firestore rules and index audit
 - Dependency and lint review — **done**
+- Document sharing — **done**, added to version 1 scope during this milestone
 - README, architecture, setup, and roadmap updates
 - Release build verification
 
@@ -388,6 +389,14 @@ Carried forward from this milestone's work:
   pinned to the same major so the types describe the runtime that actually
   serves requests. A local Node 26 only compiles TypeScript and drives the
   emulator, so the two versions are not in conflict.
+
+- **Document sharing. Added to version 1.** The follow-up loop ended at
+  scheduling the next action: a representative could record that a client wanted
+  a quote but had no way to send one. Attaching files from the device was
+  rejected because it puts uncontrolled, unapproved, unrevocable documents in
+  front of clients, and because a share sheet needs the file on the phone
+  anyway. Documents are published centrally by an administrator and shared as
+  expiring, revocable links. See `docs/document-sharing.md`.
 
 Findings from the dependency and lint review, none of them blocking:
 
@@ -456,8 +465,12 @@ The following items are intentionally outside the MVP:
 - Workspace creation, selection, and switching
 - Advanced calendar views
 - Push notifications and reminders
-- Document management
-- WhatsApp and email integrations
+- Rich document management: folders, versioning, previews, and per-contact
+  access lists. Basic publishing and sharing shipped in milestone 10; see
+  `docs/document-sharing.md`.
+- Deeper WhatsApp and email integration. Sharing hands a link to the device's
+  WhatsApp or email application; the product does not send messages itself and
+  has no WhatsApp Business API relationship.
 - Detailed reports and analytics
 - Branded authentication deep links
 - Automatic call tracking or recording
