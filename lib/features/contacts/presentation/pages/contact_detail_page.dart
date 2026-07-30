@@ -22,6 +22,7 @@ class ContactDetailPage extends StatelessWidget {
     required this.onAddFollowUp,
     required this.onLogCallNote,
     required this.onViewAllActivity,
+    required this.onSendDocument,
     required this.workspaceId,
     required this.taskAccessScope,
     required this.taskRepository,
@@ -36,6 +37,7 @@ class ContactDetailPage extends StatelessWidget {
   final VoidCallback onAddFollowUp;
   final VoidCallback onLogCallNote;
   final VoidCallback onViewAllActivity;
+  final VoidCallback onSendDocument;
   final String workspaceId;
   final TaskAccessScope taskAccessScope;
   final TaskRepository taskRepository;
@@ -86,6 +88,7 @@ class ContactDetailPage extends StatelessWidget {
             onAddFollowUp: onAddFollowUp,
             onLogCallNote: onLogCallNote,
             onViewAllActivity: onViewAllActivity,
+            onSendDocument: onSendDocument,
             workspaceId: workspaceId,
             taskAccessScope: taskAccessScope,
             taskRepository: taskRepository,
@@ -119,6 +122,7 @@ class _ContactDetailView extends StatelessWidget {
     required this.onAddFollowUp,
     required this.onLogCallNote,
     required this.onViewAllActivity,
+    required this.onSendDocument,
     required this.workspaceId,
     required this.taskAccessScope,
     required this.taskRepository,
@@ -133,6 +137,7 @@ class _ContactDetailView extends StatelessWidget {
   final VoidCallback onAddFollowUp;
   final VoidCallback onLogCallNote;
   final VoidCallback onViewAllActivity;
+  final VoidCallback onSendDocument;
   final String workspaceId;
   final TaskAccessScope taskAccessScope;
   final TaskRepository taskRepository;
@@ -239,6 +244,7 @@ class _ContactDetailView extends StatelessWidget {
                   contact: contact,
                   onAddFollowUp: onAddFollowUp,
                   onLogCallNote: onLogCallNote,
+                  onSendDocument: onSendDocument,
                   phoneDialer: phoneDialer,
                   openTaskCount: (snapshot.data ?? const <CrmTask>[])
                       .where((task) => task.isOpen)
@@ -566,6 +572,7 @@ class _ContactActions extends StatelessWidget {
     required this.contact,
     required this.onAddFollowUp,
     required this.onLogCallNote,
+    required this.onSendDocument,
     required this.phoneDialer,
     required this.openTaskCount,
   });
@@ -573,6 +580,7 @@ class _ContactActions extends StatelessWidget {
   final CrmContact contact;
   final VoidCallback onAddFollowUp;
   final VoidCallback onLogCallNote;
+  final VoidCallback onSendDocument;
   final PhoneDialer phoneDialer;
   final int openTaskCount;
 
@@ -604,6 +612,12 @@ class _ContactActions extends StatelessWidget {
           onPressed: state.isBusy ? null : onAddFollowUp,
           icon: const Icon(Icons.add_task_outlined),
           label: const Text('Add follow-up'),
+        ),
+        const SizedBox(height: 10),
+        FilledButton.tonalIcon(
+          onPressed: state.isBusy ? null : onSendDocument,
+          icon: const Icon(Icons.send_outlined),
+          label: const Text('Send document'),
         ),
         const SizedBox(height: 10),
         if (contact is Lead)

@@ -44,6 +44,12 @@ import 'package:nexuscrm/features/contacts/presentation/pages/contact_detail_pag
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_edit_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/contact_list_page.dart';
 import 'package:nexuscrm/features/contacts/presentation/pages/lead_form_page.dart';
+import 'package:nexuscrm/features/documents/domain/repositories/document_repository.dart';
+import 'package:nexuscrm/features/documents/domain/services/share_launcher.dart';
+import 'package:nexuscrm/features/documents/presentation/cubit/contact_share/contact_share_cubit.dart';
+import 'package:nexuscrm/features/documents/presentation/cubit/document_library/document_library_cubit.dart';
+import 'package:nexuscrm/features/documents/presentation/pages/contact_share_page.dart';
+import 'package:nexuscrm/features/documents/presentation/pages/document_library_page.dart';
 import 'package:nexuscrm/features/sales/presentation/cubit/sales_dashboard/sales_dashboard_cubit.dart';
 import 'package:nexuscrm/features/sales/presentation/pages/sales_dashboard_page.dart';
 import 'package:nexuscrm/features/tasks/domain/repositories/task_repository.dart';
@@ -220,6 +226,7 @@ final class AppRouter {
                     newTaskRoute: AppRoutes.adminNewTask,
                     logCallNoteRoute: AppRoutes.adminLogCallNote,
                     activityRoute: AppRoutes.adminContactActivity,
+                    shareRoute: AppRoutes.adminContactShare,
                   ),
                   routes: [
                     GoRoute(
@@ -244,6 +251,13 @@ final class AppRouter {
                         context,
                         contactId: state.pathParameters['contactId']!,
                         isSalesView: false,
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'share',
+                      builder: (context, state) => _contactSharePage(
+                        context,
+                        contactId: state.pathParameters['contactId']!,
                       ),
                     ),
                   ],
@@ -291,6 +305,15 @@ final class AppRouter {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => context.push(AppRoutes.adminTeam),
                   ),
+                  ListTile(
+                    leading: const Icon(Icons.folder_shared_outlined),
+                    title: const Text('Documents'),
+                    subtitle: const Text(
+                      'Publish files representatives may send to contacts',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(AppRoutes.adminDocuments),
+                  ),
                 ],
               ),
               routes: [
@@ -335,6 +358,10 @@ final class AppRouter {
                   ],
                 ),
               ],
+            ),
+            GoRoute(
+              path: AppRoutes.adminDocuments,
+              builder: (context, state) => _documentLibraryPage(context),
             ),
           ],
         ),
@@ -400,6 +427,7 @@ final class AppRouter {
                     newTaskRoute: AppRoutes.salesNewTask,
                     logCallNoteRoute: AppRoutes.salesLogCallNote,
                     activityRoute: AppRoutes.salesContactActivity,
+                    shareRoute: AppRoutes.salesContactShare,
                   ),
                   routes: [
                     GoRoute(
@@ -424,6 +452,13 @@ final class AppRouter {
                         context,
                         contactId: state.pathParameters['contactId']!,
                         isSalesView: true,
+                      ),
+                    ),
+                    GoRoute(
+                      path: 'share',
+                      builder: (context, state) => _contactSharePage(
+                        context,
+                        contactId: state.pathParameters['contactId']!,
                       ),
                     ),
                   ],
@@ -464,9 +499,7 @@ final class AppRouter {
               builder: (context, state) => const MorePage(
                 icon: Icons.person_outline,
                 title: 'More',
-                message:
-                    'Account and additional sales tools will appear here in '
-                    'future milestones.',
+                message: 'Your account and workspace access.',
               ),
             ),
           ],
@@ -498,6 +531,54 @@ final class AppRouter {
         onCreateLead: () => context.go(createLeadRoute),
         onOpenContact: (contactId) => context.go(contactRoute(contactId)),
         onOpenArchived: () => context.go(archivedRoute),
+      ),
+    );
+  }
+
+  static Widget _documentLibraryPage(BuildContext context) {
+    final session = _authenticatedSession(context);
+
+    return BlocProvider(
+      create: (context) => DocumentLibraryCubit(
+        documentRepository: context.read<DocumentRepository>(),
+        workspaceId: session.membership.workspaceId,
+        actorUserId: session.user.id,
+      ),
+      child: const DocumentLibraryPage(),
+    );
+  }
+
+  static Widget _contactSharePage(
+    BuildContext context, {
+    required String contactId,
+  }) {
+    final session = _authenticatedSession(context);
+
+    return BlocProvider(
+      create: (context) => ContactDetailCubit(
+        contactRepository: context.read<ContactRepository>(),
+        workspaceId: session.membership.workspaceId,
+        contactId: contactId,
+      ),
+      child: BlocBuilder<ContactDetailCubit, ContactDetailState>(
+        builder: (context, state) {
+          final contact = state.contact;
+
+          if (contact == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          return BlocProvider(
+            create: (context) => ContactShareCubit(
+              documentRepository: context.read<DocumentRepository>(),
+              shareLauncher: context.read<ShareLauncher>(),
+              workspaceId: session.membership.workspaceId,
+              actorUserId: session.user.id,
+              contact: contact,
+            ),
+            child: const ContactSharePage(),
+          );
+        },
       ),
     );
   }
@@ -672,6 +753,7 @@ final class AppRouter {
     required String newTaskRoute,
     required String Function(String) logCallNoteRoute,
     required String Function(String) activityRoute,
+    required String Function(String) shareRoute,
   }) {
     final session = _authenticatedSession(context);
 
@@ -699,6 +781,7 @@ final class AppRouter {
         onAddFollowUp: () => context.go('$newTaskRoute?contactId=$contactId'),
         onLogCallNote: () => context.go(logCallNoteRoute(contactId)),
         onViewAllActivity: () => context.go(activityRoute(contactId)),
+        onSendDocument: () => context.push(shareRoute(contactId)),
         workspaceId: session.membership.workspaceId,
         taskAccessScope: isSalesView
             ? AssignedTaskAccess(session.user.id)

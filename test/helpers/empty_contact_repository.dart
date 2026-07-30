@@ -11,6 +11,11 @@ import 'package:nexuscrm/features/contacts/domain/repositories/contact_repositor
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_access_scope.dart';
 import 'package:nexuscrm/features/contacts/domain/value_objects/contact_archive_filter.dart';
+import 'package:nexuscrm/features/documents/domain/entities/document_share.dart';
+import 'package:nexuscrm/features/documents/domain/entities/document_upload.dart';
+import 'package:nexuscrm/features/documents/domain/entities/workspace_document.dart';
+import 'package:nexuscrm/features/documents/domain/repositories/document_repository.dart';
+import 'package:nexuscrm/features/documents/domain/services/share_launcher.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/crm_task.dart';
 import 'package:nexuscrm/features/tasks/domain/entities/task_input.dart';
 import 'package:nexuscrm/features/tasks/domain/repositories/task_repository.dart';
@@ -216,4 +221,69 @@ final class EmptyAdminTeamRepository implements AdminTeamRepository {
   @override
   Stream<List<TeamMember>> watchTeam({required String workspaceId}) =>
       Stream.value(const <TeamMember>[]);
+}
+
+final class EmptyDocumentRepository implements DocumentRepository {
+  const EmptyDocumentRepository();
+
+  @override
+  Stream<List<WorkspaceDocument>> watchDocuments({
+    required String workspaceId,
+    bool includeRetired = false,
+  }) => Stream.value(const <WorkspaceDocument>[]);
+
+  @override
+  Stream<List<DocumentShare>> watchContactShares({
+    required String workspaceId,
+    required String contactId,
+  }) => Stream.value(const <DocumentShare>[]);
+
+  @override
+  Future<String> uploadDocument({
+    required String workspaceId,
+    required String actorUserId,
+    required DocumentUpload upload,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> retireDocument({
+    required String workspaceId,
+    required String documentId,
+    required String actorUserId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> restoreDocument({
+    required String workspaceId,
+    required String documentId,
+    required String actorUserId,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<String> createShareLink({
+    required String workspaceId,
+    required String documentId,
+    required String contactId,
+    required String actorUserId,
+    required ShareChannel channel,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> revokeShare({
+    required String workspaceId,
+    required String shareId,
+    required String actorUserId,
+  }) => throw UnimplementedError();
+}
+
+final class SilentShareLauncher implements ShareLauncher {
+  const SilentShareLauncher();
+
+  @override
+  Future<bool> share({
+    required ShareChannel channel,
+    required String recipient,
+    required String subject,
+    required String message,
+  }) async => true;
 }

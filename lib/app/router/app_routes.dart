@@ -9,6 +9,7 @@ abstract final class AppRoutes {
   static const adminHome = '$admin/home';
   static const adminLeads = '$admin/leads';
   static const adminArchivedContacts = '$adminLeads/archived';
+  static const adminDocuments = '$admin/documents';
   static const adminNewLead = '$adminLeads/new';
   static const adminTasks = '$admin/tasks';
   static const adminNewTask = '$adminTasks/new';
@@ -38,11 +39,15 @@ abstract final class AppRoutes {
       '${adminContact(contactId)}/call-note';
   static String adminContactActivity(String contactId) =>
       '${adminContact(contactId)}/activity';
+  static String adminContactShare(String contactId) =>
+      '${adminContact(contactId)}/share';
 
   static String salesLogCallNote(String contactId) =>
       '${salesContact(contactId)}/call-note';
   static String salesContactActivity(String contactId) =>
       '${salesContact(contactId)}/activity';
+  static String salesContactShare(String contactId) =>
+      '${salesContact(contactId)}/share';
 
   static String adminTask(String taskId) => '$adminTasks/$taskId';
   static String salesTask(String taskId) => '$salesTasks/$taskId';

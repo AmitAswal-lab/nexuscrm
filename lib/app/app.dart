@@ -12,6 +12,8 @@ import 'package:nexuscrm/features/authentication/domain/repositories/membership_
 import 'package:nexuscrm/features/authentication/presentation/bloc/session/session_bloc.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/contact_repository.dart';
 import 'package:nexuscrm/features/contacts/domain/repositories/sales_assignee_repository.dart';
+import 'package:nexuscrm/features/documents/domain/repositories/document_repository.dart';
+import 'package:nexuscrm/features/documents/domain/services/share_launcher.dart';
 import 'package:nexuscrm/features/tasks/domain/repositories/task_repository.dart';
 
 class NexusCrmApp extends StatefulWidget {
@@ -23,6 +25,8 @@ class NexusCrmApp extends StatefulWidget {
     required this.taskRepository,
     required this.activityRepository,
     required this.adminTeamRepository,
+    required this.documentRepository,
+    required this.shareLauncher,
     this.invitationRepository,
     super.key,
   });
@@ -34,6 +38,8 @@ class NexusCrmApp extends StatefulWidget {
   final TaskRepository taskRepository;
   final ActivityRepository activityRepository;
   final AdminTeamRepository adminTeamRepository;
+  final DocumentRepository documentRepository;
+  final ShareLauncher shareLauncher;
   final InvitationRepository? invitationRepository;
 
   @override
@@ -87,6 +93,10 @@ class _NexusCrmAppState extends State<NexusCrmApp> {
         RepositoryProvider<AdminTeamRepository>.value(
           value: widget.adminTeamRepository,
         ),
+        RepositoryProvider<DocumentRepository>.value(
+          value: widget.documentRepository,
+        ),
+        RepositoryProvider<ShareLauncher>.value(value: widget.shareLauncher),
       ],
       child: BlocProvider.value(
         value: _sessionBloc,

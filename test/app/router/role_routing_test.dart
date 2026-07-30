@@ -114,13 +114,7 @@ void main() {
 
     await tester.tap(find.widgetWithText(NavigationDestination, 'More'));
     await tester.pumpAndSettle();
-    expect(
-      find.text(
-        'Account and additional sales tools will appear here in future '
-        'milestones.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('Your account and workspace access.'), findsOneWidget);
     expect(find.widgetWithText(ListTile, 'Sign out'), findsOneWidget);
 
     router.go(AppRoutes.sales);
@@ -233,6 +227,8 @@ void main() {
         taskRepository: const EmptyTaskRepository(),
         activityRepository: const EmptyActivityRepository(),
         adminTeamRepository: const EmptyAdminTeamRepository(),
+        documentRepository: const EmptyDocumentRepository(),
+        shareLauncher: const SilentShareLauncher(),
       ),
     );
     await tester.pumpAndSettle();
@@ -262,6 +258,8 @@ void main() {
         taskRepository: const EmptyTaskRepository(),
         activityRepository: const EmptyActivityRepository(),
         adminTeamRepository: const EmptyAdminTeamRepository(),
+        documentRepository: const EmptyDocumentRepository(),
+        shareLauncher: const SilentShareLauncher(),
       ),
     );
     await tester.pumpAndSettle();
@@ -307,6 +305,8 @@ Future<void> _pumpAuthenticatedApp(
       taskRepository: const EmptyTaskRepository(),
       activityRepository: const EmptyActivityRepository(),
         adminTeamRepository: const EmptyAdminTeamRepository(),
+        documentRepository: const EmptyDocumentRepository(),
+        shareLauncher: const SilentShareLauncher(),
       invitationRepository: invitationRepository,
     ),
   );

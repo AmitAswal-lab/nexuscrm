@@ -9,8 +9,15 @@ import 'package:nexuscrm/features/authentication/data/repositories/firebase_auth
 import 'package:nexuscrm/features/authentication/data/repositories/firestore_membership_repository.dart';
 import 'package:nexuscrm/features/contacts/data/repositories/firestore_contact_repository.dart';
 import 'package:nexuscrm/features/contacts/data/repositories/firestore_sales_assignee_repository.dart';
+import 'package:nexuscrm/features/documents/data/repositories/firestore_document_repository.dart';
+import 'package:nexuscrm/features/documents/data/services/url_launcher_share_launcher.dart';
 import 'package:nexuscrm/features/tasks/data/repositories/firestore_task_repository.dart';
 import 'package:nexuscrm/firebase_options.dart';
+
+final functionsBase =
+    'https://us-central1-'
+    '${DefaultFirebaseOptions.currentPlatform.projectId}'
+    '.cloudfunctions.net';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +42,14 @@ Future<void> main() async {
       adminTeamRepository: FirestoreAdminTeamRepository(
         FirebaseFirestore.instance,
       ),
+      documentRepository: FirestoreDocumentRepository(
+        FirebaseFirestore.instance,
+        shareLinkBase: '$functionsBase/sharedDocument',
+        publishUrl: '$functionsBase/publishDocument',
+        idToken: () async =>
+            FirebaseAuth.instance.currentUser?.getIdToken(true),
+      ),
+      shareLauncher: const UrlLauncherShareLauncher(),
     ),
   );
 }

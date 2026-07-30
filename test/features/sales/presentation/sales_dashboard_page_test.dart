@@ -137,6 +137,8 @@ void main() {
         taskRepository: const EmptyTaskRepository(),
         activityRepository: const EmptyActivityRepository(),
         adminTeamRepository: const EmptyAdminTeamRepository(),
+        documentRepository: const EmptyDocumentRepository(),
+        shareLauncher: const SilentShareLauncher(),
       ),
     );
     await tester.pumpAndSettle();
@@ -156,6 +158,8 @@ void main() {
         taskRepository: const EmptyTaskRepository(),
         activityRepository: const EmptyActivityRepository(),
         adminTeamRepository: const EmptyAdminTeamRepository(),
+        documentRepository: const EmptyDocumentRepository(),
+        shareLauncher: const SilentShareLauncher(),
       ),
     );
     await tester.pumpAndSettle();
