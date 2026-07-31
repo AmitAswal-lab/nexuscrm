@@ -26,7 +26,6 @@ abstract final class FirestoreDocumentMapper {
       workspaceId: workspaceId,
       title: _requiredString(data, 'title'),
       description: _optionalString(data, 'description'),
-      storagePath: _requiredString(data, 'storagePath'),
       contentType: _requiredString(data, 'contentType'),
       sizeBytes: _requiredPositiveInt(data, 'sizeBytes'),
       isRetired: _requiredBool(data, 'isRetired'),
@@ -35,48 +34,6 @@ abstract final class FirestoreDocumentMapper {
       createdAt: _requiredTimestamp(data, 'createdAt'),
       updatedAt: _requiredTimestamp(data, 'updatedAt'),
     );
-  }
-
-  static Map<String, Object?> createDocumentData({
-    required String workspaceId,
-    required String actorUserId,
-    required String title,
-    required String? description,
-    required String storagePath,
-    required String contentType,
-    required int sizeBytes,
-  }) {
-    final normalizedTitle = title.trim();
-    final normalizedDescription = description?.trim();
-
-    if (normalizedTitle.isEmpty || normalizedTitle.length > 120) {
-      throw const FormatException('Invalid document title.');
-    }
-
-    if (normalizedDescription != null && normalizedDescription.length > 1000) {
-      throw const FormatException('Document description is too long.');
-    }
-
-    if (sizeBytes <= 0) {
-      throw const FormatException('Invalid document size.');
-    }
-
-    return <String, Object?>{
-      'workspaceId': workspaceId,
-      'title': normalizedTitle,
-      'description': normalizedDescription == null ||
-              normalizedDescription.isEmpty
-          ? null
-          : normalizedDescription,
-      'storagePath': storagePath,
-      'contentType': contentType,
-      'sizeBytes': sizeBytes,
-      'isRetired': false,
-      'uploadedByUserId': actorUserId,
-      'updatedByUserId': actorUserId,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
   }
 
   static Map<String, Object?> retirementData({

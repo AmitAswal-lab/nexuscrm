@@ -6,7 +6,6 @@ final class WorkspaceDocument extends Equatable {
     required this.workspaceId,
     required this.title,
     required this.description,
-    required this.storagePath,
     required this.contentType,
     required this.sizeBytes,
     required this.isRetired,
@@ -20,9 +19,6 @@ final class WorkspaceDocument extends Equatable {
   final String workspaceId;
   final String title;
   final String? description;
-
-  /// Where the bytes live. Never handed to a client.
-  final String storagePath;
   final String contentType;
   final int sizeBytes;
   final bool isRetired;
@@ -39,7 +35,6 @@ final class WorkspaceDocument extends Equatable {
     workspaceId,
     title,
     description,
-    storagePath,
     contentType,
     sizeBytes,
     isRetired,

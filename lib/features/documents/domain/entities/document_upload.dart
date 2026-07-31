@@ -6,7 +6,6 @@ final class DocumentUpload extends Equatable {
   const DocumentUpload({
     required this.title,
     required this.description,
-    required this.fileName,
     required this.contentType,
     required this.bytes,
   });
@@ -15,7 +14,6 @@ final class DocumentUpload extends Equatable {
 
   final String title;
   final String? description;
-  final String fileName;
   final String contentType;
   final Uint8List bytes;
 
@@ -23,7 +21,6 @@ final class DocumentUpload extends Equatable {
   List<Object?> get props => [
     title,
     description,
-    fileName,
     contentType,
     bytes.length,
   ];

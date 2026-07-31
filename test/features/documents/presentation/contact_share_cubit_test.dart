@@ -215,7 +215,6 @@ final _document = WorkspaceDocument(
   workspaceId: 'workspace-one',
   title: 'Product brochure',
   description: null,
-  storagePath: 'workspaces/workspace-one/documents/brochure',
   contentType: 'application/pdf',
   sizeBytes: 2048,
   isRetired: false,

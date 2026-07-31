@@ -48,7 +48,6 @@ void main() {
     return DocumentUpload(
       title: title,
       description: description,
-      fileName: 'brochure.pdf',
       contentType: 'application/pdf',
       bytes: bytes ?? Uint8List.fromList([1, 2, 3, 4]),
     );

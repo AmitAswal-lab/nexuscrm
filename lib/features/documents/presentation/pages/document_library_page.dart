@@ -167,7 +167,6 @@ class _LibraryBody extends StatelessWidget {
       DocumentUpload(
         title: title.trim(),
         description: null,
-        fileName: file.name,
         contentType: file.mimeType ?? _contentType(file.name),
         bytes: bytes,
       ),
