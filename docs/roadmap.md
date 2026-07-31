@@ -398,16 +398,33 @@ Carried forward from this milestone's work:
   anyway. Documents are published centrally by an administrator and shared as
   expiring, revocable links. See `docs/document-sharing.md`.
 
+  Verified on device: an administrator can publish, and a representative can
+  send by both WhatsApp and email. Three defects were found only by running it,
+  and all three are fixed. Publishing failed because the app asked for an ID
+  token with `getIdToken()`, got nothing back from a long-lived session, and
+  reported the empty token as a permission error; see
+  `docs/document-upload-postmortem.md`. The share screen then failed for
+  representatives because a read rule that inspects `resource.data` is checked
+  against the query rather than each result, so the query has to carry the
+  filter the rule depends on. It also failed for both roles because three
+  composite indexes were missing. Neither of the last two can be caught by the
+  test suites: the emulator does not enforce indexes, and the rules half was
+  only provable once a test issued the same query the client does.
+
 Findings from the dependency and lint review, none of them blocking:
 
 - **Two dependency advisories cannot currently be fixed.** `fast-xml-parser`
   (high) and `uuid` (moderate) both arrive transitively through
   `firebase-admin`. Upgrading `firebase-admin` from 13 to 14 was measured and
   makes matters worse — 13 advisories with 6 high, against 10 with 1 high — so
-  it was reverted. Neither is reachable from this codebase: `fast-xml-parser`
-  comes via `@google-cloud/storage`, which the project does not use, and the
-  `uuid` issue only applies when passing a caller-supplied buffer to v3, v5, or
-  v6, which nothing here does. Re-test the upgrade when `firebase-admin` 14
+  it was reverted. The `uuid` issue only applies when passing a caller-supplied
+  buffer to v3, v5, or v6, which nothing here does. `fast-xml-parser` arrives
+  through `@google-cloud/storage`, which **this project now does use** — the
+  review predated document sharing, and `publishDocument` writes to the bucket
+  through the Admin SDK. The parser handles responses from Google's own storage
+  endpoint rather than anything a caller supplies, so the exposure is
+  indirect, but the earlier claim that the package is unreachable no longer
+  holds and should be re-checked. Re-test the upgrade when `firebase-admin` 14
   settles.
 - **The emulator does not run the production Node version.** Cloud Functions
   serve on Node 22 while the emulator runs under whatever Node is installed
