@@ -14,6 +14,7 @@ const {
   doc,
   getDoc,
   getDocs,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -1175,6 +1176,53 @@ test('lets a rep share only with a contact they own', async () => {
     setDoc(
       doc(sales, 'workspaces', 'workspace-one', 'documentShares', 'foreign'),
       shareData({ actorUserId: 'sales-user', contactId: 'other-lead' }),
+    ),
+  );
+});
+
+// A read rule that inspects resource.data is evaluated against the query, not
+// against each result, so a rep must filter by sharedByUserId for the whole
+// listen to be allowed.
+test('lets a rep list only the shares they sent themselves', async () => {
+  const sales = testEnvironment.authenticatedContext('sales-user').firestore();
+  const shares = collection(
+    sales,
+    'workspaces',
+    'workspace-one',
+    'documentShares',
+  );
+
+  await assertFails(
+    getDocs(
+      query(
+        shares,
+        where('contactId', '==', 'owned-lead'),
+        orderBy('createdAt', 'desc'),
+      ),
+    ),
+  );
+  await assertSucceeds(
+    getDocs(
+      query(
+        shares,
+        where('contactId', '==', 'owned-lead'),
+        where('sharedByUserId', '==', 'sales-user'),
+        orderBy('createdAt', 'desc'),
+      ),
+    ),
+  );
+});
+
+test('lets an administrator list every share on a contact', async () => {
+  const admin = testEnvironment.authenticatedContext('admin-user').firestore();
+
+  await assertSucceeds(
+    getDocs(
+      query(
+        collection(admin, 'workspaces', 'workspace-one', 'documentShares'),
+        where('contactId', '==', 'owned-lead'),
+        orderBy('createdAt', 'desc'),
+      ),
     ),
   );
 });

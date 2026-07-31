@@ -8,9 +8,11 @@ abstract interface class DocumentRepository {
     bool includeRetired = false,
   });
 
+  /// A representative must pass their own [sharedByUserId] to be allowed to read.
   Stream<List<DocumentShare>> watchContactShares({
     required String workspaceId,
     required String contactId,
+    String? sharedByUserId,
   });
 
   Future<String> uploadDocument({

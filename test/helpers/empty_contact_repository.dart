@@ -236,6 +236,7 @@ final class EmptyDocumentRepository implements DocumentRepository {
   Stream<List<DocumentShare>> watchContactShares({
     required String workspaceId,
     required String contactId,
+    String? sharedByUserId,
   }) => Stream.value(const <DocumentShare>[]);
 
   @override

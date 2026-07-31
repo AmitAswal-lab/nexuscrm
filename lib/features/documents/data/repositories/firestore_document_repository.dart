@@ -54,13 +54,24 @@ final class FirestoreDocumentRepository implements DocumentRepository {
   Stream<List<DocumentShare>> watchContactShares({
     required String workspaceId,
     required String contactId,
+    String? sharedByUserId,
   }) {
     return _watch(() {
-      return _shares(_requiredIdentifier(workspaceId, 'workspaceId'))
-          .where(
-            'contactId',
-            isEqualTo: _requiredIdentifier(contactId, 'contactId'),
-          )
+      Query<Map<String, dynamic>> query = _shares(
+        _requiredIdentifier(workspaceId, 'workspaceId'),
+      ).where(
+        'contactId',
+        isEqualTo: _requiredIdentifier(contactId, 'contactId'),
+      );
+
+      if (sharedByUserId != null) {
+        query = query.where(
+          'sharedByUserId',
+          isEqualTo: _requiredIdentifier(sharedByUserId, 'sharedByUserId'),
+        );
+      }
+
+      return query
           .orderBy('createdAt', descending: true)
           .snapshots()
           .where((snapshot) => !snapshot.metadata.hasPendingWrites)

@@ -18,12 +18,14 @@ final class ContactShareCubit extends Cubit<ContactShareState> {
     required String workspaceId,
     required String actorUserId,
     required CrmContact contact,
+    required bool seesEveryShare,
   }) : this._(
          documentRepository,
          shareLauncher,
          workspaceId,
          actorUserId,
          contact,
+         seesEveryShare,
        );
 
   ContactShareCubit._(
@@ -32,6 +34,7 @@ final class ContactShareCubit extends Cubit<ContactShareState> {
     this._workspaceId,
     this._actorUserId,
     this._contact,
+    this._seesEveryShare,
   ) : super(const ContactShareState()) {
     unawaited(load());
   }
@@ -41,6 +44,7 @@ final class ContactShareCubit extends Cubit<ContactShareState> {
   final String _workspaceId;
   final String _actorUserId;
   final CrmContact _contact;
+  final bool _seesEveryShare;
 
   StreamSubscription<List<WorkspaceDocument>>? _documents;
   StreamSubscription<List<DocumentShare>>? _shares;
@@ -71,6 +75,7 @@ final class ContactShareCubit extends Cubit<ContactShareState> {
         .watchContactShares(
           workspaceId: _workspaceId,
           contactId: _contact.id,
+          sharedByUserId: _seesEveryShare ? null : _actorUserId,
         )
         .listen(
           (value) => _emit(state.copyWith(shares: value)),

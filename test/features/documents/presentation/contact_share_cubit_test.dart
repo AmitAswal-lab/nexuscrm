@@ -125,6 +125,40 @@ void main() {
       ),
     );
   });
+
+  test('narrows the share query to the representative who is watching', () async {
+    final documents = _Documents();
+    _stubStreams(documents);
+
+    final cubit = _cubit(documents, _Launcher());
+    addTearDown(cubit.close);
+    await Future<void>.delayed(Duration.zero);
+
+    verify(
+      () => documents.watchContactShares(
+        workspaceId: 'workspace-one',
+        contactId: 'lead-one',
+        sharedByUserId: 'sales-user',
+      ),
+    ).called(1);
+  });
+
+  test('leaves the share query open for an administrator', () async {
+    final documents = _Documents();
+    _stubStreams(documents);
+
+    final cubit = _cubit(documents, _Launcher(), seesEveryShare: true);
+    addTearDown(cubit.close);
+    await Future<void>.delayed(Duration.zero);
+
+    verify(
+      () => documents.watchContactShares(
+        workspaceId: 'workspace-one',
+        contactId: 'lead-one',
+        sharedByUserId: null,
+      ),
+    ).called(1);
+  });
 }
 
 void _stubStreams(DocumentRepository documents) {
@@ -138,6 +172,7 @@ void _stubStreams(DocumentRepository documents) {
     () => documents.watchContactShares(
       workspaceId: any(named: 'workspaceId'),
       contactId: any(named: 'contactId'),
+      sharedByUserId: any(named: 'sharedByUserId'),
     ),
   ).thenAnswer((_) => Stream.value(const <DocumentShare>[]));
 }
@@ -146,12 +181,14 @@ ContactShareCubit _cubit(
   DocumentRepository documents,
   ShareLauncher launcher, {
   String? phone = '+919000000000',
+  bool seesEveryShare = false,
 }) {
   return ContactShareCubit(
     documentRepository: documents,
     shareLauncher: launcher,
     workspaceId: 'workspace-one',
     actorUserId: 'sales-user',
+    seesEveryShare: seesEveryShare,
     contact: Lead(
       id: 'lead-one',
       workspaceId: 'workspace-one',

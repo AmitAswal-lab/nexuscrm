@@ -575,6 +575,8 @@ final class AppRouter {
               workspaceId: session.membership.workspaceId,
               actorUserId: session.user.id,
               contact: contact,
+              seesEveryShare:
+                  session.membership.role == WorkspaceRole.admin,
             ),
             child: const ContactSharePage(),
           );

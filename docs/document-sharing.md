@@ -89,6 +89,18 @@ at zero, so a share cannot be created pre-inflated or on someone else's behalf.
 A representative may only share with a contact they own; an administrator may
 share with any active contact.
 
+A representative may read only the shares they sent, because the share document
+holds the token, and the token is what grants access to the file. Letting one
+representative read another's shares would hand them a way to fetch documents
+directly, which is the one thing this design exists to prevent.
+
+That restriction shapes the query. A read rule that inspects `resource.data` is
+evaluated against the query rather than against each result, so Firestore
+refuses a listen it cannot prove will only return permitted documents. The
+representative's query therefore carries `sharedByUserId` as a filter, and an
+administrator, who is allowed to see every share, sends no such filter. A query
+missing that filter is rejected outright rather than returning a trimmed list.
+
 ## What is deliberately absent
 
 Documents cannot be deleted, only withdrawn, matching contacts and tasks.
